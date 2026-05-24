@@ -85,7 +85,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       // 4. Esperar que onUserWritten asigne los custom claims (~1-3s)
       await _waitForClaims(credential.user!);
 
-      // El router redirige automáticamente a /dashboard/owner
+      // Navegar explícitamente — el router solo auto-redirige desde /login,
+      // no desde /register, así que navegamos nosotros.
+      if (mounted) context.go('/dashboard/owner');
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _mapError(e.code));
     } catch (e) {
