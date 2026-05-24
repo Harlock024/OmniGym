@@ -139,7 +139,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               const SizedBox(height: 16),
 
               TextButton(
-                onPressed: () => context.push('/forgot-password'),
+                onPressed: () => context.go('/forgot-password'),
                 style: TextButton.styleFrom(
                   foregroundColor: OmniGymColors.textSecondary,
                   textStyle: const TextStyle(fontSize: 13),
@@ -148,7 +148,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               ),
               const SizedBox(height: 4),
               TextButton(
-                onPressed: () => context.push('/register'),
+                onPressed: () => context.go('/register'),
                 style: TextButton.styleFrom(
                   foregroundColor: OmniGymColors.primary,
                   textStyle: const TextStyle(
