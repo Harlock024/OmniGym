@@ -42,11 +42,14 @@ service cloud.firestore {
     // ─── Users (operadores del sistema) ─────────────────────────────────────
 
     match /users/{userId} {
-      // Cualquier usuario autenticado puede leer su propio perfil
       allow read: if isSuperUser()
           || (isAuth() && request.auth.uid == userId)
-          || (isAuth() && claims().tenant_id == resource.data.tenant_id
-              && claims().role == 'owner');
+          || (isAuth() && claims().role == 'owner'
+              && claims().tenant_id == resource.data.tenant_id)
+          // Fallback sin claims: verifica via doc del usuario en Firestore
+          || (isAuth() && !('tenant_id' in request.auth.token)
+              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenant_id == resource.data.tenant_id
+              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner');
 
       // Bootstrap: el usuario puede crear su propio doc en el registro (sin claims aún)
       // Staff y managers los crea el owner o superuser
