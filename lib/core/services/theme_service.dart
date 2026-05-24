@@ -1,26 +1,16 @@
 import 'package:flutter/material.dart';
 import '../models/tenant.dart';
+import '../../app/app_theme.dart';
 
 class ThemeService {
   const ThemeService._();
 
   static ThemeData fromSettings(TenantSettings settings) {
-    final primary = _parseColor(settings.primaryColor) ?? const Color(0xFF1976D2);
-    final accent = _parseColor(settings.accentColor) ?? const Color(0xFFFF6F00);
-
-    return ThemeData(
-      useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primary,
-        secondary: accent,
-      ),
-    );
+    final primary = _parseColor(settings.primaryColor) ?? OmniGymColors.primary;
+    return buildDarkTheme(primary: primary);
   }
 
-  static ThemeData get defaultTheme => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1976D2)),
-      );
+  static ThemeData get defaultTheme => buildDarkTheme();
 
   static Color? _parseColor(String hex) {
     try {
