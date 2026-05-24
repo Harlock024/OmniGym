@@ -43,8 +43,11 @@ service cloud.firestore {
           || (isAuth() && claims().tenant_id == resource.data.tenant_id
               && claims().role == 'owner');
 
-      // Solo superuser y owner pueden crear/actualizar operadores de su tenant
+      // Bootstrap: el usuario puede crear su propio doc en el registro (sin claims aún)
+      // Staff y managers los crea el owner o superuser
       allow create: if isSuperUser()
+          || (isAuth() && request.auth.uid == userId
+              && request.resource.data.role == 'owner')
           || (isAuth() && claims().role == 'owner'
               && claims().tenant_id == request.resource.data.tenant_id);
 
@@ -59,7 +62,9 @@ service cloud.firestore {
 
     match /tenants/{tenantId} {
       allow read:   if isSuperUser() || belongsToTenant(tenantId);
-      allow create: if isSuperUser();
+      // Bootstrap: usuario autenticado sin claims puede crear su tenant en el registro
+      allow create: if isSuperUser()
+          || (isAuth() && !('tenant_id' in request.auth.token));
       allow update: if isSuperUser() || isOwner(tenantId);
       allow delete: if isSuperUser();
 
