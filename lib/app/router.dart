@@ -22,8 +22,9 @@ final routerProvider = Provider<GoRouter>((ref) {
     redirect: (context, state) async {
       final user = authAsync.valueOrNull;
 
+      const publicRoutes = {'/login', '/register', '/forgot-password'};
       if (user == null) {
-        return state.matchedLocation == '/login' ? null : '/login';
+        return publicRoutes.contains(state.matchedLocation) ? null : '/login';
       }
 
       if (state.matchedLocation == '/login') {
