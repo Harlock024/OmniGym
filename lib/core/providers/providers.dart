@@ -72,8 +72,20 @@ final activeTenantIdProvider = Provider<String?>((ref) {
 final activeTenantIdFutureProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
-  final result = await user.getIdTokenResult();
-  return result.claims?['tenant_id'] as String?;
+  final result = await user.getIdTokenResult(true);
+  final tenantId = result.claims?['tenant_id'] as String?;
+
+  // Fallback: si onUserWritten no ha corrido, leer de Firestore
+  if (tenantId == null) {
+    final doc = await ref
+        .read(firestoreProvider)
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    return doc.data()?['tenant_id'] as String?;
+  }
+
+  return tenantId;
 });
 
 final activeTenantProvider = StreamProvider<Tenant?>((ref) async* {
@@ -90,8 +102,19 @@ final activeTenantProvider = StreamProvider<Tenant?>((ref) async* {
 final currentUserRoleProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
-  final result = await user.getIdTokenResult();
-  return result.claims?['role'] as String?;
+  final result = await user.getIdTokenResult(true);
+  final role = result.claims?['role'] as String?;
+
+  if (role == null) {
+    final doc = await ref
+        .read(firestoreProvider)
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    return doc.data()?['role'] as String?;
+  }
+
+  return role;
 });
 
 final currentBranchIdProvider = FutureProvider<String?>((ref) async {
