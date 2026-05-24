@@ -25,7 +25,12 @@ service cloud.firestore {
     }
 
     function belongsToTenant(tenantId) {
-      return isAuth() && claims().tenant_id == tenantId;
+      return isAuth() && (
+        claims().tenant_id == tenantId ||
+        // Fallback cuando onUserWritten no ha asignado claims aún
+        (!('tenant_id' in request.auth.token) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenant_id == tenantId)
+      );
     }
 
     function canManageBranch(tenantId, branchId) {
