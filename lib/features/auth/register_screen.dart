@@ -20,22 +20,17 @@ class RegisterScreen extends ConsumerStatefulWidget {
 class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _formKey = GlobalKey<FormState>();
   final _gymNameCtrl = TextEditingController();
-  final _nameCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _passCtrl = TextEditingController();
-  final _confirmCtrl = TextEditingController();
   bool _obscurePass = true;
-  bool _obscureConfirm = true;
   bool _loading = false;
   String? _error;
 
   @override
   void dispose() {
     _gymNameCtrl.dispose();
-    _nameCtrl.dispose();
     _emailCtrl.dispose();
     _passCtrl.dispose();
-    _confirmCtrl.dispose();
     super.dispose();
   }
 
@@ -56,9 +51,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         password: _passCtrl.text,
       );
       final uid = credential.user!.uid;
-      await credential.user!.updateDisplayName(_nameCtrl.text.trim());
 
-      // 2. Crear el Tenant
+      // Nombre por defecto: parte antes del @ del correo
+      final defaultName = _emailCtrl.text.trim().split('@').first;
+      await credential.user!.updateDisplayName(defaultName);
+
+      // 2. Crear el Tenant (gym)
       final gymName = _gymNameCtrl.text.trim();
       final tenantRef = db.collection('tenants').doc();
       final tenantId = tenantRef.id;
@@ -73,9 +71,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         'created_at': FieldValue.serverTimestamp(),
       });
 
-      // 3. Crear /users/{uid} — dispara onUserWritten que asigna custom claims
+      // 3. Crear /users/{uid} con role=owner — dispara onUserWritten
       await db.collection('users').doc(uid).set({
-        'name': _nameCtrl.text.trim(),
+        'name': defaultName,
         'email': _emailCtrl.text.trim(),
         'role': UserRole.owner.name,
         'status': UserStatus.active.name,
@@ -84,10 +82,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         'created_at': FieldValue.serverTimestamp(),
       });
 
-      // 4. Esperar claims — onUserWritten tarda ~1-3s en producción
+      // 4. Esperar que onUserWritten asigne los custom claims (~1-3s)
       await _waitForClaims(credential.user!);
 
-      // El router reacciona al cambio de authState y redirige a /dashboard/owner
+      // El router redirige automáticamente a /dashboard/owner
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _mapError(e.code));
     } catch (e) {
@@ -119,7 +117,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   String _mapError(String code) => switch (code) {
         'email-already-in-use' => 'Ya existe una cuenta con ese correo.',
         'invalid-email' => 'Correo electrónico inválido.',
-        'weak-password' => 'La contraseña es muy débil (mínimo 6 caracteres).',
+        'weak-password' => 'Contraseña muy débil (mínimo 6 caracteres).',
         _ => 'Error al crear la cuenta. Intenta de nuevo.',
       };
 
@@ -168,16 +166,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 const SizedBox(height: 14),
 
                 AuthDarkField(
-                  controller: _nameCtrl,
-                  label: 'Tu nombre completo',
-                  prefixIcon: Icons.person_outline,
-                  textCapitalization: TextCapitalization.words,
-                  validator: (v) =>
-                      (v == null || v.trim().isEmpty) ? 'Requerido' : null,
-                ),
-                const SizedBox(height: 14),
-
-                AuthDarkField(
                   controller: _emailCtrl,
                   label: 'Correo electrónico',
                   prefixIcon: Icons.email_outlined,
@@ -211,28 +199,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     if (v.length < 6) return 'Mínimo 6 caracteres';
                     return null;
                   },
-                ),
-                const SizedBox(height: 14),
-
-                AuthDarkField(
-                  controller: _confirmCtrl,
-                  label: 'Confirmar contraseña',
-                  prefixIcon: Icons.lock_outline,
-                  obscureText: _obscureConfirm,
-                  suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirm
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                      color: OmniGymColors.textSecondary,
-                      size: 20,
-                    ),
-                    onPressed: () =>
-                        setState(() => _obscureConfirm = !_obscureConfirm),
-                  ),
-                  validator: (v) => v != _passCtrl.text
-                      ? 'Las contraseñas no coinciden'
-                      : null,
                 ),
 
                 if (_error != null) ...[
