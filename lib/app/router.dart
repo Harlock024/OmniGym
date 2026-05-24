@@ -14,21 +14,33 @@ import '../features/staff/staff_screen.dart';
 import 'app_shell.dart';
 import 'app_theme.dart';
 
+// Notifica a go_router cuando el estado de auth cambia, sin recrear el router.
+class _AuthNotifier extends ChangeNotifier {
+  _AuthNotifier(this._ref) {
+    _ref.listen(authStateProvider, (prev, next) => notifyListeners());
+  }
+  final Ref _ref;
+}
+
 final routerProvider = Provider<GoRouter>((ref) {
-  final authAsync = ref.watch(authStateProvider);
+  final notifier = _AuthNotifier(ref);
+  ref.onDispose(notifier.dispose);
 
   return GoRouter(
     initialLocation: '/login',
+    refreshListenable: notifier,
     redirect: (context, state) async {
-      final user = authAsync.valueOrNull;
+      final user = ref.read(authStateProvider).valueOrNull;
 
       const publicRoutes = {'/login', '/register', '/forgot-password'};
       if (user == null) {
         return publicRoutes.contains(state.matchedLocation) ? null : '/login';
       }
 
-      if (state.matchedLocation == '/login') {
-        final role = await ref.read(currentUserRoleProvider.future);
+      if (publicRoutes.contains(state.matchedLocation)) {
+        // Usuario autenticado en ruta pública → leer claims y redirigir a home
+        final result = await user.getIdTokenResult(true);
+        final role = result.claims?['role'] as String?;
         return _homeForRole(role);
       }
 
