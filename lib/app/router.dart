@@ -31,6 +31,7 @@ final routerProvider = Provider<GoRouter>((ref) {
     refreshListenable: notifier,
     redirect: (context, state) async {
       final user = ref.read(authStateProvider).valueOrNull;
+      debugPrint('[Router] redirect — location: ${state.matchedLocation}, user: ${user?.uid}');
 
       const publicRoutes = {'/login', '/register', '/forgot-password'};
       if (user == null) {
@@ -38,9 +39,23 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (publicRoutes.contains(state.matchedLocation)) {
-        // Usuario autenticado en ruta pública → leer claims y redirigir a home
         final result = await user.getIdTokenResult(true);
         final role = result.claims?['role'] as String?;
+        debugPrint('[Router] claims role: $role, claims: ${result.claims}');
+
+        // Fallback: si no hay claims aún, leer role directo de Firestore
+        if (role == null) {
+          debugPrint('[Router] sin claims, leyendo Firestore...');
+          final doc = await ref
+              .read(firestoreProvider)
+              .collection('users')
+              .doc(user.uid)
+              .get();
+          final firestoreRole = doc.data()?['role'] as String?;
+          debugPrint('[Router] role en Firestore: $firestoreRole');
+          return _homeForRole(firestoreRole);
+        }
+
         return _homeForRole(role);
       }
 
