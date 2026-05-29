@@ -37,6 +37,9 @@ class AppUser with _$AppUser {
     @JsonKey(name: 'notification_prefs')
     @Default(NotificationPrefs())
     NotificationPrefs notificationPrefs,
+    @JsonKey(name: 'permissions')
+    @Default(<String, bool>{})
+    Map<String, bool> permissions,
     @JsonKey(name: 'created_at')
     @NullableTimestampConverter()
     DateTime? createdAt,

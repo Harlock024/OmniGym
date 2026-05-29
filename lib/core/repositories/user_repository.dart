@@ -34,6 +34,13 @@ class UserRepository {
         .map((snap) => snap.docs.map(AppUser.fromFirestore).toList());
   }
 
+  Stream<List<AppUser>> watchAll() {
+    return _col
+        .orderBy('name')
+        .snapshots()
+        .map((snap) => snap.docs.map(AppUser.fromFirestore).toList());
+  }
+
   Future<void> updateStatus(String uid, UserStatus status) async {
     await _col.doc(uid).update({'status': status.name});
   }
@@ -44,6 +51,24 @@ class UserRepository {
 
   Future<void> updateBranchId(String uid, String? branchId) async {
     await _col.doc(uid).update({'branch_id': branchId});
+  }
+
+  Future<void> updateTenantAndRole(
+    String uid, {
+    required String? tenantId,
+    required UserRole role,
+  }) async {
+    await _col.doc(uid).update({
+      'tenant_id': tenantId,
+      'role': role.name,
+    });
+  }
+
+  Future<void> updatePermissions(
+    String uid,
+    Map<String, bool> permissions,
+  ) async {
+    await _col.doc(uid).update({'permissions': permissions});
   }
 
   Future<void> updateProfile(
@@ -66,5 +91,9 @@ class UserRepository {
     await _col.doc(uid).update({
       'notification_prefs': prefs.toJson(),
     });
+  }
+
+  Future<void> delete(String uid) async {
+    await _col.doc(uid).delete();
   }
 }

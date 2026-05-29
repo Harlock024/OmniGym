@@ -19,12 +19,11 @@ class TenantRepository {
     return snap.exists ? Tenant.fromFirestore(snap) : null;
   }
 
-  Future<List<Tenant>> listByOwner(String ownerUid) async {
-    final snap = await _col
-        .where('owner_uid', isEqualTo: ownerUid)
+  Stream<List<Tenant>> watchAll() {
+    return _col
         .orderBy('name')
-        .get();
-    return snap.docs.map(Tenant.fromFirestore).toList();
+        .snapshots()
+        .map((snap) => snap.docs.map(Tenant.fromFirestore).toList());
   }
 
   Future<String> create(Tenant tenant) async {
@@ -36,6 +35,10 @@ class TenantRepository {
 
   Future<void> updateSettings(String tenantId, TenantSettings settings) async {
     await _col.doc(tenantId).update({'settings': settings.toJson()});
+  }
+
+  Future<void> updateName(String tenantId, String name) async {
+    await _col.doc(tenantId).update({'name': name});
   }
 
   Future<void> updateSubscriptionStatus(

@@ -11,6 +11,9 @@ import '../features/dashboard/manager_dashboard_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/settings/tenant_branding_screen.dart';
 import '../features/staff/staff_screen.dart';
+import '../features/superadmin/tenants_screen.dart';
+import '../features/superadmin/tenant_detail_screen.dart';
+import '../features/superadmin/users_admin_screen.dart';
 import 'app_shell.dart';
 import 'app_theme.dart';
 
@@ -111,11 +114,30 @@ final routerProvider = Provider<GoRouter>((ref) {
               return null;
             },
           ),
-          // ── Placeholder hasta implementar cada issue de UI ──────────────────
+          // ── SuperAdmin ─────────────────────────────────────────────────────
           GoRoute(
             path: '/superadmin',
-            builder: (context, _) =>
-                const _PlaceholderScreen('Consola Global'),
+            builder: (context, _) => const TenantsScreen(),
+            redirect: (context, state) async {
+              final role = await ref.read(currentUserRoleProvider.future);
+              if (role != 'superuser') return '/dashboard/owner';
+              return null;
+            },
+          ),
+          GoRoute(
+            path: '/superadmin/tenant/:tenantId',
+            builder: (context, state) => TenantDetailScreen(
+              tenantId: state.pathParameters['tenantId']!,
+            ),
+            redirect: (context, state) async {
+              final role = await ref.read(currentUserRoleProvider.future);
+              if (role != 'superuser') return '/dashboard/owner';
+              return null;
+            },
+          ),
+          GoRoute(
+            path: '/superadmin/users',
+            builder: (context, _) => const UsersAdminScreen(),
             redirect: (context, state) async {
               final role = await ref.read(currentUserRoleProvider.future);
               if (role != 'superuser') return '/dashboard/owner';

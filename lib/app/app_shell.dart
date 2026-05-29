@@ -58,9 +58,8 @@ class _NavItem {
 }
 
 const _superuserItems = [
-  _NavItem(icon: Icons.grid_view_rounded, label: 'Consola Global', route: '/superadmin'),
-  _NavItem(icon: Icons.location_city_rounded, label: 'Sucursales', route: '/branches'),
-  _NavItem(icon: Icons.people_rounded, label: 'Usuarios Globales', route: '/staff'),
+  _NavItem(icon: Icons.business_rounded, label: 'Empresas', route: '/superadmin'),
+  _NavItem(icon: Icons.manage_accounts_rounded, label: 'Administrar usuarios', route: '/superadmin/users'),
 ];
 
 const _ownerItems = [

@@ -16,5 +16,13 @@ service firebase.storage {
       allow read:  if request.auth != null;
       allow write: if request.auth != null && request.auth.uid == userId;
     }
+
+    // Certificados SAT — solo superuser y owner del tenant
+    match /tenant_certs/{tenantId}/{allPaths=**} {
+      allow read, write: if request.auth != null
+          && (request.auth.token.role == 'superuser'
+              || (request.auth.token.role == 'owner'
+                  && request.auth.token.tenant_id == tenantId));
+    }
   }
 }

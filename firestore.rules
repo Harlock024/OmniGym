@@ -46,7 +46,10 @@ service cloud.firestore {
           || (isAuth() && request.auth.uid == userId)
           || (isAuth() && claims().role == 'owner'
               && claims().tenant_id == resource.data.tenant_id)
-          // Fallback sin claims: verifica via doc del usuario en Firestore
+          // Fallback sin claims: superuser lee todos los usuarios
+          || (isAuth() && !('role' in request.auth.token)
+              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superuser')
+          // Fallback sin claims: owner lee usuarios de su tenant
           || (isAuth() && !('tenant_id' in request.auth.token)
               && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenant_id == resource.data.tenant_id
               && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner');

@@ -1,0 +1,78 @@
+// Estados y municipios principales de México
+
+class MexicoData {
+  static const List<String> states = [
+    'Aguascalientes',
+    'Baja California',
+    'Baja California Sur',
+    'Campeche',
+    'Chiapas',
+    'Chihuahua',
+    'Ciudad de México',
+    'Coahuila de Zaragoza',
+    'Colima',
+    'Durango',
+    'Guanajuato',
+    'Guerrero',
+    'Hidalgo',
+    'Jalisco',
+    'México',
+    'Michoacán de Ocampo',
+    'Morelos',
+    'Nayarit',
+    'Nuevo León',
+    'Oaxaca',
+    'Puebla',
+    'Querétaro',
+    'Quintana Roo',
+    'San Luis Potosí',
+    'Sinaloa',
+    'Sonora',
+    'Tabasco',
+    'Tamaulipas',
+    'Tlaxcala',
+    'Veracruz de Ignacio de la Llave',
+    'Yucatán',
+    'Zacatecas',
+  ];
+
+  static const Map<String, List<String>> municipalities = {
+    'Aguascalientes': ['Aguascalientes', 'Calvillo', 'Cosío', 'Jesús María', 'Pabellón de Arteaga', 'Rincón de Romos', 'San Francisco de los Romo', 'Tepezalá'],
+    'Baja California': ['Ensenada', 'Mexicali', 'Playas de Rosarito', 'Tecate', 'Tijuana', 'San Quintín'],
+    'Baja California Sur': ['Comondú', 'La Paz', 'Loreto', 'Los Cabos', 'Mulegé'],
+    'Campeche': ['Calkiní', 'Campeche', 'Carmen', 'Champotón', 'Ciudad del Carmen', 'Escárcega', 'Hecelchakán', 'Hopelchén', 'Palizada', 'Tenabo'],
+    'Chiapas': ['Berriozábal', 'Comitán de Domínguez', 'Las Margaritas', 'Ocosingo', 'San Cristóbal de las Casas', 'Tapachula', 'Tonalá', 'Tuxtla Gutiérrez'],
+    'Chihuahua': ['Chihuahua', 'Ciudad Juárez', 'Cuauhtémoc', 'Delicias', 'Hidalgo del Parral', 'Jiménez', 'Nuevo Casas Grandes'],
+    'Ciudad de México': ['Álvaro Obregón', 'Azcapotzalco', 'Benito Juárez', 'Coyoacán', 'Cuajimalpa de Morelos', 'Cuauhtémoc', 'Gustavo A. Madero', 'Iztacalco', 'Iztapalapa', 'La Magdalena Contreras', 'Miguel Hidalgo', 'Milpa Alta', 'Tláhuac', 'Tlalpan', 'Venustiano Carranza', 'Xochimilco'],
+    'Coahuila de Zaragoza': ['Monclova', 'Piedras Negras', 'Ramos Arizpe', 'Saltillo', 'Torreón'],
+    'Colima': ['Armería', 'Colima', 'Comala', 'Coquimatlán', 'Cuauhtémoc', 'Ixtlahuacán', 'Manzanillo', 'Minatitlán', 'Tecomán', 'Villa de Álvarez'],
+    'Durango': ['Durango', 'Gómez Palacio', 'Lerdo', 'Nombre de Dios', 'Santiago Papasquiaro', 'Tlahualilo'],
+    'Guanajuato': ['Celaya', 'Guanajuato', 'Irapuato', 'León', 'Salamanca', 'San Miguel de Allende', 'Silao'],
+    'Guerrero': ['Acapulco de Juárez', 'Chilpancingo de los Bravo', 'Iguala de la Independencia', 'Taxco de Alarcón', 'Zihuatanejo de Azueta'],
+    'Hidalgo': ['Actopan', 'Huejutla de Reyes', 'Ixmiquilpan', 'Pachuca de Soto', 'Tepeji del Río de Ocampo', 'Tizayuca', 'Tula de Allende', 'Tulancingo de Bravo'],
+    'Jalisco': ['El Salto', 'Guadalajara', 'Lagos de Moreno', 'Puerto Vallarta', 'San Pedro Tlaquepaque', 'Tepatitlán de Morelos', 'Tlajomulco de Zúñiga', 'Tonalá', 'Zapopan'],
+    'México': ['Atizapán de Zaragoza', 'Coacalco de Berriozábal', 'Cuautitlán Izcalli', 'Ecatepec de Morelos', 'Huixquilucan', 'Ixtapaluca', 'Naucalpan de Juárez', 'Neza', 'Nicolás Romero', 'Toluca', 'Tultitlán', 'Valle de Chalco Solidaridad'],
+    'Michoacán de Ocampo': ['Apatzingán', 'Lázaro Cárdenas', 'Los Reyes', 'Morelia', 'Pátzcuaro', 'Uruapan', 'Zamora'],
+    'Morelos': ['Cuautla', 'Cuernavaca', 'Jiutepec', 'Temixco', 'Tepoztlán', 'Xochitepec', 'Yautepec'],
+    'Nayarit': ['Acaponeta', 'Bahía de Banderas', 'Compostela', 'Ixtlán del Río', 'Santiago Ixcuintla', 'Tepic', 'Xalisco'],
+    'Nuevo León': ['Apodaca', 'General Escobedo', 'Guadalupe', 'Juárez', 'Monterrey', 'San Nicolás de los Garza', 'San Pedro Garza García', 'Santa Catarina'],
+    'Oaxaca': ['Huajuapan de León', 'Juchitán de Zaragoza', 'Oaxaca de Juárez', 'Salina Cruz', 'San Juan Bautista Tuxtepec', 'Santa Cruz Xoxocotlán'],
+    'Puebla': ['Atlixco', 'Cholula', 'Puebla', 'San Andrés Cholula', 'San Martín Texmelucan', 'Tehuacán', 'Teziutlán'],
+    'Querétaro': ['Corregidora', 'El Marqués', 'Querétaro', 'San Juan del Río'],
+    'Quintana Roo': ['Benito Juárez (Cancún)', 'Cozumel', 'Felipe Carrillo Puerto', 'Isla Mujeres', 'Othón P. Blanco', 'Playa del Carmen', 'Solidaridad', 'Tulum'],
+    'San Luis Potosí': ['Ciudad Valles', 'Matehuala', 'San Luis Potosí', 'Soledad de Graciano Sánchez'],
+    'Sinaloa': ['Ahome', 'Culiacán', 'Guasave', 'Mazatlán', 'Navolato', 'Salvador Alvarado'],
+    'Sonora': ['Cajeme (Ciudad Obregón)', 'Guaymas', 'Hermosillo', 'Navojoa', 'Nogales', 'Puerto Peñasco'],
+    'Tabasco': ['Cárdenas', 'Centro (Villahermosa)', 'Comalcalco', 'Cunduacán', 'Paraíso'],
+    'Tamaulipas': ['Altamira', 'Ciudad Madero', 'Ciudad Victoria', 'Matamoros', 'Nuevo Laredo', 'Reynosa', 'Tampico'],
+    'Tlaxcala': ['Apizaco', 'Calpulalpan', 'Huamantla', 'Tlaxcala', 'Zacatelco'],
+    'Veracruz de Ignacio de la Llave': ['Boca del Río', 'Coatzacoalcos', 'Córdoba', 'Minatitlán', 'Orizaba', 'Poza Rica de Hidalgo', 'Tuxpan', 'Veracruz', 'Xalapa'],
+    'Yucatán': ['Kanasín', 'Mérida', 'Progreso', 'Tizimín', 'Umán', 'Valladolid'],
+    'Zacatecas': ['Fresnillo', 'Guadalupe', 'Jerez de García Salinas', 'Loreto', 'Zacatecas'],
+  };
+
+  static List<String> getMunicipalities(String? state) {
+    if (state == null) return [];
+    return municipalities[state] ?? [];
+  }
+}

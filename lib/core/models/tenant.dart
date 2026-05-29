@@ -34,12 +34,45 @@ class Tenant with _$Tenant {
 @freezed
 class TenantSettings with _$TenantSettings {
   const factory TenantSettings({
+    // ── Branding ──────────────────────────────────────────────────────────────
     @JsonKey(name: 'logo_url') String? logoUrl,
-    @JsonKey(name: 'primary_color') @Default('#1976D2') String primaryColor,
-    @JsonKey(name: 'accent_color') @Default('#FF6F00') String accentColor,
+    @JsonKey(name: 'primary_color') @Default('#2563EB') String primaryColor,
+
+    // ── Datos generales ───────────────────────────────────────────────────────
+    String? address,
+    @Default('MX') String country,
+    String? state,
+    String? municipality,
+    @JsonKey(name: 'postal_code') String? postalCode,
+    @JsonKey(name: 'contact_name') String? contactName,
+    String? phone,
+    String? email,
+
+    // ── Datos fiscales ────────────────────────────────────────────────────────
     String? rfc,
     @JsonKey(name: 'razon_social') String? razonSocial,
-    @JsonKey(name: 'regimen_fiscal_key') String? regimenFiscalKey,
+    String? giro,
+    @JsonKey(name: 'tipo_comprobante') @Default('I') String tipoComprobante,
+    @JsonKey(name: 'regimen_fiscal') String? regimenFiscal,
+    String? serie,
+    @JsonKey(name: 'num_aprobacion') String? numAprobacion,
+    @JsonKey(name: 'anio_aprobacion') String? anioAprobacion,
+    @JsonKey(name: 'folio_inicial') int? folioInicial,
+    @JsonKey(name: 'folio_final') int? folioFinal,
+    @JsonKey(name: 'folio_actual') int? folioActual,
+    @JsonKey(name: 'fecha_vencimiento')
+    @NullableTimestampConverter()
+    DateTime? fechaVencimiento,
+
+    // ── Certificados SAT ──────────────────────────────────────────────────────
+    // Datos en base64 (guardados en Firestore hasta integrar R2)
+    @JsonKey(name: 'cert_cer_data') String? certCerData,
+    @JsonKey(name: 'cert_key_data') String? certKeyData,
+    @JsonKey(name: 'cert_cer_name') String? certCerName,
+    @JsonKey(name: 'cert_key_name') String? certKeyName,
+    // URLs para cuando se migre a R2 (vacío por ahora)
+    @JsonKey(name: 'cert_cer_url') String? certCerUrl,
+    @JsonKey(name: 'cert_key_url') String? certKeyUrl,
   }) = _TenantSettings;
 
   factory TenantSettings.fromJson(Map<String, dynamic> json) =>
