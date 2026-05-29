@@ -11,6 +11,9 @@ import '../features/dashboard/manager_dashboard_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/settings/tenant_branding_screen.dart';
 import '../features/staff/staff_screen.dart';
+import '../features/branches/branches_screen.dart';
+import '../features/members/members_screen.dart';
+import '../features/scanner/scanner_screen.dart';
 import '../features/superadmin/tenants_screen.dart';
 import '../features/superadmin/tenant_detail_screen.dart';
 import '../features/superadmin/users_admin_screen.dart';
@@ -146,17 +149,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           ),
           GoRoute(
             path: '/branches',
-            builder: (context, _) =>
-                const _PlaceholderScreen('Gestión de Sucursales'),
+            builder: (context, _) => const BranchesScreen(),
           ),
           GoRoute(
             path: '/members',
-            builder: (context, _) =>
-                const _PlaceholderScreen('Lista de Socios'),
+            builder: (context, _) => const MembersScreen(),
           ),
           GoRoute(
             path: '/scanner',
-            builder: (context, _) => const _PlaceholderScreen('Escáner QR'),
+            builder: (context, _) => const ScannerScreen(),
             redirect: (context, state) async {
               final role = await ref.read(currentUserRoleProvider.future);
               if (role != 'staff' && role != 'owner') {

@@ -51,6 +51,11 @@ class MemberRepository {
         .map((snap) => snap.size);
   }
 
+  Future<void> update(String tenantId, Member member) async {
+    final json = member.toJson()..remove('id')..remove('tenant_id');
+    await _col(tenantId).doc(member.id).update(json);
+  }
+
   Future<void> updateAccessStatus(
     String tenantId,
     String memberId,
