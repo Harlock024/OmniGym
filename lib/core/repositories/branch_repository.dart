@@ -27,7 +27,7 @@ class BranchRepository {
   }
 
   Future<String> create(Branch branch) async {
-    final json = branch.toJson()..remove('id');
+    final json = _toMap(branch)..remove('id');
     json['created_at'] = FieldValue.serverTimestamp();
     final ref = await _col(branch.tenantId).add(json);
     return ref.id;
@@ -69,7 +69,39 @@ class BranchRepository {
   }
 
   Future<void> update(Branch branch) async {
-    final json = branch.toJson()..remove('id')..remove('tenant_id');
+    final json = _toMap(branch)..remove('id')..remove('tenant_id');
     await _col(branch.tenantId).doc(branch.id).update(json);
+  }
+
+  // Serializa manualmente los nested objects para evitar que Firestore reciba
+  // instancias Freezed en lugar de Maps planos.
+  Map<String, dynamic> _toMap(Branch branch) {
+    final map = <String, dynamic>{
+      'id': branch.id,
+      'tenant_id': branch.tenantId,
+      'name': branch.name,
+      'is_active': branch.isActive,
+      'manager_id': branch.managerId,
+      'address': branch.address == null
+          ? null
+          : {
+              'street': branch.address!.street,
+              'city': branch.address!.city,
+              'state': branch.address!.state,
+              'postal_code': branch.address!.postalCode,
+              'colonia': branch.address!.colonia,
+              'municipality': branch.address!.municipality,
+              'country': branch.address!.country,
+            },
+      'location': branch.location == null
+          ? null
+          : {
+              'latitude': branch.location!.latitude,
+              'longitude': branch.location!.longitude,
+              'radius_meters': branch.location!.radiusMeters,
+            },
+    };
+    map.removeWhere((_, v) => v == null);
+    return map;
   }
 }
