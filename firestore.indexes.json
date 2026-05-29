@@ -26,6 +26,14 @@
       ]
     },
     {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "access_status", "order": "ASCENDING" },
+        { "fieldPath": "expiration_date", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "payments",
       "queryScope": "COLLECTION",
       "fields": [

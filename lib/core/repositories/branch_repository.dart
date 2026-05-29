@@ -68,6 +68,58 @@ class BranchRepository {
         .map((snap) => snap.size);
   }
 
+  Stream<List<({DateTime day, int count})>> watchDailyCheckIns(
+    String tenantId,
+    String branchId, {
+    int days = 7,
+  }) {
+    final now = DateTime.now();
+    final from = DateTime(now.year, now.month, now.day)
+        .subtract(Duration(days: days - 1));
+    return _col(tenantId)
+        .doc(branchId)
+        .collection('check_ins')
+        .where('timestamp', isGreaterThanOrEqualTo: from)
+        .snapshots()
+        .map((snap) {
+      final counts = <String, int>{};
+      for (var i = 0; i < days; i++) {
+        counts[_dayKey(from.add(Duration(days: i)))] = 0;
+      }
+      for (final doc in snap.docs) {
+        final ts = doc.data()['timestamp'];
+        if (ts == null) continue;
+        final key = _dayKey((ts as Timestamp).toDate());
+        if (counts.containsKey(key)) counts[key] = counts[key]! + 1;
+      }
+      return List.generate(
+        days,
+        (i) {
+          final day = from.add(Duration(days: i));
+          return (day: day, count: counts[_dayKey(day)] ?? 0);
+        },
+      );
+    });
+  }
+
+  Stream<List<Map<String, dynamic>>> watchRecentCheckIns(
+    String tenantId,
+    String branchId, {
+    int limit = 15,
+  }) {
+    return _col(tenantId)
+        .doc(branchId)
+        .collection('check_ins')
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => {...d.data(), 'id': d.id}).toList());
+  }
+
+  static String _dayKey(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
   Future<void> update(Branch branch) async {
     final json = _toMap(branch)..remove('id')..remove('tenant_id');
     await _col(branch.tenantId).doc(branch.id).update(json);

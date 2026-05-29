@@ -51,6 +51,38 @@ class MemberRepository {
         .map((snap) => snap.size);
   }
 
+  Stream<int> watchActiveTenantCount(String tenantId) {
+    return _col(tenantId)
+        .where('access_status', isEqualTo: AccessStatus.active.name)
+        .where('expiration_date',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(DateTime.now()))
+        .snapshots()
+        .map((snap) => snap.size);
+  }
+
+  Stream<int> watchExpiringCount(String tenantId, {int withinDays = 7}) {
+    final now = DateTime.now();
+    final cutoff = now.add(Duration(days: withinDays));
+    return _col(tenantId)
+        .where('access_status', isEqualTo: AccessStatus.active.name)
+        .where('expiration_date',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(now))
+        .where('expiration_date',
+            isLessThanOrEqualTo: Timestamp.fromDate(cutoff))
+        .snapshots()
+        .map((snap) => snap.size);
+  }
+
+  Stream<int> watchNewThisMonth(String tenantId) {
+    final now = DateTime.now();
+    final startOfMonth = DateTime(now.year, now.month, 1);
+    return _col(tenantId)
+        .where('created_at',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(startOfMonth))
+        .snapshots()
+        .map((snap) => snap.size);
+  }
+
   Future<void> update(String tenantId, Member member) async {
     final json = member.toJson()..remove('id')..remove('tenant_id');
     await _col(tenantId).doc(member.id).update(json);

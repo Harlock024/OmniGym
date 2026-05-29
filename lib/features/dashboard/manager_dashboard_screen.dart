@@ -1,8 +1,9 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../core/models/branch.dart';
+import '../../app/app_theme.dart';
 import '../../core/providers/providers.dart';
 
 class ManagerDashboardScreen extends ConsumerWidget {
@@ -14,9 +15,16 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final branchIdAsync = ref.watch(currentBranchIdProvider);
 
     return Scaffold(
+      backgroundColor: OmniGymColors.background,
       appBar: AppBar(
+        backgroundColor: OmniGymColors.surface,
         title: const Text('Mi Sucursal'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.qr_code_scanner_rounded),
+            tooltip: 'Escáner',
+            onPressed: () => context.push('/scanner'),
+          ),
           IconButton(
             icon: const Icon(Icons.account_circle_outlined),
             tooltip: 'Mi perfil',
@@ -36,12 +44,14 @@ class ManagerDashboardScreen extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Error: $e')),
           data: (branchId) {
             if (tenantId == null || branchId == null) {
-              return const Center(child: Text('Sin sucursal asignada.'));
+              return const Center(
+                child: Text(
+                  'Sin sucursal asignada. Contacta a tu administrador.',
+                  style: TextStyle(color: OmniGymColors.textSecondary),
+                ),
+              );
             }
-            return _ManagerBranchBody(
-              tenantId: tenantId,
-              branchId: branchId,
-            );
+            return _ManagerContent(tenantId: tenantId, branchId: branchId);
           },
         ),
       ),
@@ -49,8 +59,8 @@ class ManagerDashboardScreen extends ConsumerWidget {
   }
 }
 
-class _ManagerBranchBody extends ConsumerWidget {
-  const _ManagerBranchBody({
+class _ManagerContent extends ConsumerWidget {
+  const _ManagerContent({
     required this.tenantId,
     required this.branchId,
   });
@@ -60,214 +70,678 @@ class _ManagerBranchBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final branchArgs = (tenantId: tenantId, branchId: branchId);
+
     final branchAsync = ref.watch(
       StreamProvider(
-        (r) => r.watch(branchRepositoryProvider).watch(tenantId, branchId),
-      ),
+          (r) => r.watch(branchRepositoryProvider).watch(tenantId, branchId)),
     );
+    final todayCheckInsAsync = ref.watch(todayCheckInCountProvider(branchArgs));
+    final activeMembersAsync = ref.watch(activeMemberCountProvider(branchArgs));
+    final expiringAsync = ref.watch(expiringMemberCountProvider(tenantId));
+    final dailyAsync = ref.watch(dailyCheckInsProvider(branchArgs));
+    final recentAsync = ref.watch(recentCheckInsProvider(branchArgs));
 
-    return branchAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (e, _) => Center(child: Text('Error: $e')),
-      data: (branch) {
-        if (branch == null) {
-          return const Center(child: Text('Sucursal no encontrada.'));
-        }
-        return _BranchDetail(tenantId: tenantId, branch: branch);
-      },
-    );
-  }
-}
+    final branchName =
+        branchAsync.valueOrNull?.name ?? 'Sucursal';
 
-class _BranchDetail extends ConsumerStatefulWidget {
-  const _BranchDetail({required this.tenantId, required this.branch});
-  final String tenantId;
-  final Branch branch;
-
-  @override
-  ConsumerState<_BranchDetail> createState() => _BranchDetailState();
-}
-
-class _BranchDetailState extends ConsumerState<_BranchDetail> {
-  DateTimeRange? _dateRange;
-
-  Future<void> _pickDateRange() async {
-    final picked = await showDateRangePicker(
-      context: context,
-      firstDate: DateTime(2024),
-      lastDate: DateTime.now(),
-      initialDateRange: _dateRange ??
-          DateTimeRange(
-            start: DateTime.now().subtract(const Duration(days: 6)),
-            end: DateTime.now(),
-          ),
-    );
-    if (picked != null) setState(() => _dateRange = picked);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final cs = Theme.of(context).colorScheme;
-    final args = (tenantId: widget.tenantId, branchId: widget.branch.id);
-
-    final membersAsync = ref.watch(activeMemberCountProvider(args));
-    final checkInsAsync = ref.watch(todayCheckInCountProvider(args));
+    final now = DateTime.now();
+    final weekdays = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
+    final dateStr =
+        '${weekdays[now.weekday - 1]}, ${now.day} de ${_monthName(now.month)} ${now.year}';
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       children: [
-        // ─ Encabezado sucursal ─
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.branch.name,
-                  style: Theme.of(context).textTheme.headlineSmall,
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Icon(
-                      widget.branch.isActive
-                          ? Icons.check_circle
-                          : Icons.cancel,
-                      color: widget.branch.isActive ? cs.primary : cs.error,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 6),
-                    Text(widget.branch.isActive
-                        ? 'Sucursal activa'
-                        : 'Sucursal inactiva'),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // ─ Métricas del día ─
-        _StatCard(
-          label: 'Socios activos',
-          icon: Icons.people,
-          valueAsync: membersAsync,
-        ),
-        const SizedBox(height: 8),
-        _StatCard(
-          label: 'Check-ins hoy',
-          icon: Icons.login,
-          valueAsync: checkInsAsync,
-        ),
-        const SizedBox(height: 20),
-
-        // ─ Selector de rango histórico ─
+        // ── Encabezado ───────────────────────────────────────────────────
         Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            Text('Reporte histórico',
-                style: Theme.of(context).textTheme.titleMedium),
-            const Spacer(),
-            TextButton.icon(
-              icon: const Icon(Icons.date_range, size: 18),
-              label: Text(
-                _dateRange == null
-                    ? 'Seleccionar fechas'
-                    : '${_fmt(_dateRange!.start)} – ${_fmt(_dateRange!.end)}',
-                style: const TextStyle(fontSize: 13),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    branchName,
+                    style: const TextStyle(
+                      color: OmniGymColors.textPrimary,
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    dateStr,
+                    style: const TextStyle(
+                        color: OmniGymColors.textSecondary, fontSize: 13),
+                  ),
+                ],
               ),
-              onPressed: _pickDateRange,
+            ),
+            FilledButton.icon(
+              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+              label: const Text('Escáner'),
+              onPressed: () => context.push('/scanner'),
             ),
           ],
         ),
-        if (_dateRange != null) ...[
-          const SizedBox(height: 8),
-          _HistoricalCheckInsCard(
-            tenantId: widget.tenantId,
-            branchId: widget.branch.id,
-            range: _dateRange!,
-          ),
-        ],
+        const SizedBox(height: 24),
+
+        // ── KPI strip ────────────────────────────────────────────────────
+        Wrap(
+          spacing: 12,
+          runSpacing: 12,
+          children: [
+            _KpiCard(
+              label: 'Socios activos',
+              icon: Icons.people_rounded,
+              valueAsync: activeMembersAsync,
+              color: OmniGymColors.primary,
+            ),
+            _KpiCard(
+              label: 'Check-ins hoy',
+              icon: Icons.login_rounded,
+              valueAsync: todayCheckInsAsync,
+              color: const Color(0xFF10B981),
+            ),
+            _KpiCard(
+              label: 'Por vencer (7d)',
+              icon: Icons.warning_amber_rounded,
+              valueAsync: expiringAsync,
+              color: const Color(0xFFF59E0B),
+            ),
+          ],
+        ),
+        const SizedBox(height: 24),
+
+        // ── Gráfica + Aforo ──────────────────────────────────────────────
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth > 640) {
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 6,
+                    child: _LineChartCard(dailyAsync: dailyAsync),
+                  ),
+                  const SizedBox(width: 16),
+                  SizedBox(
+                    width: 220,
+                    child: _AforoCard(
+                      todayAsync: todayCheckInsAsync,
+                      activeAsync: activeMembersAsync,
+                    ),
+                  ),
+                ],
+              );
+            }
+            return Column(
+              children: [
+                _LineChartCard(dailyAsync: dailyAsync),
+                const SizedBox(height: 16),
+                _AforoCard(
+                    todayAsync: todayCheckInsAsync,
+                    activeAsync: activeMembersAsync),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 24),
+
+        // ── Actividad reciente ────────────────────────────────────────────
+        _RecentActivityCard(recentAsync: recentAsync),
+        const SizedBox(height: 16),
       ],
     );
   }
 
-  String _fmt(DateTime d) => '${d.day}/${d.month}/${d.year}';
+  static String _monthName(int m) => const [
+        '',
+        'enero',
+        'febrero',
+        'marzo',
+        'abril',
+        'mayo',
+        'junio',
+        'julio',
+        'agosto',
+        'septiembre',
+        'octubre',
+        'noviembre',
+        'diciembre'
+      ][m];
 }
 
-// ─── Stat card con datos reales ───────────────────────────────────────────────
+// ─── KPI card ─────────────────────────────────────────────────────────────────
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
+class _KpiCard extends StatelessWidget {
+  const _KpiCard({
     required this.label,
     required this.icon,
+    required this.color,
     required this.valueAsync,
   });
 
   final String label;
   final IconData icon;
+  final Color color;
   final AsyncValue<int> valueAsync;
 
   @override
   Widget build(BuildContext context) {
-    final value = valueAsync.when(
+    final displayValue = valueAsync.when(
       loading: () => '…',
-      error: (e, s) => '?',
+      error: (_, _) => '?',
       data: (v) => v.toString(),
     );
 
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: Theme.of(context).colorScheme.primary),
-        title: Text(label),
-        trailing: Text(
-          value,
-          style: Theme.of(context).textTheme.titleLarge,
-        ),
+    return Container(
+      width: 170,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: OmniGymColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: OmniGymColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withAlpha(30),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            displayValue,
+            style: const TextStyle(
+              color: OmniGymColors.textPrimary,
+              fontSize: 28,
+              fontWeight: FontWeight.bold,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: const TextStyle(
+                color: OmniGymColors.textSecondary, fontSize: 12),
+          ),
+        ],
       ),
     );
   }
 }
 
-// ─── Reporte histórico de check-ins ──────────────────────────────────────────
+// ─── Line chart ───────────────────────────────────────────────────────────────
 
-class _HistoricalCheckInsCard extends ConsumerWidget {
-  const _HistoricalCheckInsCard({
-    required this.tenantId,
-    required this.branchId,
-    required this.range,
-  });
+class _LineChartCard extends StatelessWidget {
+  const _LineChartCard({required this.dailyAsync});
 
-  final String tenantId;
-  final String branchId;
-  final DateTimeRange range;
+  final AsyncValue<List<({DateTime day, int count})>> dailyAsync;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final countAsync = ref.watch(
-      StreamProvider((r) => r
-          .watch(branchRepositoryProvider)
-          .watchRangeCheckInCount(tenantId, branchId, range.start, range.end)),
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: OmniGymColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: OmniGymColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Text(
+                'Check-ins',
+                style: TextStyle(
+                  color: OmniGymColors.textPrimary,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Spacer(),
+              Text(
+                'Últimos 7 días',
+                style: TextStyle(
+                    color: OmniGymColors.textSecondary, fontSize: 12),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: 160,
+            child: dailyAsync.when(
+              loading: () =>
+                  const Center(child: CircularProgressIndicator()),
+              error: (_, _) => const Center(
+                child: Text('Sin datos',
+                    style:
+                        TextStyle(color: OmniGymColors.textSecondary)),
+              ),
+              data: (data) {
+                final maxY = data
+                    .map((e) => e.count)
+                    .fold(0, (a, b) => a > b ? a : b)
+                    .toDouble();
+                final spots = data
+                    .asMap()
+                    .entries
+                    .map((e) => FlSpot(
+                        e.key.toDouble(), e.value.count.toDouble()))
+                    .toList();
+                const days = ['L', 'M', 'X', 'J', 'V', 'S', 'D'];
+                return LineChart(
+                  LineChartData(
+                    minY: 0,
+                    maxY: maxY == 0 ? 5 : maxY * 1.3,
+                    gridData: FlGridData(
+                      show: true,
+                      drawVerticalLine: false,
+                      getDrawingHorizontalLine: (_) => const FlLine(
+                        color: OmniGymColors.border,
+                        strokeWidth: 1,
+                      ),
+                    ),
+                    titlesData: FlTitlesData(
+                      leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false)),
+                      bottomTitles: AxisTitles(
+                        sideTitles: SideTitles(
+                          showTitles: true,
+                          reservedSize: 24,
+                          getTitlesWidget: (v, _) {
+                            final idx = v.toInt();
+                            if (idx < 0 || idx >= data.length) {
+                              return const SizedBox.shrink();
+                            }
+                            final weekday = data[idx].day.weekday - 1;
+                            return Text(
+                              days[weekday % 7],
+                              style: const TextStyle(
+                                color: OmniGymColors.textSecondary,
+                                fontSize: 11,
+                              ),
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                    borderData: FlBorderData(show: false),
+                    lineBarsData: [
+                      LineChartBarData(
+                        spots: spots,
+                        isCurved: true,
+                        curveSmoothness: 0.3,
+                        color: OmniGymColors.primary,
+                        barWidth: 2.5,
+                        dotData: FlDotData(
+                          show: true,
+                          getDotPainter: (spot, _, _, _) =>
+                              FlDotCirclePainter(
+                            radius: 3,
+                            color: OmniGymColors.primary,
+                            strokeWidth: 0,
+                          ),
+                        ),
+                        belowBarData: BarAreaData(
+                          show: true,
+                          gradient: LinearGradient(
+                            colors: [
+                              OmniGymColors.primary.withAlpha(60),
+                              OmniGymColors.primary.withAlpha(0),
+                            ],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
+  }
+}
 
-    return Card(
-      child: ListTile(
-        leading:
-            Icon(Icons.bar_chart, color: Theme.of(context).colorScheme.primary),
-        title: const Text('Check-ins en el rango'),
-        trailing: countAsync.when(
-          loading: () => const SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2),
+// ─── Aforo donut ──────────────────────────────────────────────────────────────
+
+class _AforoCard extends StatelessWidget {
+  const _AforoCard({required this.todayAsync, required this.activeAsync});
+
+  final AsyncValue<int> todayAsync;
+  final AsyncValue<int> activeAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    final today = todayAsync.valueOrNull ?? 0;
+    final active = activeAsync.valueOrNull ?? 0;
+    final loading = todayAsync.isLoading || activeAsync.isLoading;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: OmniGymColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: OmniGymColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Aforo hoy',
+            style: TextStyle(
+              color: OmniGymColors.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+            ),
           ),
-          error: (e, s) => const Text('?'),
-          data: (v) => Text(
-            v.toString(),
-            style: Theme.of(context).textTheme.titleLarge,
+          const Text(
+            'Check-ins / socios activos',
+            style:
+                TextStyle(color: OmniGymColors.textSecondary, fontSize: 11),
           ),
+          const SizedBox(height: 16),
+          if (loading)
+            const SizedBox(
+              height: 130,
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            SizedBox(
+              height: 130,
+              child: Stack(
+                alignment: Alignment.center,
+                children: [
+                  PieChart(
+                    PieChartData(
+                      sections: _buildSections(today, active),
+                      centerSpaceRadius: 45,
+                      sectionsSpace: 3,
+                      startDegreeOffset: -90,
+                    ),
+                  ),
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$today',
+                        style: const TextStyle(
+                          color: OmniGymColors.textPrimary,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                          height: 1,
+                        ),
+                      ),
+                      Text(
+                        'de $active',
+                        style: const TextStyle(
+                          color: OmniGymColors.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          const SizedBox(height: 12),
+          _Legend(
+              color: OmniGymColors.primary, label: 'Entraron hoy', value: today),
+          const SizedBox(height: 4),
+          _Legend(
+            color: OmniGymColors.border,
+            label: 'No han entrado',
+            value: active > today ? active - today : 0,
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<PieChartSectionData> _buildSections(int today, int active) {
+    if (active == 0) {
+      return [
+        PieChartSectionData(
+            value: 1, color: OmniGymColors.border, radius: 18, title: ''),
+      ];
+    }
+    final remaining = (active - today).clamp(0, active).toDouble();
+    return [
+      PieChartSectionData(
+          value: today.toDouble(),
+          color: OmniGymColors.primary,
+          radius: 18,
+          title: ''),
+      PieChartSectionData(
+          value: remaining,
+          color: OmniGymColors.border,
+          radius: 18,
+          title: ''),
+    ];
+  }
+}
+
+class _Legend extends StatelessWidget {
+  const _Legend(
+      {required this.color, required this.label, required this.value});
+  final Color color;
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 10,
+          height: 10,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label,
+              style: const TextStyle(
+                  color: OmniGymColors.textSecondary, fontSize: 12)),
+        ),
+        Text('$value',
+            style: const TextStyle(
+                color: OmniGymColors.textPrimary,
+                fontSize: 12,
+                fontWeight: FontWeight.w600)),
+      ],
+    );
+  }
+}
+
+// ─── Tabla de actividad reciente ──────────────────────────────────────────────
+
+class _RecentActivityCard extends StatelessWidget {
+  const _RecentActivityCard({required this.recentAsync});
+  final AsyncValue<List<Map<String, dynamic>>> recentAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: OmniGymColors.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: OmniGymColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
+            child: Row(
+              children: [
+                const Text(
+                  'Accesos recientes',
+                  style: TextStyle(
+                    color: OmniGymColors.textPrimary,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                recentAsync.whenOrNull(
+                      data: (list) => Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: OmniGymColors.primary.withAlpha(30),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: OmniGymColors.primary.withAlpha(80)),
+                        ),
+                        child: Text(
+                          '${list.length}',
+                          style: const TextStyle(
+                              color: OmniGymColors.primary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ) ??
+                    const SizedBox.shrink(),
+              ],
+            ),
+          ),
+          Container(
+            padding:
+                const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            decoration: const BoxDecoration(
+              border: Border(
+                top: BorderSide(color: OmniGymColors.border),
+                bottom: BorderSide(color: OmniGymColors.border),
+              ),
+            ),
+            child: const Row(
+              children: [
+                SizedBox(width: 44),
+                Expanded(
+                  child: Text('Socio',
+                      style: TextStyle(
+                          color: OmniGymColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                ),
+                SizedBox(
+                  width: 56,
+                  child: Text('Hora',
+                      textAlign: TextAlign.end,
+                      style: TextStyle(
+                          color: OmniGymColors.textSecondary,
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600)),
+                ),
+              ],
+            ),
+          ),
+          recentAsync.when(
+            loading: () => const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            error: (e, _) => Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text('Error: $e',
+                  style: const TextStyle(
+                      color: OmniGymColors.textSecondary)),
+            ),
+            data: (checkIns) => checkIns.isEmpty
+                ? const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(
+                      child: Text(
+                        'Sin accesos registrados hoy.',
+                        style: TextStyle(
+                            color: OmniGymColors.textSecondary,
+                            fontSize: 13),
+                      ),
+                    ),
+                  )
+                : Column(
+                    children:
+                        checkIns.map((ci) => _ActivityRow(data: ci)).toList(),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ActivityRow extends StatelessWidget {
+  const _ActivityRow({required this.data});
+  final Map<String, dynamic> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final name = data['member_name'] as String? ?? '—';
+    final ts = data['timestamp'];
+    String timeStr = '—';
+    if (ts != null) {
+      final dt = (ts as dynamic).toDate() as DateTime;
+      timeStr =
+          '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    }
+
+    return Container(
+      padding:
+          const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(
+            bottom: BorderSide(color: OmniGymColors.border, width: 0.5)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            margin: const EdgeInsets.only(right: 12),
+            decoration: BoxDecoration(
+              color: OmniGymColors.success.withAlpha(30),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check,
+                color: OmniGymColors.success, size: 16),
+          ),
+          Expanded(
+            child: Text(
+              name,
+              style: const TextStyle(
+                  color: OmniGymColors.textPrimary, fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(
+            width: 56,
+            child: Text(
+              timeStr,
+              textAlign: TextAlign.end,
+              style: const TextStyle(
+                color: OmniGymColors.textSecondary,
+                fontSize: 12,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

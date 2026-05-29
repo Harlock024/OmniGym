@@ -140,6 +140,41 @@ final todayCheckInCountProvider =
       .watchTodayCheckInCount(args.tenantId, args.branchId),
 );
 
+// ─── Dashboard — métricas tenant-wide ────────────────────────────────────────
+
+final activeTenantMemberCountProvider =
+    StreamProvider.family<int, String>((ref, tenantId) => ref
+        .watch(memberRepositoryProvider)
+        .watchActiveTenantCount(tenantId));
+
+final expiringMemberCountProvider =
+    StreamProvider.family<int, String>((ref, tenantId) => ref
+        .watch(memberRepositoryProvider)
+        .watchExpiringCount(tenantId));
+
+final newMembersThisMonthProvider =
+    StreamProvider.family<int, String>((ref, tenantId) => ref
+        .watch(memberRepositoryProvider)
+        .watchNewThisMonth(tenantId));
+
+// ─── Dashboard — métricas por sucursal ───────────────────────────────────────
+
+final dailyCheckInsProvider = StreamProvider.family<
+    List<({DateTime day, int count})>,
+    ({String tenantId, String branchId})>(
+  (ref, args) => ref
+      .watch(branchRepositoryProvider)
+      .watchDailyCheckIns(args.tenantId, args.branchId),
+);
+
+final recentCheckInsProvider = StreamProvider.family<
+    List<Map<String, dynamic>>,
+    ({String tenantId, String branchId})>(
+  (ref, args) => ref
+      .watch(branchRepositoryProvider)
+      .watchRecentCheckIns(args.tenantId, args.branchId),
+);
+
 // ─── AppUser del operador autenticado ────────────────────────────────────────
 
 final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
