@@ -39,7 +39,8 @@ class _InviteStaffSheetState extends ConsumerState<InviteStaffSheet> {
   }
 
   Future<void> _loadBranches() async {
-    final tenantId = await ref.read(activeTenantIdFutureProvider.future);
+    final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+        ?? await ref.read(activeTenantIdFutureProvider.future);
     if (tenantId == null || !mounted) return;
     final snap = await ref
         .read(firestoreProvider)
@@ -62,7 +63,8 @@ class _InviteStaffSheetState extends ConsumerState<InviteStaffSheet> {
     setState(() { _loading = true; _error = null; });
 
     try {
-      final tenantId = await ref.read(activeTenantIdFutureProvider.future);
+      final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+          ?? await ref.read(activeTenantIdFutureProvider.future);
       if (tenantId == null) throw Exception('Tenant no encontrado.');
 
       await FirebaseFunctions.instance

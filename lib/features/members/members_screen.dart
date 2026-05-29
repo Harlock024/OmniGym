@@ -441,7 +441,8 @@ class _MemberActions extends ConsumerWidget {
         } else if (action == 'qr') {
           if (context.mounted) _showQrDialog(context);
         } else if (action == 'toggle') {
-          final tenantId = await ref.read(activeTenantIdFutureProvider.future);
+          final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+              ?? await ref.read(activeTenantIdFutureProvider.future);
           if (tenantId != null) {
             final newStatus = isActive ? AccessStatus.suspended : AccessStatus.active;
             await ref
@@ -581,7 +582,8 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
     }
     setState(() { _saving = true; _error = null; });
     try {
-      final tenantId = await ref.read(activeTenantIdFutureProvider.future);
+      final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+          ?? await ref.read(activeTenantIdFutureProvider.future);
       if (tenantId == null) throw Exception('Tenant no encontrado.');
 
       final repo = ref.read(memberRepositoryProvider);

@@ -102,7 +102,8 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
     ref.read(_scanResultProvider.notifier).state = null;
 
     try {
-      final tenantId = await ref.read(activeTenantIdFutureProvider.future);
+      final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+          ?? await ref.read(activeTenantIdFutureProvider.future);
       final branchId = await ref.read(currentBranchIdProvider.future);
 
       if (tenantId == null || branchId == null) {

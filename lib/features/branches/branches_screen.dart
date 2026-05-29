@@ -292,7 +292,8 @@ class _CardActions extends ConsumerWidget {
             );
           }
         } else if (action == 'toggle') {
-          final tenantId = await ref.read(activeTenantIdFutureProvider.future);
+          final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+              ?? await ref.read(activeTenantIdFutureProvider.future);
           if (tenantId != null) {
             await ref.read(branchRepositoryProvider).setActive(
                   tenantId,
@@ -464,7 +465,8 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
     }
     setState(() { _saving = true; _error = null; });
     try {
-      final tenantId = await ref.read(activeTenantIdFutureProvider.future);
+      final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+          ?? await ref.read(activeTenantIdFutureProvider.future);
       if (tenantId == null) throw Exception('Tenant no encontrado.');
 
       BranchAddress? address;

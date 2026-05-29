@@ -73,7 +73,7 @@ final activeTenantIdProvider = Provider<String?>((ref) {
 final activeTenantIdFutureProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
-  final result = await user.getIdTokenResult(true);
+  final result = await user.getIdTokenResult();
   final tenantId = result.claims?['tenant_id'] as String?;
 
   // Fallback: si onUserWritten no ha corrido, leer de Firestore
@@ -103,7 +103,7 @@ final activeTenantProvider = StreamProvider<Tenant?>((ref) async* {
 final currentUserRoleProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
-  final result = await user.getIdTokenResult(true);
+  final result = await user.getIdTokenResult();
   final role = result.claims?['role'] as String?;
 
   if (role == null) {
