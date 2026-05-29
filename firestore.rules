@@ -7,29 +7,49 @@ service cloud.firestore {
     function claims() { return request.auth.token; }
     function isAuth() { return request.auth != null; }
 
+    // Devuelve el doc /users/{uid} del usuario autenticado (cacheado por Firestore).
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // True cuando onUserWritten ya corrió y puso custom claims.
+    function hasClaims() {
+      return 'role' in request.auth.token;
+    }
+
+    // Funciones de rol con fallback a Firestore cuando no hay claims.
     function isSuperUser() {
-      return isAuth() && claims().role == 'superuser';
+      return isAuth() && (
+        claims().role == 'superuser' ||
+        (!hasClaims() && userDoc().role == 'superuser')
+      );
     }
 
     function isOwner(tenantId) {
-      return isAuth()
-          && claims().role == 'owner'
-          && claims().tenant_id == tenantId;
+      return isAuth() && (
+        (claims().role == 'owner' && claims().tenant_id == tenantId) ||
+        (!hasClaims() &&
+          userDoc().role == 'owner' &&
+          userDoc().tenant_id == tenantId)
+      );
     }
 
     function isStaff(tenantId, branchId) {
-      return isAuth()
-          && claims().role == 'staff'
-          && claims().tenant_id == tenantId
-          && claims().branch_id == branchId;
+      return isAuth() && (
+        (claims().role == 'staff' &&
+          claims().tenant_id == tenantId &&
+          claims().branch_id == branchId) ||
+        (!hasClaims() &&
+          userDoc().role == 'staff' &&
+          userDoc().tenant_id == tenantId &&
+          userDoc().branch_id == branchId)
+      );
     }
 
     function belongsToTenant(tenantId) {
       return isAuth() && (
         claims().tenant_id == tenantId ||
-        // Fallback cuando onUserWritten no ha asignado claims aún
-        (!('tenant_id' in request.auth.token) &&
-          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenant_id == tenantId)
+        (!hasClaims() && userDoc().tenant_id == tenantId)
       );
     }
 
@@ -46,16 +66,11 @@ service cloud.firestore {
           || (isAuth() && request.auth.uid == userId)
           || (isAuth() && claims().role == 'owner'
               && claims().tenant_id == resource.data.tenant_id)
-          // Fallback sin claims: superuser lee todos los usuarios
-          || (isAuth() && !('role' in request.auth.token)
-              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'superuser')
-          // Fallback sin claims: owner lee usuarios de su tenant
-          || (isAuth() && !('tenant_id' in request.auth.token)
-              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.tenant_id == resource.data.tenant_id
-              && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner');
+          || (isAuth() && !hasClaims()
+              && userDoc().role == 'owner'
+              && userDoc().tenant_id == resource.data.tenant_id);
 
-      // Bootstrap: el usuario puede crear su propio doc en el registro (sin claims aún)
-      // Staff y managers los crea el owner o superuser
+      // Bootstrap: el usuario puede crear su propio doc sin claims (registro de owner)
       allow create: if isSuperUser()
           || (isAuth() && request.auth.uid == userId
               && request.resource.data.role == 'owner')
@@ -64,7 +79,10 @@ service cloud.firestore {
 
       allow update: if isSuperUser()
           || (isAuth() && claims().role == 'owner'
-              && claims().tenant_id == resource.data.tenant_id);
+              && claims().tenant_id == resource.data.tenant_id)
+          || (isAuth() && !hasClaims()
+              && userDoc().role == 'owner'
+              && userDoc().tenant_id == resource.data.tenant_id);
 
       allow delete: if isSuperUser();
     }
@@ -73,7 +91,7 @@ service cloud.firestore {
 
     match /tenants/{tenantId} {
       allow read:   if isSuperUser() || belongsToTenant(tenantId);
-      // Bootstrap: usuario autenticado sin claims puede crear su tenant en el registro
+      // Bootstrap: usuario autenticado sin tenant_id puede crear su tenant
       allow create: if isSuperUser()
           || (isAuth() && !('tenant_id' in request.auth.token));
       allow update: if isSuperUser() || isOwner(tenantId);
@@ -101,6 +119,10 @@ service cloud.firestore {
             || isOwner(tenantId)
             || (isAuth() && claims().tenant_id == tenantId
                 && claims().branch_id in resource.data.allowed_branches)
+            || (isAuth() && !hasClaims()
+                && userDoc().tenant_id == tenantId
+                && userDoc().role == 'staff'
+                && userDoc().branch_id in resource.data.allowed_branches)
             || (isAuth() && request.auth.uid == memberId);
 
         allow create: if isSuperUser()
