@@ -8,20 +8,19 @@ import 'package:image_picker/image_picker.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
 
-// Paleta de colores de marca predefinidos para el color picker
 const _brandColors = [
-  Color(0xFF1976D2), // Azul Material
-  Color(0xFF388E3C), // Verde
-  Color(0xFFD32F2F), // Rojo
-  Color(0xFFF57C00), // Naranja
-  Color(0xFF7B1FA2), // Morado
-  Color(0xFF0097A7), // Cyan
-  Color(0xFF455A64), // Azul gris
-  Color(0xFF212121), // Negro
-  Color(0xFFE91E63), // Rosa
-  Color(0xFF00796B), // Teal
-  Color(0xFFAFB42B), // Lima
-  Color(0xFF5D4037), // Café
+  Color(0xFF2563EB),
+  Color(0xFF1976D2),
+  Color(0xFF388E3C),
+  Color(0xFFD32F2F),
+  Color(0xFFF57C00),
+  Color(0xFF7B1FA2),
+  Color(0xFF0097A7),
+  Color(0xFF455A64),
+  Color(0xFF212121),
+  Color(0xFFE91E63),
+  Color(0xFF00796B),
+  Color(0xFF5D4037),
 ];
 
 class TenantBrandingScreen extends ConsumerStatefulWidget {
@@ -36,7 +35,6 @@ class _TenantBrandingScreenState extends ConsumerState<TenantBrandingScreen> {
   bool _uploadingLogo = false;
   bool _saving = false;
   Color? _selectedPrimary;
-  Color? _selectedAccent;
 
   Future<void> _pickAndUploadLogo(String tenantId, TenantSettings current) async {
     final picker = ImagePicker();
@@ -87,27 +85,19 @@ class _TenantBrandingScreenState extends ConsumerState<TenantBrandingScreen> {
     }
   }
 
-  Future<void> _saveColors(
-    String tenantId,
-    TenantSettings current,
-  ) async {
-    if (_selectedPrimary == null && _selectedAccent == null) return;
+  Future<void> _saveColors(String tenantId, TenantSettings current) async {
+    if (_selectedPrimary == null) return;
     setState(() => _saving = true);
     try {
+      final hex =
+          '#${(_selectedPrimary!.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
       await ref.read(tenantRepositoryProvider).updateSettings(
             tenantId,
-            current.copyWith(
-              primaryColor: _selectedPrimary != null
-                  ? '#${(_selectedPrimary!.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}'
-                  : current.primaryColor,
-              accentColor: _selectedAccent != null
-                  ? '#${(_selectedAccent!.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}'
-                  : current.accentColor,
-            ),
+            current.copyWith(primaryColor: hex),
           );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Colores aplicados a todos los dispositivos.')),
+          const SnackBar(content: Text('Color aplicado.')),
         );
       }
     } finally {
@@ -128,16 +118,42 @@ class _TenantBrandingScreenState extends ConsumerState<TenantBrandingScreen> {
           if (tenant == null) {
             return const Center(child: Text('Tenant no encontrado.'));
           }
-          return _BrandingBody(
-            tenant: tenant,
-            uploadingLogo: _uploadingLogo,
-            saving: _saving,
-            selectedPrimary: _selectedPrimary,
-            selectedAccent: _selectedAccent,
-            onPickLogo: () => _pickAndUploadLogo(tenant.id, tenant.settings),
-            onSelectPrimary: (c) => setState(() => _selectedPrimary = c),
-            onSelectAccent: (c) => setState(() => _selectedAccent = c),
-            onSaveColors: () => _saveColors(tenant.id, tenant.settings),
+          final settings = tenant.settings;
+          return SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 560),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _LogoSection(
+                    logoUrl: settings.logoUrl,
+                    uploading: _uploadingLogo,
+                    onTap: () => _pickAndUploadLogo(tenant.id, settings),
+                  ),
+                  const SizedBox(height: 32),
+                  Text('Color primario',
+                      style: Theme.of(context).textTheme.titleMedium),
+                  const SizedBox(height: 12),
+                  _ColorGrid(
+                    current: settings.primaryColor,
+                    selected: _selectedPrimary,
+                    onSelect: (c) => setState(() => _selectedPrimary = c),
+                  ),
+                  const SizedBox(height: 32),
+                  FilledButton(
+                    onPressed: _saving ? null : () => _saveColors(tenant.id, settings),
+                    child: _saving
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Aplicar colores'),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),
@@ -145,94 +161,8 @@ class _TenantBrandingScreenState extends ConsumerState<TenantBrandingScreen> {
   }
 }
 
-class _BrandingBody extends StatelessWidget {
-  const _BrandingBody({
-    required this.tenant,
-    required this.uploadingLogo,
-    required this.saving,
-    required this.selectedPrimary,
-    required this.selectedAccent,
-    required this.onPickLogo,
-    required this.onSelectPrimary,
-    required this.onSelectAccent,
-    required this.onSaveColors,
-  });
-
-  final dynamic tenant; // Tenant
-  final bool uploadingLogo;
-  final bool saving;
-  final Color? selectedPrimary;
-  final Color? selectedAccent;
-  final VoidCallback onPickLogo;
-  final ValueChanged<Color> onSelectPrimary;
-  final ValueChanged<Color> onSelectAccent;
-  final VoidCallback onSaveColors;
-
-  @override
-  Widget build(BuildContext context) {
-    final settings = (tenant as dynamic).settings as TenantSettings;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _LogoSection(
-              logoUrl: settings.logoUrl,
-              uploading: uploadingLogo,
-              onTap: onPickLogo,
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Color primario',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            _ColorGrid(
-              current: settings.primaryColor,
-              selected: selectedPrimary,
-              onSelect: onSelectPrimary,
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Color de acento',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            _ColorGrid(
-              current: settings.accentColor,
-              selected: selectedAccent,
-              onSelect: onSelectAccent,
-            ),
-            const SizedBox(height: 32),
-            FilledButton(
-              onPressed: saving ? null : onSaveColors,
-              child: saving
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Aplicar colores'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Logo ─────────────────────────────────────────────────────────────────────
-
 class _LogoSection extends StatelessWidget {
-  const _LogoSection({
-    required this.logoUrl,
-    required this.uploading,
-    required this.onTap,
-  });
-
+  const _LogoSection({required this.logoUrl, required this.uploading, required this.onTap});
   final String? logoUrl;
   final bool uploading;
   final VoidCallback onTap;
@@ -240,12 +170,10 @@ class _LogoSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Logo del gimnasio',
-            style: Theme.of(context).textTheme.titleMedium),
+        Text('Logo del gimnasio', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 12),
         GestureDetector(
           onTap: uploading ? null : onTap,
@@ -257,25 +185,17 @@ class _LogoSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: cs.outline),
               image: logoUrl != null
-                  ? DecorationImage(
-                      image: NetworkImage(logoUrl!),
-                      fit: BoxFit.contain,
-                    )
+                  ? DecorationImage(image: NetworkImage(logoUrl!), fit: BoxFit.contain)
                   : null,
             ),
             child: uploading
                 ? const Center(child: CircularProgressIndicator())
                 : logoUrl == null
-                    ? Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_photo_alternate_outlined,
-                              size: 36, color: cs.onSurfaceVariant),
-                          const SizedBox(height: 6),
-                          Text('Subir logo',
-                              style: TextStyle(color: cs.onSurfaceVariant)),
-                        ],
-                      )
+                    ? Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.add_photo_alternate_outlined, size: 36, color: cs.onSurfaceVariant),
+                        const SizedBox(height: 6),
+                        Text('Subir logo', style: TextStyle(color: cs.onSurfaceVariant)),
+                      ])
                     : Align(
                         alignment: Alignment.bottomRight,
                         child: Padding(
@@ -283,33 +203,22 @@ class _LogoSection extends StatelessWidget {
                           child: CircleAvatar(
                             radius: 16,
                             backgroundColor: cs.primary,
-                            child: Icon(Icons.edit,
-                                size: 16, color: cs.onPrimary),
+                            child: Icon(Icons.edit, size: 16, color: cs.onPrimary),
                           ),
                         ),
                       ),
           ),
         ),
         const SizedBox(height: 6),
-        Text(
-          'PNG o JPG · máx. 2 MB · recomendado 512×512 px',
-          style:
-              Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.outline),
-        ),
+        Text('PNG o JPG · máx. 2 MB · recomendado 512×512 px',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: cs.outline)),
       ],
     );
   }
 }
 
-// ─── Color grid ───────────────────────────────────────────────────────────────
-
 class _ColorGrid extends StatelessWidget {
-  const _ColorGrid({
-    required this.current,
-    required this.selected,
-    required this.onSelect,
-  });
-
+  const _ColorGrid({required this.current, required this.selected, required this.onSelect});
   final String current;
   final Color? selected;
   final ValueChanged<Color> onSelect;
@@ -322,8 +231,7 @@ class _ColorGrid extends StatelessWidget {
       children: _brandColors.map((color) {
         final hexVal =
             '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0').toUpperCase()}';
-        final isActive =
-            selected == color || (selected == null && hexVal == current);
+        final isActive = selected == color || (selected == null && hexVal == current);
         return GestureDetector(
           onTap: () => onSelect(color),
           child: AnimatedContainer(
@@ -334,18 +242,12 @@ class _ColorGrid extends StatelessWidget {
               color: color,
               shape: BoxShape.circle,
               border: Border.all(
-                color: isActive
-                    ? Theme.of(context).colorScheme.onSurface
-                    : Colors.transparent,
+                color: isActive ? Theme.of(context).colorScheme.onSurface : Colors.transparent,
                 width: 3,
               ),
-              boxShadow: isActive
-                  ? [BoxShadow(color: color.withAlpha(100), blurRadius: 8)]
-                  : null,
+              boxShadow: isActive ? [BoxShadow(color: color.withAlpha(100), blurRadius: 8)] : null,
             ),
-            child: isActive
-                ? const Icon(Icons.check, color: Colors.white, size: 20)
-                : null,
+            child: isActive ? const Icon(Icons.check, color: Colors.white, size: 20) : null,
           ),
         );
       }).toList(),
