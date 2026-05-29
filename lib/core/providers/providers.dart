@@ -4,6 +4,7 @@ import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_user.dart';
+import '../models/branch.dart';
 import '../models/tenant.dart';
 import '../repositories/branch_repository.dart';
 import '../repositories/member_repository.dart';
@@ -182,3 +183,16 @@ final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
   if (user == null) return Stream.value(null);
   return ref.watch(userRepositoryProvider).watch(user.uid);
 });
+
+// ─── Sucursales ───────────────────────────────────────────────────────────────
+
+final branchesProvider = StreamProvider.family<List<Branch>, String>(
+  (ref, tenantId) =>
+      ref.watch(branchRepositoryProvider).watchAll(tenantId),
+);
+
+final branchProvider =
+    StreamProvider.family<Branch?, ({String tenantId, String branchId})>(
+  (ref, args) =>
+      ref.watch(branchRepositoryProvider).watch(args.tenantId, args.branchId),
+);

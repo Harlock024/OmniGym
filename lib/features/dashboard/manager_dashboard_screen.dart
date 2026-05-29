@@ -73,8 +73,7 @@ class _ManagerContent extends ConsumerWidget {
     final branchArgs = (tenantId: tenantId, branchId: branchId);
 
     final branchAsync = ref.watch(
-      StreamProvider(
-          (r) => r.watch(branchRepositoryProvider).watch(tenantId, branchId)),
+      branchProvider((tenantId: tenantId, branchId: branchId)),
     );
     final todayCheckInsAsync = ref.watch(todayCheckInCountProvider(branchArgs));
     final activeMembersAsync = ref.watch(activeMemberCountProvider(branchArgs));

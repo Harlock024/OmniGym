@@ -83,10 +83,7 @@ class _DashboardBody extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final branchesAsync = ref.watch(
-      StreamProvider((r) =>
-          r.watch(branchRepositoryProvider).watchAll(tenantId)),
-    );
+    final branchesAsync = ref.watch(branchesProvider(tenantId));
 
     return branchesAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
