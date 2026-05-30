@@ -9,7 +9,6 @@ import '../features/auth/register_screen.dart';
 import '../features/dashboard/owner_dashboard_screen.dart';
 import '../features/dashboard/manager_dashboard_screen.dart';
 import '../features/profile/profile_screen.dart';
-import '../features/settings/tenant_branding_screen.dart';
 import '../features/staff/staff_screen.dart';
 import '../features/branches/branches_screen.dart';
 import '../features/members/members_screen.dart';
@@ -96,18 +95,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, _) => const ProfileScreen(),
           ),
           GoRoute(
-            path: '/settings/branding',
-            builder: (context, _) => const TenantBrandingScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'owner' && role != 'superuser') {
-                return '/dashboard/owner';
-              }
-              return null;
-            },
-          ),
-          GoRoute(
-            path: '/settings/fiscal',
+            path: '/settings',
             builder: (context, _) =>
                 const TenantDetailScreen(isOwnerMode: true),
             redirect: (context, state) async {
@@ -117,6 +105,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               }
               return null;
             },
+          ),
+          GoRoute(
+            path: '/settings/branding',
+            redirect: (context, state) => '/settings',
+          ),
+          GoRoute(
+            path: '/settings/fiscal',
+            redirect: (context, state) => '/settings',
           ),
           GoRoute(
             path: '/staff',
