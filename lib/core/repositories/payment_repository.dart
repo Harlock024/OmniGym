@@ -28,6 +28,18 @@ class PaymentRepository {
           .snapshots()
           .map((s) => s.docs.map(Payment.fromFirestore).toList());
 
+  Stream<List<Payment>> watchByMember(
+    String tenantId,
+    String memberId, {
+    int limit = 50,
+  }) =>
+      _col(tenantId)
+          .where('member_id', isEqualTo: memberId)
+          .orderBy('created_at', descending: true)
+          .limit(limit)
+          .snapshots()
+          .map((s) => s.docs.map(Payment.fromFirestore).toList());
+
   Future<void> registerPayment({
     required String tenantId,
     required String branchId,

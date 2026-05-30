@@ -6,6 +6,7 @@ import '../../core/models/branch.dart';
 import '../../core/models/member.dart';
 import '../../core/providers/providers.dart';
 import '../memberships/memberships_screen.dart' show RegisterPaymentFromMember;
+import 'member_detail_dialog.dart';
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
@@ -261,7 +262,21 @@ class _MemberRow extends ConsumerWidget {
     final isExpired = member.expirationDate.isBefore(DateTime.now());
     final daysLeft = member.expirationDate.difference(DateTime.now()).inDays;
 
-    return Padding(
+    return InkWell(
+      onTap: () async {
+        final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+            ?? await ref.read(activeTenantIdFutureProvider.future);
+        if (tenantId != null && context.mounted) {
+          showDialog(
+            context: context,
+            builder: (_) => MemberDetailDialog(
+              member: member,
+              tenantId: tenantId,
+            ),
+          );
+        }
+      },
+      child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
       child: Row(
         children: [
@@ -363,6 +378,7 @@ class _MemberRow extends ConsumerWidget {
           ),
         ],
       ),
+    ),
     );
   }
 

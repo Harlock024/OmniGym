@@ -242,3 +242,10 @@ final branchPaymentsProvider =
       .watch(paymentRepositoryProvider)
       .watchByBranch(args.tenantId, args.branchId),
 );
+
+final memberPaymentsProvider = StreamProvider.family<List<Payment>,
+    ({String tenantId, String memberId})>(
+  (ref, args) => ref
+      .watch(paymentRepositoryProvider)
+      .watchByMember(args.tenantId, args.memberId),
+);
