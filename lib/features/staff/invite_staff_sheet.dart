@@ -1,11 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:cloud_functions/cloud_functions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/models/app_user.dart';
 import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/worker_service.dart';
 
 class InviteStaffSheet extends ConsumerStatefulWidget {
   const InviteStaffSheet({super.key});
@@ -67,28 +67,38 @@ class _InviteStaffSheetState extends ConsumerState<InviteStaffSheet> {
           ?? await ref.read(activeTenantIdFutureProvider.future);
       if (tenantId == null) throw Exception('Tenant no encontrado.');
 
-      await FirebaseFunctions.instance
-          .httpsCallable('createStaffUser')
-          .call({
+      final branchId = _role == UserRole.staff ? _selectedBranchId : null;
+
+      // 1. Crear usuario en Firebase Auth + asignar claims vía Worker
+      final uid = await WorkerService.createStaff(
+        name: _nameCtrl.text.trim(),
+        email: _emailCtrl.text.trim(),
+        role: _role.name,
+        tenantId: tenantId,
+        branchId: branchId,
+      );
+
+      // 2. Crear /users/{uid} en Firestore
+      await ref.read(firestoreProvider).collection('users').doc(uid).set({
         'name': _nameCtrl.text.trim(),
         'email': _emailCtrl.text.trim(),
         'role': _role.name,
-        'tenantId': tenantId,
-        'branchId': _role == UserRole.staff ? _selectedBranchId : null,
+        'status': UserStatus.active.name,
+        'tenant_id': tenantId,
+        'branch_id': branchId,
+        'created_at': FieldValue.serverTimestamp(),
       });
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Invitación enviada. El operador recibirá un correo para configurar su contraseña.'),
+            content: Text('Operador creado. Recibirá un correo para configurar su contraseña.'),
           ),
         );
       }
-    } on FirebaseFunctionsException catch (e) {
-      setState(() => _error = e.message ?? 'Error al crear el operador.');
     } catch (e) {
-      setState(() => _error = 'Error inesperado. Intenta de nuevo.');
+      setState(() => _error = 'Error: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }

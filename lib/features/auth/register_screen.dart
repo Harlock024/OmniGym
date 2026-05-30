@@ -8,6 +8,7 @@ import '../../app/app_theme.dart';
 import '../../core/models/app_user.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/worker_service.dart';
 import 'auth_widgets.dart';
 
 class RegisterScreen extends ConsumerStatefulWidget {
@@ -71,7 +72,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         'created_at': FieldValue.serverTimestamp(),
       });
 
-      // 3. Crear /users/{uid} con role=owner — dispara onUserWritten
+      // 3. Crear /users/{uid} con role=owner
       await db.collection('users').doc(uid).set({
         'name': defaultName,
         'email': _emailCtrl.text.trim(),
@@ -81,6 +82,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         'branch_id': null,
         'created_at': FieldValue.serverTimestamp(),
       });
+
+      // 4. Asignar custom claims vía Worker para que el JWT tenga role/tenant_id
+      try {
+        await WorkerService.setClaims(
+          uid: uid,
+          role: UserRole.owner.name,
+          tenantId: tenantId,
+        );
+        // Forzar refresh del token para que los claims estén disponibles
+        await credential.user!.getIdToken(true);
+      } catch (_) {
+        // Si el Worker falla, el fallback de Firestore sigue funcionando
+      }
 
       if (mounted) context.go('/dashboard/owner');
     } on FirebaseAuthException catch (e) {
