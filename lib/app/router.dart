@@ -107,6 +107,18 @@ final routerProvider = Provider<GoRouter>((ref) {
             },
           ),
           GoRoute(
+            path: '/settings/fiscal',
+            builder: (context, _) =>
+                const TenantDetailScreen(isOwnerMode: true),
+            redirect: (context, state) async {
+              final role = await ref.read(currentUserRoleProvider.future);
+              if (role != 'owner' && role != 'superuser') {
+                return '/dashboard/owner';
+              }
+              return null;
+            },
+          ),
+          GoRoute(
             path: '/staff',
             builder: (context, _) => const StaffScreen(),
             redirect: (context, state) async {

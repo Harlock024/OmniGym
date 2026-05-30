@@ -35,6 +35,11 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen> {
             onPressed: () => context.push('/settings/branding'),
           ),
           IconButton(
+            icon: const Icon(Icons.receipt_long_outlined),
+            tooltip: 'Configuración fiscal',
+            onPressed: () => context.push('/settings/fiscal'),
+          ),
+          IconButton(
             icon: const Icon(Icons.people_outline),
             tooltip: 'Equipo',
             onPressed: () => context.push('/staff'),

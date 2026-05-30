@@ -15,8 +15,9 @@ import 'sat_catalogs.dart';
 import 'tenants_screen.dart';
 
 class TenantDetailScreen extends ConsumerStatefulWidget {
-  const TenantDetailScreen({super.key, required this.tenantId});
-  final String tenantId;
+  const TenantDetailScreen({super.key, this.tenantId, this.isOwnerMode = false});
+  final String? tenantId;
+  final bool isOwnerMode;
 
   @override
   ConsumerState<TenantDetailScreen> createState() => _TenantDetailScreenState();
@@ -90,9 +91,16 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   }
 
   Future<void> _loadTenant() async {
+    final tenantId = widget.tenantId ??
+        ref.read(activeTenantIdFutureProvider).valueOrNull ??
+        await ref.read(activeTenantIdFutureProvider.future);
+    if (tenantId == null) {
+      if (mounted) setState(() { _loading = false; _error = 'Tenant no encontrado.'; });
+      return;
+    }
     final tenant = await ref
         .read(tenantRepositoryProvider)
-        .get(widget.tenantId);
+        .get(tenantId);
     if (!mounted) return;
     if (tenant == null) {
       setState(() { _loading = false; _error = 'Empresa no encontrada.'; });
@@ -170,8 +178,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
       );
 
       final repo = ref.read(tenantRepositoryProvider);
-      await repo.updateName(widget.tenantId, _nameCtrl.text.trim());
-      await repo.updateSettings(widget.tenantId, newSettings);
+      await repo.updateName(_tenant!.id, _nameCtrl.text.trim());
+      await repo.updateSettings(_tenant!.id, newSettings);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -258,6 +266,32 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   }
 
   Widget _buildHeader() {
+    if (widget.isOwnerMode) {
+      return Container(
+        padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+        decoration: const BoxDecoration(
+          border: Border(bottom: BorderSide(color: OmniGymColors.border, width: 1)),
+        ),
+        child: Row(
+          children: [
+            IconButton(
+              icon: const Icon(Icons.arrow_back, color: OmniGymColors.textSecondary, size: 20),
+              onPressed: () => context.pop(),
+              tooltip: 'Volver',
+            ),
+            const SizedBox(width: 8),
+            const Text(
+              'Configuración fiscal',
+              style: TextStyle(
+                color: OmniGymColors.textPrimary,
+                fontSize: 17,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
       decoration: const BoxDecoration(
@@ -539,7 +573,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           TextButton(
-            onPressed: () => context.go('/superadmin'),
+            onPressed: () => widget.isOwnerMode
+                ? context.pop()
+                : context.go('/superadmin'),
             style: TextButton.styleFrom(
                 foregroundColor: OmniGymColors.textSecondary),
             child: const Text('Cancelar'),
