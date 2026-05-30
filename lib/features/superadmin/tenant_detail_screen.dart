@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +10,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/r2_storage_service.dart';
 import 'mexico_data.dart';
 import 'sat_catalogs.dart';
 import 'tenants_screen.dart';
@@ -230,10 +230,11 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     if (widget.isOwnerMode && _tenant != null) {
       setState(() => _uploadingLogo = true);
       try {
-        final ref = FirebaseStorage.instance
-            .ref('tenant_logos/${_tenant!.id}/logo.png');
-        await ref.putData(bytes, SettableMetadata(contentType: 'image/png'));
-        final url = await ref.getDownloadURL();
+        final url = await R2StorageService.upload(
+          bytes: bytes,
+          key: 'tenant_logos/${_tenant!.id}/logo.png',
+          contentType: 'image/png',
+        );
         await this.ref.read(tenantRepositoryProvider).updateSettings(
               _tenant!.id,
               _tenant!.settings.copyWith(logoUrl: url),

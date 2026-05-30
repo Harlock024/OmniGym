@@ -1,6 +1,3 @@
-import 'dart:io';
-
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -8,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/app_user.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/r2_storage_service.dart';
 import 'change_password_dialog.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
@@ -48,8 +46,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (picked == null || !mounted) return;
 
-    final file = File(picked.path);
-    if (await file.length() > 2 * 1024 * 1024) {
+    final bytes = await picked.readAsBytes();
+    if (bytes.length > 2 * 1024 * 1024) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('La imagen no puede superar 2 MB.')),
@@ -60,11 +58,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     setState(() => _uploadingPhoto = true);
     try {
-      final storageRef =
-          FirebaseStorage.instance.ref('profile_photos/${user.id}.jpg');
-      await storageRef.putFile(
-          file, SettableMetadata(contentType: 'image/jpeg'));
-      final url = await storageRef.getDownloadURL();
+      final url = await R2StorageService.upload(
+        bytes: bytes,
+        key: 'profile_photos/${user.id}.jpg',
+        contentType: 'image/jpeg',
+      );
       await ref
           .read(userRepositoryProvider)
           .updateProfile(user.id, name: user.name, photoUrl: url);

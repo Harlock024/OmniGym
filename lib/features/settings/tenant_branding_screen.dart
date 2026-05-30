@@ -1,12 +1,10 @@
-import 'dart:io';
-
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/r2_storage_service.dart';
 
 const _brandColors = [
   Color(0xFF2563EB),
@@ -46,9 +44,8 @@ class _TenantBrandingScreenState extends ConsumerState<TenantBrandingScreen> {
     );
     if (picked == null || !mounted) return;
 
-    final file = File(picked.path);
-    final sizeBytes = await file.length();
-    if (sizeBytes > 2 * 1024 * 1024) {
+    final bytes = await picked.readAsBytes();
+    if (bytes.length > 2 * 1024 * 1024) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('El logo no puede superar 2 MB.')),
@@ -59,13 +56,11 @@ class _TenantBrandingScreenState extends ConsumerState<TenantBrandingScreen> {
 
     setState(() => _uploadingLogo = true);
     try {
-      final storageRef = FirebaseStorage.instance
-          .ref('tenant_logos/$tenantId/logo.png');
-      await storageRef.putFile(
-        file,
-        SettableMetadata(contentType: 'image/png'),
+      final url = await R2StorageService.upload(
+        bytes: bytes,
+        key: 'tenant_logos/$tenantId/logo.png',
+        contentType: 'image/png',
       );
-      final url = await storageRef.getDownloadURL();
       await ref
           .read(tenantRepositoryProvider)
           .updateSettings(tenantId, current.copyWith(logoUrl: url));
