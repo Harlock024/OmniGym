@@ -35,10 +35,12 @@ class PaymentRepository {
   }) =>
       _col(tenantId)
           .where('member_id', isEqualTo: memberId)
-          .orderBy('created_at', descending: true)
-          .limit(limit)
           .snapshots()
-          .map((s) => s.docs.map(Payment.fromFirestore).toList());
+          .map((s) {
+        final list = s.docs.map(Payment.fromFirestore).toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        return list.take(limit).toList();
+      });
 
   Future<void> registerPayment({
     required String tenantId,
