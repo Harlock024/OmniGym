@@ -43,20 +43,33 @@ final routerProvider = Provider<GoRouter>((ref) {
       }
 
       if (publicRoutes.contains(state.matchedLocation)) {
-        final result = await user.getIdTokenResult(true);
-        final role = result.claims?['role'] as String?;
+        try {
+          final result = await user.getIdTokenResult();
+          final role = result.claims?['role'] as String?;
 
-        // Fallback: si onUserWritten no ha corrido aún, leer role de Firestore
-        if (role == null) {
+          if (role != null) return _homeForRole(role);
+
+          // Fallback: leer role de Firestore si no hay claims aún
           final doc = await ref
               .read(firestoreProvider)
               .collection('users')
               .doc(user.uid)
               .get();
-          return _homeForRole(doc.data()?['role'] as String?);
+          final fsRole = doc.data()?['role'] as String?;
+          if (fsRole != null) return _homeForRole(fsRole);
+        } catch (_) {
+          // Si falla el token o Firestore, intentar con token cacheado
+          try {
+            final doc = await ref
+                .read(firestoreProvider)
+                .collection('users')
+                .doc(user.uid)
+                .get();
+            final fsRole = doc.data()?['role'] as String?;
+            if (fsRole != null) return _homeForRole(fsRole);
+          } catch (_) {}
         }
-
-        return _homeForRole(role);
+        return '/dashboard/owner';
       }
 
       return null;
