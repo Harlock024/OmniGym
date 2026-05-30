@@ -673,6 +673,8 @@ class _FormDropdown<T> extends StatelessWidget {
       value: value,
       items: items,
       onChanged: onChanged,
+      isExpanded: true,
+      menuMaxHeight: 320,
       dropdownColor: OmniGymColors.card,
       style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
       decoration: InputDecoration(

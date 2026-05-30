@@ -143,6 +143,7 @@ class _InviteStaffSheetState extends ConsumerState<InviteStaffSheet> {
             const SizedBox(height: 16),
             DropdownButtonFormField<UserRole>(
               initialValue: _role,
+              isExpanded: true,
               decoration: const InputDecoration(
                 labelText: 'Rol',
                 prefixIcon: Icon(Icons.badge_outlined),
@@ -161,6 +162,7 @@ class _InviteStaffSheetState extends ConsumerState<InviteStaffSheet> {
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _selectedBranchId,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Sucursal asignada',
                   prefixIcon: Icon(Icons.store_outlined),
