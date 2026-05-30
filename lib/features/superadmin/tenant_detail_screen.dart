@@ -74,7 +74,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: widget.isOwnerMode ? 4 : 3, vsync: this);
+    _tabs = TabController(length: 3, vsync: this);
     _loadTenant();
   }
 
@@ -285,7 +285,6 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             child: TabBarView(
               controller: _tabs,
               children: [
-                if (widget.isOwnerMode) _buildBrandingTab(),
                 _buildGeneralTab(),
                 _buildFiscalTab(),
                 _buildCertsTab(),
@@ -375,67 +374,13 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             unselectedLabelColor: OmniGymColors.textSecondary,
             labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             unselectedLabelStyle: const TextStyle(fontSize: 13),
-            tabs: [
-              if (widget.isOwnerMode) const Tab(text: 'Apariencia'),
-              const Tab(text: 'Datos generales'),
-              const Tab(text: 'Datos fiscales'),
-              const Tab(text: 'Datos de certificados'),
+            tabs: const [
+              Tab(text: 'Datos generales'),
+              Tab(text: 'Datos fiscales'),
+              Tab(text: 'Datos de certificados'),
             ],
           ),
         ],
-      ),
-    );
-  }
-
-  // ── Tab 0 (owner only): Apariencia ───────────────────────────────────────
-
-  Widget _buildBrandingTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 560),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _SectionLabel('Logo del gimnasio'),
-            const SizedBox(height: 12),
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                _LogoUpload(
-                  bytes: _logoBytes,
-                  logoUrl: _tenant?.settings.logoUrl,
-                  name: _tenant?.name ?? '',
-                  color: _primaryColor,
-                  onTap: _uploadingLogo ? () {} : _pickLogo,
-                ),
-                if (_uploadingLogo)
-                  const SizedBox(
-                    width: 72,
-                    height: 72,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'PNG o JPG · máx. 2 MB · recomendado 512×512 px',
-              style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 11),
-            ),
-            const SizedBox(height: 28),
-            _SectionLabel('Color corporativo'),
-            const SizedBox(height: 12),
-            _ColorPicker(
-              current: _primaryColor,
-              onChanged: (c) => setState(() => _primaryColor = c),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'El color se aplica al guardar cambios.',
-              style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 11),
-            ),
-          ],
-        ),
       ),
     );
   }
