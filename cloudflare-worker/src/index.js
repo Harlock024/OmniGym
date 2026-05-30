@@ -42,10 +42,15 @@ function pemToBytes(pem) {
 }
 
 async function getAdminToken(env) {
+  // SA_JSON es el contenido completo del JSON de service account de Firebase
+  const sa = JSON.parse(env.SA_JSON);
+  const saEmail      = sa.client_email;
+  const saPrivateKey = sa.private_key; // ya tiene \n reales en el JSON parseado
+
   const now = Math.floor(Date.now() / 1000);
   const header  = b64url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const payload = b64url(JSON.stringify({
-    iss: env.SA_EMAIL,
+    iss: saEmail,
     scope: 'https://www.googleapis.com/auth/cloud-platform https://www.googleapis.com/auth/firebase',
     aud: 'https://oauth2.googleapis.com/token',
     iat: now,
@@ -55,7 +60,7 @@ async function getAdminToken(env) {
   const sigInput = `${header}.${payload}`;
   const key = await crypto.subtle.importKey(
     'pkcs8',
-    pemToBytes(env.SA_PRIVATE_KEY),
+    pemToBytes(saPrivateKey),
     { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
     false,
     ['sign'],
