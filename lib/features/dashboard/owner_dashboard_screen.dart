@@ -30,16 +30,6 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen> {
             const Text('OmniGym'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.palette_outlined),
-            tooltip: 'Apariencia',
-            onPressed: () => context.push('/settings/branding'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.receipt_long_outlined),
-            tooltip: 'Configuración fiscal',
-            onPressed: () => context.push('/settings/fiscal'),
-          ),
-          IconButton(
             icon: const Icon(Icons.people_outline),
             tooltip: 'Equipo',
             onPressed: () => context.push('/staff'),

@@ -43,9 +43,13 @@ class AppShell extends ConsumerWidget {
   }
 }
 
-// ─── Nav item model ────────────────────────────────────────────────────────────
+// ─── Nav item / section model ─────────────────────────────────────────────────
 
-class _NavItem {
+sealed class _NavEntry {
+  const _NavEntry();
+}
+
+class _NavItem extends _NavEntry {
   const _NavItem({
     required this.icon,
     required this.label,
@@ -57,20 +61,27 @@ class _NavItem {
   final String route;
 }
 
-const _superuserItems = [
+class _NavSection extends _NavEntry {
+  const _NavSection(this.label);
+  final String label;
+}
+
+const _superuserItems = <_NavEntry>[
   _NavItem(icon: Icons.business_rounded, label: 'Empresas', route: '/superadmin'),
   _NavItem(icon: Icons.manage_accounts_rounded, label: 'Administrar usuarios', route: '/superadmin/users'),
 ];
 
-const _ownerItems = [
+const _ownerItems = <_NavEntry>[
   _NavItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: '/dashboard/owner'),
   _NavItem(icon: Icons.location_city_rounded, label: 'Sucursales', route: '/branches'),
   _NavItem(icon: Icons.fitness_center, label: 'Socios', route: '/members'),
   _NavItem(icon: Icons.badge_rounded, label: 'Staff', route: '/staff'),
-  _NavItem(icon: Icons.settings_rounded, label: 'Configuración', route: '/settings/branding'),
+  _NavSection('Configuración'),
+  _NavItem(icon: Icons.palette_outlined, label: 'Apariencia', route: '/settings/branding'),
+  _NavItem(icon: Icons.receipt_long_outlined, label: 'Datos fiscales', route: '/settings/fiscal'),
 ];
 
-const _staffItems = [
+const _staffItems = <_NavEntry>[
   _NavItem(icon: Icons.dashboard_rounded, label: 'Mi Sucursal', route: '/dashboard/manager'),
   _NavItem(icon: Icons.qr_code_scanner, label: 'Escáner QR', route: '/scanner'),
 ];
@@ -92,7 +103,7 @@ class _Sidebar extends ConsumerWidget {
   final String userEmail;
   final String? photoUrl;
 
-  List<_NavItem> get _items => switch (role) {
+  List<_NavEntry> get _items => switch (role) {
         'superuser' => _superuserItems,
         'owner' => _ownerItems,
         'staff' => _staffItems,
@@ -113,13 +124,14 @@ class _Sidebar extends ConsumerWidget {
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              children: _items
-                  .map((item) => _NavTile(
-                        item: item,
-                        isActive: location == item.route ||
-                            location.startsWith('${item.route}/'),
-                      ))
-                  .toList(),
+              children: _items.map((entry) => switch (entry) {
+                _NavItem item => _NavTile(
+                    item: item,
+                    isActive: location == item.route ||
+                        location.startsWith('${item.route}/'),
+                  ),
+                _NavSection section => _NavSectionHeader(label: section.label),
+              }).toList(),
             ),
           ),
           const Divider(color: OmniGymColors.border, height: 1),
@@ -226,6 +238,29 @@ class _NavTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Nav section header ───────────────────────────────────────────────────────
+
+class _NavSectionHeader extends StatelessWidget {
+  const _NavSectionHeader({required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 16, 12, 4),
+      child: Text(
+        label.toUpperCase(),
+        style: const TextStyle(
+          color: OmniGymColors.textSecondary,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.8,
         ),
       ),
     );
