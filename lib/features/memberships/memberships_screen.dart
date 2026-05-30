@@ -1196,3 +1196,24 @@ class _Field extends StatelessWidget {
     );
   }
 }
+
+// ─── API pública para abrir el dialog desde otras pantallas ──────────────────
+
+class RegisterPaymentFromMember extends StatelessWidget {
+  const RegisterPaymentFromMember({
+    super.key,
+    required this.tenantId,
+    required this.member,
+  });
+
+  final String tenantId;
+  final Member member;
+
+  @override
+  Widget build(BuildContext context) {
+    return _RegisterPaymentDialog(
+      tenantId: tenantId,
+      preselectedMember: member,
+    );
+  }
+}

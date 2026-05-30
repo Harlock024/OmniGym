@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -150,6 +151,8 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
           'qr_token': trimmed,
           'tenant_id': tenantId,
           'branch_id': branchId,
+          'expiration_date': Timestamp.fromDate(member.expirationDate),
+          'plan_id': member.planId,
         },
       );
 

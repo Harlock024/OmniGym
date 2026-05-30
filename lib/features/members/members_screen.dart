@@ -5,6 +5,7 @@ import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
 import '../../core/models/member.dart';
 import '../../core/providers/providers.dart';
+import '../memberships/memberships_screen.dart' show RegisterPaymentFromMember;
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
@@ -420,6 +421,14 @@ class _MemberActions extends ConsumerWidget {
             Text('Ver QR'),
           ]),
         ),
+        const PopupMenuItem(
+          value: 'payment',
+          child: Row(children: [
+            Icon(Icons.payment, size: 15),
+            SizedBox(width: 8),
+            Text('Registrar pago'),
+          ]),
+        ),
         PopupMenuItem(
           value: 'toggle',
           child: Row(children: [
@@ -437,6 +446,21 @@ class _MemberActions extends ConsumerWidget {
               barrierDismissible: false,
               builder: (_) => _MemberFormDialog(existing: member, branches: branches),
             );
+          }
+        } else if (action == 'payment') {
+          if (context.mounted) {
+            final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
+                ?? await ref.read(activeTenantIdFutureProvider.future);
+            if (tenantId != null && context.mounted) {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (_) => RegisterPaymentFromMember(
+                  tenantId: tenantId,
+                  member: member,
+                ),
+              );
+            }
           }
         } else if (action == 'qr') {
           if (context.mounted) _showQrDialog(context);
