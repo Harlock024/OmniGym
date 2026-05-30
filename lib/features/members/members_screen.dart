@@ -121,23 +121,41 @@ class _Header extends ConsumerWidget {
               ),
             ],
           ),
-          const Spacer(),
-          SizedBox(
-            height: 38,
-            child: TextField(
-              onChanged: (v) => ref.read(_memberSearchProvider.notifier).state = v,
-              style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
-              decoration: InputDecoration(
-                hintText: 'Buscar socio...',
-                hintStyle: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
-                prefixIcon: const Icon(Icons.search, size: 16, color: OmniGymColors.textSecondary),
-                filled: true,
-                fillColor: OmniGymColors.surface,
-                contentPadding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OmniGymColors.border)),
-                enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OmniGymColors.border)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OmniGymColors.primary)),
-                constraints: const BoxConstraints(maxWidth: 260),
+          const SizedBox(width: 16),
+          Flexible(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: SizedBox(
+                height: 38,
+                child: TextField(
+                  onChanged: (v) =>
+                      ref.read(_memberSearchProvider.notifier).state = v,
+                  style: const TextStyle(
+                      color: OmniGymColors.textPrimary, fontSize: 13),
+                  decoration: InputDecoration(
+                    hintText: 'Buscar socio...',
+                    hintStyle: const TextStyle(
+                        color: OmniGymColors.textSecondary, fontSize: 13),
+                    prefixIcon: const Icon(Icons.search,
+                        size: 16, color: OmniGymColors.textSecondary),
+                    filled: true,
+                    fillColor: OmniGymColors.surface,
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 8, horizontal: 12),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: OmniGymColors.border)),
+                    enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: OmniGymColors.border)),
+                    focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide:
+                            const BorderSide(color: OmniGymColors.primary)),
+                  ),
+                ),
               ),
             ),
           ),
