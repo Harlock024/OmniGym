@@ -26,7 +26,7 @@ export default {
   async fetch(request, env) {
     // Preflight CORS
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: CORS });
+      return new Response(null, { status: 204, headers: CORS });
     }
 
     if (!checkAuth(request, env)) return unauthorized();
