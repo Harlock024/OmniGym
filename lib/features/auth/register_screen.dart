@@ -82,11 +82,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         'created_at': FieldValue.serverTimestamp(),
       });
 
-      // 4. Esperar que onUserWritten asigne los custom claims (~1-3s)
-      await _waitForClaims(credential.user!);
-
-      // Navegar explícitamente — el router solo auto-redirige desde /login,
-      // no desde /register, así que navegamos nosotros.
       if (mounted) context.go('/dashboard/owner');
     } on FirebaseAuthException catch (e) {
       setState(() => _error = _mapError(e.code));
@@ -94,14 +89,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       setState(() => _error = 'Error inesperado. Intenta de nuevo.');
     } finally {
       if (mounted) setState(() => _loading = false);
-    }
-  }
-
-  Future<void> _waitForClaims(User user) async {
-    for (var i = 0; i < 8; i++) {
-      await Future.delayed(const Duration(milliseconds: 800));
-      final result = await user.getIdTokenResult(true);
-      if (result.claims?['role'] != null) return;
     }
   }
 
