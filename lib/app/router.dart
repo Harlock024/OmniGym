@@ -12,6 +12,7 @@ import '../features/profile/profile_screen.dart';
 import '../features/staff/staff_screen.dart';
 import '../features/branches/branches_screen.dart';
 import '../features/members/members_screen.dart';
+import '../features/memberships/memberships_screen.dart';
 import '../features/scanner/scanner_screen.dart';
 import '../features/superadmin/tenants_screen.dart';
 import '../features/superadmin/tenant_detail_screen.dart';
@@ -113,6 +114,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/settings/fiscal',
             redirect: (context, state) => '/settings',
+          ),
+          GoRoute(
+            path: '/memberships',
+            builder: (context, _) => const MembershipsScreen(),
+            redirect: (context, state) async {
+              final role = await ref.read(currentUserRoleProvider.future);
+              if (role != 'owner' && role != 'superuser') {
+                return '/dashboard/owner';
+              }
+              return null;
+            },
           ),
           GoRoute(
             path: '/staff',

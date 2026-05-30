@@ -5,9 +5,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_user.dart';
 import '../models/branch.dart';
+import '../models/member.dart';
+import '../models/membership_plan.dart';
+import '../models/payment.dart';
 import '../models/tenant.dart';
 import '../repositories/branch_repository.dart';
 import '../repositories/member_repository.dart';
+import '../repositories/payment_repository.dart';
+import '../repositories/plan_repository.dart';
 import '../repositories/tenant_repository.dart';
 import '../repositories/user_repository.dart';
 import '../services/kill_switch_service.dart';
@@ -184,6 +189,13 @@ final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
   return ref.watch(userRepositoryProvider).watch(user.uid);
 });
 
+// ─── Socios ───────────────────────────────────────────────────────────────────
+
+final membersProvider = StreamProvider.family<List<Member>, String>(
+  (ref, tenantId) =>
+      ref.watch(memberRepositoryProvider).watchAll(tenantId),
+);
+
 // ─── Sucursales ───────────────────────────────────────────────────────────────
 
 final branchesProvider = StreamProvider.family<List<Branch>, String>(
@@ -195,4 +207,38 @@ final branchProvider =
     StreamProvider.family<Branch?, ({String tenantId, String branchId})>(
   (ref, args) =>
       ref.watch(branchRepositoryProvider).watch(args.tenantId, args.branchId),
+);
+
+// ─── Planes de membresía ──────────────────────────────────────────────────────
+
+final planRepositoryProvider = Provider<PlanRepository>(
+  (ref) => PlanRepository(ref.watch(firestoreProvider)),
+);
+
+final activePlansProvider = StreamProvider.family<List<MembershipPlan>, String>(
+  (ref, tenantId) =>
+      ref.watch(planRepositoryProvider).watchActive(tenantId),
+);
+
+final allPlansProvider = StreamProvider.family<List<MembershipPlan>, String>(
+  (ref, tenantId) =>
+      ref.watch(planRepositoryProvider).watchAll(tenantId),
+);
+
+// ─── Pagos ────────────────────────────────────────────────────────────────────
+
+final paymentRepositoryProvider = Provider<PaymentRepository>(
+  (ref) => PaymentRepository(ref.watch(firestoreProvider)),
+);
+
+final tenantPaymentsProvider = StreamProvider.family<List<Payment>, String>(
+  (ref, tenantId) =>
+      ref.watch(paymentRepositoryProvider).watchByTenant(tenantId),
+);
+
+final branchPaymentsProvider =
+    StreamProvider.family<List<Payment>, ({String tenantId, String branchId})>(
+  (ref, args) => ref
+      .watch(paymentRepositoryProvider)
+      .watchByBranch(args.tenantId, args.branchId),
 );
