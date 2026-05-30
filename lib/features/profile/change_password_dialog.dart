@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_theme.dart';
 import '../../core/providers/providers.dart';
 
 class ChangePasswordDialog extends ConsumerStatefulWidget {
@@ -76,7 +77,9 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('Cambiar contraseña'),
+      backgroundColor: OmniGymColors.card,
+      title: const Text('Cambiar contraseña',
+          style: TextStyle(color: OmniGymColors.textPrimary)),
       content: Form(
         key: _formKey,
         child: Column(
@@ -117,10 +120,8 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
               const SizedBox(height: 12),
               Text(
                 _error!,
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(
+                  color: OmniGymColors.errorRed, fontSize: 13),
               ),
             ],
           ],
