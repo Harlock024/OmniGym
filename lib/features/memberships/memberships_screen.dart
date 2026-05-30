@@ -873,7 +873,7 @@ class _RegisterPaymentDialogState
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(membersProvider(widget.tenantId));
-    final plansAsync = ref.watch(activePlansProvider(widget.tenantId));
+    final plansAsync = ref.watch(allPlansProvider(widget.tenantId));
 
     final members = membersAsync.valueOrNull ?? [];
     final filtered = _memberSearch.isEmpty
@@ -883,7 +883,9 @@ class _RegisterPaymentDialogState
                 m.name.toLowerCase().contains(_memberSearch.toLowerCase()) ||
                 m.email.toLowerCase().contains(_memberSearch.toLowerCase()))
             .toList();
-    final plans = plansAsync.valueOrNull ?? [];
+    final plans = (plansAsync.valueOrNull ?? [])
+        .where((p) => p.isActive)
+        .toList();
 
     return Dialog(
       backgroundColor: OmniGymColors.card,
