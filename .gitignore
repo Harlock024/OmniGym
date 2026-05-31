@@ -52,3 +52,6 @@ ios/GoogleService-Info.plist
 # Freezed — archivos generados por build_runner
 **/*.freezed.dart
 **/*.g.dart
+
+# Cloudflare Wrangler
+.wrangler/
