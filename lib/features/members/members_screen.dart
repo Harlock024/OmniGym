@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
@@ -523,21 +524,32 @@ class _MemberActions extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 180,
-              height: 180,
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
               padding: const EdgeInsets.all(12),
-              child: const Icon(Icons.qr_code_2, size: 156, color: Colors.black),
+              child: QrImageView(
+                data: member.qrToken,
+                version: QrVersions.auto,
+                size: 180,
+              ),
             ),
             const SizedBox(height: 12),
+            Text(
+              member.name,
+              style: const TextStyle(
+                color: OmniGymColors.textPrimary,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 2),
             Text(
               member.qrToken,
               style: const TextStyle(
                 color: OmniGymColors.textSecondary,
-                fontSize: 11,
+                fontSize: 10,
                 fontFamily: 'monospace',
               ),
             ),

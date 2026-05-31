@@ -15,6 +15,7 @@ import '../features/members/members_screen.dart';
 import '../features/memberships/memberships_screen.dart';
 import '../features/reports/reports_screen.dart';
 import '../features/scanner/scanner_screen.dart';
+import '../features/scanner/kiosk_screen.dart';
 import '../features/superadmin/tenants_screen.dart';
 import '../features/superadmin/tenant_detail_screen.dart';
 import '../features/superadmin/users_admin_screen.dart';
@@ -88,6 +89,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/forgot-password',
         builder: (context, _) => const ForgotPasswordScreen(),
+      ),
+
+      // ── Kiosko (fullscreen, sin sidebar) ───────────────────────────────────
+      GoRoute(
+        path: '/kiosk',
+        builder: (context, _) => const KioskScreen(),
+        redirect: (context, state) async {
+          final user = ref.read(authStateProvider).valueOrNull;
+          if (user == null) return '/login';
+          return null;
+        },
       ),
 
       // ── App autenticada (con sidebar) ───────────────────────────────────────

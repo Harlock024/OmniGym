@@ -122,6 +122,16 @@ class _ManagerContent extends ConsumerWidget {
               label: const Text('Escáner'),
               onPressed: () => context.push('/scanner'),
             ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              icon: const Icon(Icons.tablet_android_rounded, size: 18),
+              label: const Text('Kiosko'),
+              onPressed: () => context.push('/kiosk'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: OmniGymColors.textSecondary,
+                side: const BorderSide(color: OmniGymColors.border),
+              ),
+            ),
           ],
         ),
         const SizedBox(height: 24),
