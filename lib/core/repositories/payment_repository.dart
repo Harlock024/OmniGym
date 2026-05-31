@@ -28,6 +28,21 @@ class PaymentRepository {
           .snapshots()
           .map((s) => s.docs.map(Payment.fromFirestore).toList());
 
+  Future<List<Payment>> fetchByPeriod(
+    String tenantId,
+    DateTime start,
+    DateTime end,
+  ) async {
+    final snap = await _col(tenantId)
+        .where('created_at',
+            isGreaterThanOrEqualTo: Timestamp.fromDate(start))
+        .where('created_at',
+            isLessThanOrEqualTo: Timestamp.fromDate(end))
+        .orderBy('created_at', descending: true)
+        .get();
+    return snap.docs.map(Payment.fromFirestore).toList();
+  }
+
   Stream<List<Payment>> watchByMember(
     String tenantId,
     String memberId, {
