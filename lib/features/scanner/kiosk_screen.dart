@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
@@ -34,6 +35,39 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
     with SingleTickerProviderStateMixin {
   final _codeCtrl = TextEditingController();
   final _focusNode = FocusNode();
+
+  Future<void> _confirmExit() async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Salir del modo kiosko'),
+        content: const Text('¿Seguro que deseas salir?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Salir'),
+          ),
+        ],
+      ),
+    );
+    if (!(ok ?? false) || !mounted) return;
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      final role = await ref.read(currentUserRoleProvider.future);
+      if (mounted) {
+        context.go(switch (role) {
+          'superuser' => '/superadmin',
+          'staff'     => '/dashboard/manager',
+          _           => '/dashboard/owner',
+        });
+      }
+    }
+  }
 
   _KioskState _state = _KioskState.idle;
   _KioskResult? _result;
@@ -181,6 +215,7 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
                     _selectedBranch = b;
                     _focusTextField();
                   }),
+                  onExit: _confirmExit,
                 )
               : _KioskBody(
                   branch: _selectedBranch!,
@@ -195,6 +230,7 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
                     _state = _KioskState.idle;
                     _result = null;
                   }),
+                  onExit: _confirmExit,
                 ),
     );
   }
@@ -203,63 +239,85 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
 // ─── Selector de sucursal ─────────────────────────────────────────────────────
 
 class _BranchSelector extends StatelessWidget {
-  const _BranchSelector({required this.branches, required this.onSelect});
+  const _BranchSelector({
+    required this.branches,
+    required this.onSelect,
+    required this.onExit,
+  });
   final List<Branch> branches;
   final ValueChanged<Branch> onSelect;
+  final VoidCallback onExit;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 64,
-              height: 64,
-              decoration: BoxDecoration(
-                color: OmniGymColors.primary,
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: const Icon(Icons.fitness_center,
-                  color: Colors.white, size: 32),
-            ),
-            const SizedBox(height: 24),
-            const Text(
-              'Selecciona la sucursal',
-              style: TextStyle(
-                color: OmniGymColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Este dispositivo funcionará como kiosko de acceso',
-              style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 14),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 32),
-            ...branches.map((b) => Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: FilledButton(
-                      onPressed: () => onSelect(b),
-                      style: FilledButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: Text(b.name,
-                          style: const TextStyle(fontSize: 16)),
-                    ),
+    return Stack(
+      children: [
+        Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 400),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: OmniGymColors.primary,
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                )),
-          ],
+                  child: const Icon(Icons.fitness_center,
+                      color: Colors.white, size: 32),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Selecciona la sucursal',
+                  style: TextStyle(
+                    color: OmniGymColors.textPrimary,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  branches.isEmpty
+                      ? 'No hay sucursales registradas'
+                      : 'Este dispositivo funcionará como kiosko de acceso',
+                  style: const TextStyle(
+                      color: OmniGymColors.textSecondary, fontSize: 14),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 32),
+                ...branches.map((b) => Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () => onSelect(b),
+                          style: FilledButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: Text(b.name,
+                              style: const TextStyle(fontSize: 16)),
+                        ),
+                      ),
+                    )),
+              ],
+            ),
+          ),
         ),
-      ),
+        Positioned(
+          top: 12,
+          left: 12,
+          child: IconButton(
+            icon: const Icon(Icons.arrow_back_rounded,
+                color: OmniGymColors.textSecondary),
+            tooltip: 'Salir del kiosko',
+            onPressed: onExit,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -276,6 +334,7 @@ class _KioskBody extends StatelessWidget {
     required this.focusNode,
     required this.onCode,
     required this.onChangeBranch,
+    required this.onExit,
   });
 
   final Branch branch;
@@ -286,19 +345,22 @@ class _KioskBody extends StatelessWidget {
   final FocusNode focusNode;
   final ValueChanged<String> onCode;
   final VoidCallback onChangeBranch;
+  final VoidCallback onExit;
 
   @override
   Widget build(BuildContext context) {
     return Stack(
       children: [
         // ── Fondo de color según estado ──────────────────────────────────
-        AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
-          color: switch (state) {
-            _KioskState.success => const Color(0xFF0A2A1A),
-            _KioskState.error   => const Color(0xFF2A0A0A),
-            _                   => OmniGymColors.background,
-          },
+        Positioned.fill(
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 400),
+            color: switch (state) {
+              _KioskState.success => const Color(0xFF0A2A1A),
+              _KioskState.error   => const Color(0xFF2A0A0A),
+              _                   => OmniGymColors.background,
+            },
+          ),
         ),
 
         // ── Contenido central ────────────────────────────────────────────
@@ -320,6 +382,18 @@ class _KioskBody extends StatelessWidget {
                 child: _ErrorView(message: result!.errorMsg!),
               ),
           },
+        ),
+
+        // ── Botón salir (esquina superior izquierda) ──────────────────────
+        Positioned(
+          top: 12,
+          left: 12,
+          child: IconButton(
+            icon: const Icon(Icons.exit_to_app_rounded,
+                color: OmniGymColors.textSecondary, size: 20),
+            tooltip: 'Salir del kiosko',
+            onPressed: onExit,
+          ),
         ),
 
         // ── Botón cambiar sucursal ────────────────────────────────────────

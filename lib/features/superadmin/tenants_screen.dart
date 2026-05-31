@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/tenant.dart';
 import 'superadmin_providers.dart';
@@ -60,6 +61,7 @@ class _Header extends StatelessWidget {
         children: [
           Row(
             children: [
+              if (context.isMobile) const DrawerMenuButton(),
               const Text(
                 'Empresas',
                 style: TextStyle(

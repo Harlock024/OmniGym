@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/member.dart';
 import '../../core/models/membership_plan.dart';
@@ -60,8 +61,9 @@ class _MembershipsScreenState extends ConsumerState<MembershipsScreen>
   }
 
   Widget _buildHeader(BuildContext context, String tenantId) {
+    final isMobile = context.isMobile;
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: OmniGymColors.border)),
       ),
@@ -70,6 +72,7 @@ class _MembershipsScreenState extends ConsumerState<MembershipsScreen>
         children: [
           Row(
             children: [
+              if (isMobile) const DrawerMenuButton(),
               const Text(
                 'Membresías',
                 style: TextStyle(

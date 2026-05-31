@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../../app/app_shell.dart';
+import '../../app/app_theme.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/r2_storage_service.dart';
@@ -105,7 +107,11 @@ class _TenantBrandingScreenState extends ConsumerState<TenantBrandingScreen> {
     final tenantAsync = ref.watch(activeTenantProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Apariencia del gimnasio')),
+      appBar: AppBar(
+        leading: context.isMobile ? const DrawerMenuButton() : null,
+        automaticallyImplyLeading: !context.isMobile,
+        title: const Text('Apariencia del gimnasio'),
+      ),
       body: tenantAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(child: Text('Error: $e')),

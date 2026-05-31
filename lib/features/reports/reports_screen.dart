@@ -2,6 +2,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/payment.dart';
 import '../../core/providers/providers.dart';
@@ -73,7 +74,7 @@ class ReportsScreen extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHeader(ref, period),
+          _buildHeader(context, ref, period),
           Expanded(
             child: tenantId.isEmpty
                 ? const Center(child: CircularProgressIndicator())
@@ -84,22 +85,27 @@ class ReportsScreen extends ConsumerWidget {
     );
   }
 
-  Widget _buildHeader(WidgetRef ref, _Period current) {
+  Widget _buildHeader(BuildContext context, WidgetRef ref, _Period current) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: OmniGymColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Reportes',
-            style: TextStyle(
-              color: OmniGymColors.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-            ),
+          Row(
+            children: [
+              if (context.isMobile) const DrawerMenuButton(),
+              const Text(
+                'Reportes',
+                style: TextStyle(
+                  color: OmniGymColors.textPrimary,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           SingleChildScrollView(

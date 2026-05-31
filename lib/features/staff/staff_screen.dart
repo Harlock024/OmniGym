@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_shell.dart';
+import '../../app/app_theme.dart';
 import '../../core/models/app_user.dart';
 import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
@@ -14,6 +16,8 @@ class StaffScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(
+        leading: context.isMobile ? const DrawerMenuButton() : null,
+        automaticallyImplyLeading: false,
         title: const Text('Equipo'),
         actions: [
           IconButton(

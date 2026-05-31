@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/member.dart';
 import '../../core/providers/providers.dart';
@@ -49,21 +50,43 @@ class ScannerScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    if (context.isMobile) {
+      return DefaultTabController(
+        length: 2,
+        child: Scaffold(
+          backgroundColor: OmniGymColors.background,
+          appBar: AppBar(
+            backgroundColor: OmniGymColors.surface,
+            leading: const DrawerMenuButton(),
+            automaticallyImplyLeading: false,
+            title: const Text('Control de Acceso'),
+            bottom: const TabBar(
+              indicatorColor: OmniGymColors.primary,
+              labelColor: OmniGymColors.primary,
+              unselectedLabelColor: OmniGymColors.textSecondary,
+              tabs: [
+                Tab(text: 'Escáner'),
+                Tab(text: 'Accesos hoy'),
+              ],
+            ),
+          ),
+          body: TabBarView(
+            children: [
+              _ScanPanel(),
+              const _CheckInsPanel(),
+            ],
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       backgroundColor: OmniGymColors.background,
       body: Row(
         children: [
-          // Panel izquierdo: entrada de código
-          Expanded(
-            flex: 5,
-            child: _ScanPanel(),
-          ),
+          Expanded(flex: 5, child: _ScanPanel()),
           const VerticalDivider(color: OmniGymColors.border, width: 1),
-          // Panel derecho: accesos del día
-          const Expanded(
-            flex: 4,
-            child: _CheckInsPanel(),
-          ),
+          const Expanded(flex: 4, child: _CheckInsPanel()),
         ],
       ),
     );
@@ -171,26 +194,30 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
     final result = ref.watch(_scanResultProvider);
     final loading = ref.watch(_scanLoadingProvider);
 
+    final isMobile = context.isMobile;
     return Padding(
-      padding: const EdgeInsets.all(32),
+      padding: EdgeInsets.all(isMobile ? 20 : 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Título
-          const Text(
-            'Control de Acceso',
-            style: TextStyle(
-              color: OmniGymColors.textPrimary,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+          if (!isMobile) ...[
+            const Text(
+              'Control de Acceso',
+              style: TextStyle(
+                color: OmniGymColors.textPrimary,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            'Escanea el QR del socio o ingresa su código manualmente.',
-            style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
-          ),
-          const SizedBox(height: 32),
+            const SizedBox(height: 4),
+            const Text(
+              'Escanea el QR del socio o ingresa su código manualmente.',
+              style:
+                  TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+            ),
+            const SizedBox(height: 32),
+          ] else
+            const SizedBox(height: 16),
 
           // Campo de entrada — captura el QR del lector físico
           KeyboardListener(

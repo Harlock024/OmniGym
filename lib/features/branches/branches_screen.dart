@@ -4,6 +4,7 @@ import 'package:flutter_map_cancellable_tile_provider/flutter_map_cancellable_ti
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:latlong2/latlong.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
@@ -67,12 +68,13 @@ class _Header extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: OmniGymColors.border)),
       ),
       child: Row(
         children: [
+          if (context.isMobile) const DrawerMenuButton(),
           const Text(
             'Sucursales',
             style: TextStyle(
@@ -85,7 +87,9 @@ class _Header extends StatelessWidget {
           FilledButton.icon(
             onPressed: onAdd,
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Nueva sucursal'),
+            label: context.isMobile
+                ? const Text('Nueva')
+                : const Text('Nueva sucursal'),
           ),
         ],
       ),
@@ -521,112 +525,190 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final isMobile = context.isMobile;
     return Dialog(
       backgroundColor: OmniGymColors.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SizedBox(
-        width: 560,
+      insetPadding: const EdgeInsets.all(16),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 560,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+        ),
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    _isEdit ? 'Editar sucursal' : 'Nueva sucursal',
-                    style: const TextStyle(
-                      color: OmniGymColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      _isEdit ? 'Editar sucursal' : 'Nueva sucursal',
+                      style: const TextStyle(
+                        color: OmniGymColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: OmniGymColors.textSecondary, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _FormField(controller: _nameCtrl, label: 'Nombre de la sucursal'),
-              const SizedBox(height: 14),
-              _FormField(controller: _streetCtrl, label: 'Dirección / Calle'),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(
-                    child: _FormDropdown<String>(
-                      label: 'Estado',
-                      value: _state,
-                      items: MexicoData.states
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                          .toList(),
-                      onChanged: (v) => setState(() { _state = v; _municipality = null; }),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close,
+                          color: OmniGymColors.textSecondary, size: 18),
                     ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                _FormField(
+                    controller: _nameCtrl,
+                    label: 'Nombre de la sucursal'),
+                const SizedBox(height: 14),
+                _FormField(
+                    controller: _streetCtrl, label: 'Dirección / Calle'),
+                const SizedBox(height: 14),
+                if (isMobile) ...[
+                  _FormDropdown<String>(
+                    label: 'Estado',
+                    value: _state,
+                    items: MexicoData.states
+                        .map((s) =>
+                            DropdownMenuItem(value: s, child: Text(s)))
+                        .toList(),
+                    onChanged: (v) =>
+                        setState(() {
+                          _state = v;
+                          _municipality = null;
+                        }),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _FormDropdown<String>(
-                      label: 'Municipio',
-                      value: _municipality,
-                      items: MexicoData.getMunicipalities(_state)
-                          .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _municipality = v),
+                  const SizedBox(height: 14),
+                  _FormDropdown<String>(
+                    label: 'Municipio',
+                    value: _municipality,
+                    items: MexicoData.getMunicipalities(_state)
+                        .map((m) =>
+                            DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
+                    onChanged: (v) =>
+                        setState(() => _municipality = v),
+                  ),
+                ] else
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _FormDropdown<String>(
+                          label: 'Estado',
+                          value: _state,
+                          items: MexicoData.states
+                              .map((s) => DropdownMenuItem(
+                                  value: s, child: Text(s)))
+                              .toList(),
+                          onChanged: (v) => setState(() {
+                            _state = v;
+                            _municipality = null;
+                          }),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: _FormDropdown<String>(
+                          label: 'Municipio',
+                          value: _municipality,
+                          items: MexicoData.getMunicipalities(_state)
+                              .map((m) => DropdownMenuItem(
+                                  value: m, child: Text(m)))
+                              .toList(),
+                          onChanged: (v) =>
+                              setState(() => _municipality = v),
+                        ),
+                      ),
+                    ],
+                  ),
+                const SizedBox(height: 14),
+                if (isMobile) ...[
+                  _FormField(
+                      controller: _postalCtrl, label: 'Código postal'),
+                  const SizedBox(height: 14),
+                  _FormField(
+                      controller: _latCtrl,
+                      label: 'Latitud',
+                      keyboardType: TextInputType.number),
+                  const SizedBox(height: 14),
+                  _FormField(
+                      controller: _lngCtrl,
+                      label: 'Longitud',
+                      keyboardType: TextInputType.number),
+                ] else
+                  Row(
+                    children: [
+                      Expanded(
+                          child: _FormField(
+                              controller: _postalCtrl,
+                              label: 'Código postal')),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _FormField(
+                              controller: _latCtrl,
+                              label: 'Latitud',
+                              keyboardType: TextInputType.number)),
+                      const SizedBox(width: 12),
+                      Expanded(
+                          child: _FormField(
+                              controller: _lngCtrl,
+                              label: 'Longitud',
+                              keyboardType: TextInputType.number)),
+                    ],
+                  ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    const Text('Activa',
+                        style: TextStyle(
+                            color: OmniGymColors.textPrimary,
+                            fontSize: 13)),
+                    const Spacer(),
+                    Switch(
+                      value: _isActive,
+                      onChanged: (v) => setState(() => _isActive = v),
+                      activeColor: OmniGymColors.primary,
                     ),
-                  ),
+                  ],
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(_error!,
+                      style: const TextStyle(
+                          color: OmniGymColors.errorRed, fontSize: 12)),
                 ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  Expanded(child: _FormField(controller: _postalCtrl, label: 'Código postal')),
-                  const SizedBox(width: 12),
-                  Expanded(child: _FormField(controller: _latCtrl, label: 'Latitud', keyboardType: TextInputType.number)),
-                  const SizedBox(width: 12),
-                  Expanded(child: _FormField(controller: _lngCtrl, label: 'Longitud', keyboardType: TextInputType.number)),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Row(
-                children: [
-                  const Text('Activa', style: TextStyle(color: OmniGymColors.textPrimary, fontSize: 13)),
-                  const Spacer(),
-                  Switch(
-                    value: _isActive,
-                    onChanged: (v) => setState(() => _isActive = v),
-                    activeColor: OmniGymColors.primary,
-                  ),
-                ],
-              ),
-              if (_error != null) ...[
-                const SizedBox(height: 8),
-                Text(_error!, style: const TextStyle(color: OmniGymColors.errorRed, fontSize: 12)),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                          foregroundColor: OmniGymColors.textSecondary),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white),
+                            )
+                          : Text(_isEdit
+                              ? 'Guardar cambios'
+                              : 'Crear sucursal'),
+                    ),
+                  ],
+                ),
               ],
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(foregroundColor: OmniGymColors.textSecondary),
-                    child: const Text('Cancelar'),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox(
-                            width: 16, height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
-                          )
-                        : Text(_isEdit ? 'Guardar cambios' : 'Crear sucursal'),
-                  ),
-                ],
-              ),
-            ],
+            ),
           ),
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
 import '../../core/models/member.dart';
@@ -61,8 +62,8 @@ class MembersScreen extends ConsumerWidget {
         children: [
           _Header(onAdd: () => _openForm(context, ref, null, branches)),
           _Filters(branches: branches),
-          // Column headers
-          _ColumnHeaders(),
+          // Column headers (hidden on mobile)
+          if (!context.isMobile) _ColumnHeaders(),
           Expanded(
             child: membersAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
@@ -98,76 +99,98 @@ class _Header extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final total = ref.watch(_allMembersProvider).valueOrNull?.length ?? 0;
+    final isMobile = context.isMobile;
+
+    final titleColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Socios',
+          style: TextStyle(
+            color: OmniGymColors.textPrimary,
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          '$total registrados',
+          style: const TextStyle(
+              color: OmniGymColors.textSecondary, fontSize: 12),
+        ),
+      ],
+    );
+
+    final searchField = SizedBox(
+      height: 38,
+      child: TextField(
+        onChanged: (v) =>
+            ref.read(_memberSearchProvider.notifier).state = v,
+        style: const TextStyle(
+            color: OmniGymColors.textPrimary, fontSize: 13),
+        decoration: InputDecoration(
+          hintText: 'Buscar socio...',
+          hintStyle: const TextStyle(
+              color: OmniGymColors.textSecondary, fontSize: 13),
+          prefixIcon: const Icon(Icons.search,
+              size: 16, color: OmniGymColors.textSecondary),
+          filled: true,
+          fillColor: OmniGymColors.surface,
+          contentPadding:
+              const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+          border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: OmniGymColors.border)),
+          enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide: const BorderSide(color: OmniGymColors.border)),
+          focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(8),
+              borderSide:
+                  const BorderSide(color: OmniGymColors.primary)),
+        ),
+      ),
+    );
+
+    final addButton = FilledButton.icon(
+      onPressed: onAdd,
+      icon: const Icon(Icons.person_add_outlined, size: 16),
+      label: isMobile ? const Text('Nuevo') : const Text('Nuevo socio'),
+    );
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: const BoxDecoration(
         border: Border(bottom: BorderSide(color: OmniGymColors.border)),
       ),
-      child: Row(
-        children: [
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Socios',
-                style: TextStyle(
-                  color: OmniGymColors.textPrimary,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+      child: isMobile
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    const DrawerMenuButton(),
+                    Expanded(child: titleColumn),
+                    addButton,
+                  ],
                 ),
-              ),
-              Text(
-                '$total registrados',
-                style: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 12),
-              ),
-            ],
-          ),
-          const SizedBox(width: 16),
-          Flexible(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 260),
-              child: SizedBox(
-                height: 38,
-                child: TextField(
-                  onChanged: (v) =>
-                      ref.read(_memberSearchProvider.notifier).state = v,
-                  style: const TextStyle(
-                      color: OmniGymColors.textPrimary, fontSize: 13),
-                  decoration: InputDecoration(
-                    hintText: 'Buscar socio...',
-                    hintStyle: const TextStyle(
-                        color: OmniGymColors.textSecondary, fontSize: 13),
-                    prefixIcon: const Icon(Icons.search,
-                        size: 16, color: OmniGymColors.textSecondary),
-                    filled: true,
-                    fillColor: OmniGymColors.surface,
-                    contentPadding: const EdgeInsets.symmetric(
-                        vertical: 8, horizontal: 12),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            const BorderSide(color: OmniGymColors.border)),
-                    enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            const BorderSide(color: OmniGymColors.border)),
-                    focusedBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide:
-                            const BorderSide(color: OmniGymColors.primary)),
+                const SizedBox(height: 10),
+                searchField,
+              ],
+            )
+          : Row(
+              children: [
+                titleColumn,
+                const SizedBox(width: 16),
+                Flexible(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 260),
+                    child: searchField,
                   ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                addButton,
+              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          FilledButton.icon(
-            onPressed: onAdd,
-            icon: const Icon(Icons.person_add_outlined, size: 16),
-            label: const Text('Nuevo socio'),
-          ),
-        ],
-      ),
     );
   }
 }
@@ -281,123 +304,198 @@ class _MemberRow extends ConsumerWidget {
     final isExpired = member.expirationDate.isBefore(DateTime.now());
     final daysLeft = member.expirationDate.difference(DateTime.now()).inDays;
 
-    return InkWell(
-      onTap: () async {
-        final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
-            ?? await ref.read(activeTenantIdFutureProvider.future);
-        if (tenantId != null && context.mounted) {
-          showDialog(
-            context: context,
-            builder: (_) => MemberDetailDialog(
-              member: member,
-              tenantId: tenantId,
-            ),
-          );
-        }
-      },
-      child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      child: Row(
-        children: [
-          // Nombre
-          Expanded(
-            flex: 3,
-            child: Row(
-              children: [
-                CircleAvatar(
-                  radius: 16,
-                  backgroundColor: isActive
-                      ? OmniGymColors.primary.withAlpha(40)
-                      : OmniGymColors.border,
-                  backgroundImage: member.photoUrl != null
-                      ? NetworkImage(member.photoUrl!)
-                      : null,
-                  child: member.photoUrl == null
-                      ? Text(
-                          member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
-                          style: TextStyle(
-                            color: isActive
-                                ? OmniGymColors.primary
-                                : OmniGymColors.textSecondary,
-                            fontSize: 12,
-                            fontWeight: FontWeight.bold,
+    Future<void> openDetail() async {
+      final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull ??
+          await ref.read(activeTenantIdFutureProvider.future);
+      if (tenantId != null && context.mounted) {
+        showDialog(
+          context: context,
+          builder: (_) => MemberDetailDialog(member: member, tenantId: tenantId),
+        );
+      }
+    }
+
+    final avatar = CircleAvatar(
+      radius: 16,
+      backgroundColor:
+          isActive ? OmniGymColors.primary.withAlpha(40) : OmniGymColors.border,
+      backgroundImage:
+          member.photoUrl != null ? NetworkImage(member.photoUrl!) : null,
+      child: member.photoUrl == null
+          ? Text(
+              member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
+              style: TextStyle(
+                color: isActive
+                    ? OmniGymColors.primary
+                    : OmniGymColors.textSecondary,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            )
+          : null,
+    );
+
+    if (context.isMobile) {
+      // Card layout for mobile
+      return InkWell(
+        onTap: openDetail,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          child: Row(
+            children: [
+              avatar,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            member.name,
+                            style: const TextStyle(
+                                color: OmniGymColors.textPrimary,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500),
+                            overflow: TextOverflow.ellipsis,
                           ),
-                        )
-                      : null,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        member.name,
-                        style: const TextStyle(
-                            color: OmniGymColors.textPrimary,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w500),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (member.phone != null)
-                        Text(
-                          member.phone!,
-                          style: const TextStyle(
-                              color: OmniGymColors.textSecondary, fontSize: 11),
                         ),
-                    ],
-                  ),
+                        const SizedBox(width: 8),
+                        _StatusBadge(status: member.accessStatus),
+                      ],
+                    ),
+                    Text(
+                      member.email,
+                      style: const TextStyle(
+                          color: OmniGymColors.textSecondary, fontSize: 12),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Row(
+                      children: [
+                        Text(
+                          _formatDate(member.expirationDate),
+                          style: TextStyle(
+                            color: isExpired
+                                ? OmniGymColors.errorRed
+                                : OmniGymColors.textSecondary,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (!isExpired && daysLeft <= 7) ...[
+                          const SizedBox(width: 4),
+                          Text(
+                            '· vence en $daysLeft días',
+                            style: const TextStyle(
+                                color: Colors.orange, fontSize: 11),
+                          ),
+                        ] else if (isExpired) ...[
+                          const SizedBox(width: 4),
+                          const Text(
+                            '· vencida',
+                            style: TextStyle(
+                                color: OmniGymColors.errorRed, fontSize: 11),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              _MemberActions(member: member, branches: branches),
+            ],
           ),
-          // Correo
-          Expanded(
-            flex: 3,
-            child: Text(
-              member.email,
-              style: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          // Vencimiento
-          Expanded(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _formatDate(member.expirationDate),
-                  style: TextStyle(
-                    color: isExpired ? OmniGymColors.errorRed : OmniGymColors.textPrimary,
-                    fontSize: 13,
+        ),
+      );
+    }
+
+    // Table row layout for desktop/tablet
+    return InkWell(
+      onTap: openDetail,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 3,
+              child: Row(
+                children: [
+                  avatar,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          member.name,
+                          style: const TextStyle(
+                              color: OmniGymColors.textPrimary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        if (member.phone != null)
+                          Text(
+                            member.phone!,
+                            style: const TextStyle(
+                                color: OmniGymColors.textSecondary,
+                                fontSize: 11),
+                          ),
+                      ],
+                    ),
                   ),
-                ),
-                if (!isExpired && daysLeft <= 7)
+                ],
+              ),
+            ),
+            Expanded(
+              flex: 3,
+              child: Text(
+                member.email,
+                style: const TextStyle(
+                    color: OmniGymColors.textSecondary, fontSize: 13),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'Vence en $daysLeft días',
-                    style: const TextStyle(color: Colors.orange, fontSize: 11),
-                  )
-                else if (isExpired)
-                  const Text(
-                    'Vencida',
-                    style: TextStyle(color: OmniGymColors.errorRed, fontSize: 11),
+                    _formatDate(member.expirationDate),
+                    style: TextStyle(
+                      color: isExpired
+                          ? OmniGymColors.errorRed
+                          : OmniGymColors.textPrimary,
+                      fontSize: 13,
+                    ),
                   ),
-              ],
+                  if (!isExpired && daysLeft <= 7)
+                    Text(
+                      'Vence en $daysLeft días',
+                      style: const TextStyle(
+                          color: Colors.orange, fontSize: 11),
+                    )
+                  else if (isExpired)
+                    const Text(
+                      'Vencida',
+                      style: TextStyle(
+                          color: OmniGymColors.errorRed, fontSize: 11),
+                    ),
+                ],
+              ),
             ),
-          ),
-          // Estado
-          SizedBox(
-            width: 100,
-            child: _StatusBadge(status: member.accessStatus),
-          ),
-          // Acciones
-          SizedBox(
-            width: 60,
-            child: _MemberActions(member: member, branches: branches),
-          ),
-        ],
+            SizedBox(
+              width: 100,
+              child: _StatusBadge(status: member.accessStatus),
+            ),
+            SizedBox(
+              width: 60,
+              child: _MemberActions(member: member, branches: branches),
+            ),
+          ],
+        ),
       ),
-    ),
     );
   }
 
@@ -701,93 +799,113 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
     return Dialog(
       backgroundColor: OmniGymColors.card,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: SizedBox(
-        width: 480,
+      insetPadding: const EdgeInsets.all(16),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          maxWidth: 480,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.92,
+        ),
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  Text(
-                    _isEdit ? 'Editar socio' : 'Nuevo socio',
-                    style: const TextStyle(
-                      color: OmniGymColors.textPrimary,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    Text(
+                      _isEdit ? 'Editar socio' : 'Nuevo socio',
+                      style: const TextStyle(
+                        color: OmniGymColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const Spacer(),
-                  IconButton(
-                    onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close, color: OmniGymColors.textSecondary, size: 18),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              _FormRow(children: [
-                _MemberField(controller: _nameCtrl, label: 'Nombre completo'),
-                _MemberField(controller: _emailCtrl, label: 'Correo electrónico',
-                    keyboardType: TextInputType.emailAddress),
-              ]),
-              const SizedBox(height: 14),
-              _FormRow(children: [
-                _MemberField(controller: _phoneCtrl, label: 'Teléfono (opcional)',
-                    keyboardType: TextInputType.phone),
-                _ExpirationPicker(
-                  value: _expirationDate,
-                  onChanged: (d) => setState(() => _expirationDate = d),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close,
+                          color: OmniGymColors.textSecondary, size: 18),
+                    ),
+                  ],
                 ),
-              ]),
-              const SizedBox(height: 16),
-              // Sucursales
-              const Text('Sucursales permitidas',
-                  style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 12,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: widget.branches.map((b) {
-                  final selected = _selectedBranches.contains(b.id);
-                  return FilterChip(
-                    label: Text(b.name),
-                    selected: selected,
-                    onSelected: (v) => setState(() {
-                      if (v) {
-                        _selectedBranches.add(b.id);
-                      } else {
-                        _selectedBranches.remove(b.id);
-                      }
-                    }),
-                  );
-                }).toList(),
-              ),
-              if (_error != null) ...[
+                const SizedBox(height: 20),
+                _FormRow(children: [
+                  _MemberField(
+                      controller: _nameCtrl, label: 'Nombre completo'),
+                  _MemberField(
+                      controller: _emailCtrl,
+                      label: 'Correo electrónico',
+                      keyboardType: TextInputType.emailAddress),
+                ]),
+                const SizedBox(height: 14),
+                _FormRow(children: [
+                  _MemberField(
+                      controller: _phoneCtrl,
+                      label: 'Teléfono (opcional)',
+                      keyboardType: TextInputType.phone),
+                  _ExpirationPicker(
+                    value: _expirationDate,
+                    onChanged: (d) => setState(() => _expirationDate = d),
+                  ),
+                ]),
+                const SizedBox(height: 16),
+                const Text('Sucursales permitidas',
+                    style: TextStyle(
+                        color: OmniGymColors.textSecondary,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
-                Text(_error!, style: const TextStyle(color: OmniGymColors.errorRed, fontSize: 12)),
-              ],
-              const SizedBox(height: 20),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(foregroundColor: OmniGymColors.textSecondary),
-                    child: const Text('Cancelar'),
-                  ),
-                  const SizedBox(width: 12),
-                  FilledButton(
-                    onPressed: _saving ? null : _save,
-                    child: _saving
-                        ? const SizedBox(width: 16, height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(_isEdit ? 'Guardar' : 'Crear socio'),
-                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: widget.branches.map((b) {
+                    final selected = _selectedBranches.contains(b.id);
+                    return FilterChip(
+                      label: Text(b.name),
+                      selected: selected,
+                      onSelected: (v) => setState(() {
+                        if (v) {
+                          _selectedBranches.add(b.id);
+                        } else {
+                          _selectedBranches.remove(b.id);
+                        }
+                      }),
+                    );
+                  }).toList(),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 8),
+                  Text(_error!,
+                      style: const TextStyle(
+                          color: OmniGymColors.errorRed, fontSize: 12)),
                 ],
-              ),
-            ],
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      style: TextButton.styleFrom(
+                          foregroundColor: OmniGymColors.textSecondary),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 12),
+                    FilledButton(
+                      onPressed: _saving ? null : _save,
+                      child: _saving
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2, color: Colors.white))
+                          : Text(_isEdit ? 'Guardar' : 'Crear socio'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -801,6 +919,15 @@ class _FormRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isMobile) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children
+            .expand((w) => [w, const SizedBox(height: 14)])
+            .toList()
+          ..removeLast(),
+      );
+    }
     return Row(
       children: children
           .expand((w) => [Expanded(child: w), const SizedBox(width: 12)])

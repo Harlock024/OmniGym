@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/providers/providers.dart';
 
@@ -18,23 +19,59 @@ class ManagerDashboardScreen extends ConsumerWidget {
       backgroundColor: OmniGymColors.background,
       appBar: AppBar(
         backgroundColor: OmniGymColors.surface,
+        leading: context.isMobile ? const DrawerMenuButton() : null,
+        automaticallyImplyLeading: false,
         title: const Text('Mi Sucursal'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded),
-            tooltip: 'Escáner',
-            onPressed: () => context.push('/scanner'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            tooltip: 'Mi perfil',
-            onPressed: () => context.push('/profile'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(firebaseAuthProvider).signOut(),
-          ),
-        ],
+        actions: context.isMobile
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  tooltip: 'Escáner',
+                  onPressed: () => context.push('/scanner'),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  color: OmniGymColors.card,
+                  onSelected: (v) {
+                    if (v == 'profile') context.push('/profile');
+                    if (v == 'logout') ref.read(firebaseAuthProvider).signOut();
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'profile',
+                      child: Row(children: [
+                        Icon(Icons.account_circle_outlined, size: 18),
+                        SizedBox(width: 10),
+                        Text('Mi perfil'),
+                      ]),
+                    ),
+                    PopupMenuItem(
+                      value: 'logout',
+                      child: Row(children: [
+                        Icon(Icons.logout, size: 18),
+                        SizedBox(width: 10),
+                        Text('Cerrar sesión'),
+                      ]),
+                    ),
+                  ],
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  tooltip: 'Escáner',
+                  onPressed: () => context.push('/scanner'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.account_circle_outlined),
+                  tooltip: 'Mi perfil',
+                  onPressed: () => context.push('/profile'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  onPressed: () => ref.read(firebaseAuthProvider).signOut(),
+                ),
+              ],
       ),
       body: tenantIdAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

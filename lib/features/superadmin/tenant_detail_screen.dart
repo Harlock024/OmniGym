@@ -315,7 +315,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           children: [
             IconButton(
               icon: const Icon(Icons.arrow_back, color: OmniGymColors.textSecondary, size: 20),
-              onPressed: () => context.pop(),
+              onPressed: () => context.go('/dashboard/owner'),
               tooltip: 'Volver',
             ),
             const SizedBox(width: 8),
@@ -612,9 +612,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
           TextButton(
-            onPressed: () => widget.isOwnerMode
-                ? context.pop()
-                : context.go('/superadmin'),
+            onPressed: () => context.go(
+                widget.isOwnerMode ? '/dashboard/owner' : '/superadmin'),
             style: TextButton.styleFrom(
                 foregroundColor: OmniGymColors.textSecondary),
             child: const Text('Cancelar'),

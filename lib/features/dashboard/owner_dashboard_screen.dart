@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
@@ -26,34 +27,88 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen> {
       backgroundColor: OmniGymColors.background,
       appBar: AppBar(
         backgroundColor: OmniGymColors.surface,
+        leading: context.isMobile ? const DrawerMenuButton() : null,
+        automaticallyImplyLeading: false,
         title: tenantAsync.whenOrNull(data: (t) => Text(t?.name ?? 'OmniGym')) ??
             const Text('OmniGym'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.qr_code_scanner_rounded),
-            tooltip: 'Escáner',
-            onPressed: () => context.push('/scanner'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.tablet_android_rounded),
-            tooltip: 'Modo kiosko',
-            onPressed: () => context.push('/kiosk'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.people_outline),
-            tooltip: 'Equipo',
-            onPressed: () => context.push('/staff'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.account_circle_outlined),
-            tooltip: 'Mi perfil',
-            onPressed: () => context.push('/profile'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () => ref.read(firebaseAuthProvider).signOut(),
-          ),
-        ],
+        actions: context.isMobile
+            ? [
+                IconButton(
+                  icon: const Icon(Icons.account_circle_outlined),
+                  tooltip: 'Mi perfil',
+                  onPressed: () => context.push('/profile'),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_vert),
+                  color: OmniGymColors.card,
+                  onSelected: (v) {
+                    if (v == 'scanner') context.push('/scanner');
+                    if (v == 'kiosk') context.push('/kiosk');
+                    if (v == 'staff') context.push('/staff');
+                    if (v == 'logout') ref.read(firebaseAuthProvider).signOut();
+                  },
+                  itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'scanner',
+                      child: Row(children: [
+                        Icon(Icons.qr_code_scanner_rounded, size: 18),
+                        SizedBox(width: 10),
+                        Text('Escáner QR'),
+                      ]),
+                    ),
+                    PopupMenuItem(
+                      value: 'kiosk',
+                      child: Row(children: [
+                        Icon(Icons.tablet_android_rounded, size: 18),
+                        SizedBox(width: 10),
+                        Text('Modo kiosko'),
+                      ]),
+                    ),
+                    PopupMenuItem(
+                      value: 'staff',
+                      child: Row(children: [
+                        Icon(Icons.people_outline, size: 18),
+                        SizedBox(width: 10),
+                        Text('Equipo'),
+                      ]),
+                    ),
+                    PopupMenuItem(
+                      value: 'logout',
+                      child: Row(children: [
+                        Icon(Icons.logout, size: 18),
+                        SizedBox(width: 10),
+                        Text('Cerrar sesión'),
+                      ]),
+                    ),
+                  ],
+                ),
+              ]
+            : [
+                IconButton(
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  tooltip: 'Escáner',
+                  onPressed: () => context.push('/scanner'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.tablet_android_rounded),
+                  tooltip: 'Modo kiosko',
+                  onPressed: () => context.push('/kiosk'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.people_outline),
+                  tooltip: 'Equipo',
+                  onPressed: () => context.push('/staff'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.account_circle_outlined),
+                  tooltip: 'Mi perfil',
+                  onPressed: () => context.push('/profile'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.logout),
+                  onPressed: () => ref.read(firebaseAuthProvider).signOut(),
+                ),
+              ],
       ),
       body: tenantAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),

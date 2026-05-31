@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/app_user.dart';
 import '../../core/models/tenant.dart';
@@ -70,6 +71,7 @@ class _Header extends ConsumerWidget {
         children: [
           Row(
             children: [
+              if (context.isMobile) const DrawerMenuButton(),
               const Text(
                 'Administrar usuarios',
                 style: TextStyle(
