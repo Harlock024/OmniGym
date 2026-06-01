@@ -53,6 +53,25 @@ class MemberRepository {
     return Member.fromFirestore(snap.docs.first);
   }
 
+  /// Historial de check-ins del socio a través de todas las sucursales, vía
+  /// collection group. Para la app de socios.
+  ///
+  /// Requiere el índice collection-group (member_id ASC, timestamp DESC) y la
+  /// regla `match /{path=**}/check_ins/{id}` en firestore.rules.
+  Stream<List<Map<String, dynamic>>> watchCheckInHistory(
+    String uid, {
+    int limit = 50,
+  }) {
+    return _db
+        .collectionGroup('check_ins')
+        .where('member_id', isEqualTo: uid)
+        .orderBy('timestamp', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((d) => {...d.data(), 'id': d.id}).toList());
+  }
+
   Future<Member?> getByQrToken(String tenantId, String qrToken) async {
     final snap = await _col(tenantId)
         .where('qr_token', isEqualTo: qrToken)

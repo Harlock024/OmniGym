@@ -77,6 +77,15 @@ service cloud.firestore {
       allow read: if isAuth() && resource.data.uid == request.auth.uid;
     }
 
+    // ─── Check-ins: collection group (historial del socio) ──────────────────
+    // Permite que el socio lea su propio historial a través de todas las
+    // sucursales, vía collectionGroup('check_ins').where('member_id', ==, uid).
+    // El personal sigue leyendo por la regla anidada; create/update/delete se
+    // gobiernan allí (log inmutable). Esta regla solo añade lectura propia.
+    match /{path=**}/check_ins/{checkInId} {
+      allow read: if isAuth() && resource.data.member_id == request.auth.uid;
+    }
+
     // ─── Users (operadores del sistema) ─────────────────────────────────────
 
     match /users/{userId} {

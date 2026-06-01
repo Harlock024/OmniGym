@@ -126,6 +126,9 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Limpia el resultado del escaneo anterior al reabrir el escáner.
+      ref.read(_scanResultProvider.notifier).state = null;
+      ref.read(_scanLoadingProvider.notifier).state = false;
       if (context.isMobile) {
         setState(() {
           _cameraCtrl = MobileScannerController(
@@ -613,24 +616,36 @@ class _SuccessCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                Row(
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
                   children: [
-                    const Icon(Icons.verified,
-                        color: OmniGymColors.success, size: 14),
-                    const SizedBox(width: 4),
-                    const Text(
-                      'Acceso permitido',
-                      style: TextStyle(
-                          color: OmniGymColors.success, fontSize: 13),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.verified,
+                            color: OmniGymColors.success, size: 14),
+                        SizedBox(width: 4),
+                        Text(
+                          'Acceso permitido',
+                          style: TextStyle(
+                              color: OmniGymColors.success, fontSize: 13),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 16),
-                    const Icon(Icons.calendar_today,
-                        color: OmniGymColors.textSecondary, size: 13),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$daysLeft días restantes',
-                      style: const TextStyle(
-                          color: OmniGymColors.textSecondary, fontSize: 12),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.calendar_today,
+                            color: OmniGymColors.textSecondary, size: 13),
+                        const SizedBox(width: 4),
+                        Text(
+                          '$daysLeft días restantes',
+                          style: const TextStyle(
+                              color: OmniGymColors.textSecondary, fontSize: 12),
+                        ),
+                      ],
                     ),
                   ],
                 ),

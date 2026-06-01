@@ -17,6 +17,14 @@
       ]
     },
     {
+      "collectionGroup": "check_ins",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "member_id", "order": "ASCENDING" },
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "members",
       "queryScope": "COLLECTION",
       "fields": [

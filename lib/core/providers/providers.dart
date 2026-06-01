@@ -218,6 +218,14 @@ final currentMemberProvider = StreamProvider<Member?>((ref) {
   return ref.watch(memberRepositoryProvider).watchByUid(user.uid);
 });
 
+// Historial de check-ins del socio autenticado (todas las sucursales).
+final currentMemberCheckInsProvider =
+    StreamProvider<List<Map<String, dynamic>>>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return Stream.value(const []);
+  return ref.watch(memberRepositoryProvider).watchCheckInHistory(user.uid);
+});
+
 // ─── Sucursales ───────────────────────────────────────────────────────────────
 
 final branchesProvider = StreamProvider.family<List<Branch>, String>(
