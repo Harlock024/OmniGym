@@ -127,7 +127,19 @@ final currentBranchIdProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
   final result = await user.getIdTokenResult();
-  return result.claims?['branch_id'] as String?;
+  final branchId = result.claims?['branch_id'] as String?;
+
+  // Fallback: si onUserWritten no ha corrido (claims sin propagar), leer de Firestore
+  if (branchId == null) {
+    final doc = await ref
+        .read(firestoreProvider)
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    return doc.data()?['branch_id'] as String?;
+  }
+
+  return branchId;
 });
 
 // ─── Métricas por sucursal ───────────────────────────────────────────────────
@@ -195,6 +207,16 @@ final membersProvider = StreamProvider.family<List<Member>, String>(
   (ref, tenantId) =>
       ref.watch(memberRepositoryProvider).watchAll(tenantId),
 );
+
+// ─── Socio autenticado (portal del socio) ────────────────────────────────────
+// Carga el doc del socio por su uid vía collection group, sin depender del
+// tenant_id de los claims (robusto en el primer login).
+
+final currentMemberProvider = StreamProvider<Member?>((ref) {
+  final user = ref.watch(currentUserProvider);
+  if (user == null) return Stream.value(null);
+  return ref.watch(memberRepositoryProvider).watchByUid(user.uid);
+});
 
 // ─── Sucursales ───────────────────────────────────────────────────────────────
 

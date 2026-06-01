@@ -59,6 +59,24 @@ service cloud.firestore {
           || isStaff(tenantId, branchId);
     }
 
+    // True si el usuario autenticado es un socio de este tenant: tiene doc en
+    // tenants/{tenantId}/members/{uid} (el ID del doc == su uid de Auth).
+    // No depende de custom claims, así que funciona en el primer login.
+    function isMemberOf(tenantId) {
+      return isAuth() &&
+        exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
+    }
+
+    // ─── Members: collection group (portal del socio) ───────────────────────
+    // Permite que un socio encuentre/lea su propio doc sin conocer el tenantId,
+    // vía collectionGroup('members').where('uid', isEqualTo: auth.uid).
+    // Filtra por el campo `uid` (no por el ID del doc) para que la query de
+    // collection group sea válida, y no depende de custom claims, así que
+    // funciona en el primer login (antes de que el token refresque los claims).
+    match /{path=**}/members/{memberId} {
+      allow read: if isAuth() && resource.data.uid == request.auth.uid;
+    }
+
     // ─── Users (operadores del sistema) ─────────────────────────────────────
 
     match /users/{userId} {
@@ -90,7 +108,8 @@ service cloud.firestore {
     // ─── Tenants ────────────────────────────────────────────────────────────
 
     match /tenants/{tenantId} {
-      allow read:   if isSuperUser() || belongsToTenant(tenantId);
+      // El socio lee su gym (logo/nombre) vía isMemberOf.
+      allow read:   if isSuperUser() || belongsToTenant(tenantId) || isMemberOf(tenantId);
       // Bootstrap: usuario autenticado sin tenant_id puede crear su tenant
       allow create: if isSuperUser()
           || (isAuth() && !('tenant_id' in request.auth.token));
@@ -100,14 +119,18 @@ service cloud.firestore {
       // ─── Branches ───────────────────────────────────────────────────────
 
       match /branches/{branchId} {
-        allow read:           if isSuperUser() || belongsToTenant(tenantId);
+        // El socio lee las sucursales de su gym (QR / check-in GPS) vía isMemberOf.
+        allow read:           if isSuperUser() || belongsToTenant(tenantId) || isMemberOf(tenantId);
         allow create, update: if isSuperUser() || isOwner(tenantId);
         allow delete:         if isSuperUser() || isOwner(tenantId);
 
-        // Check-ins: log inmutable — solo append para personal operativo
+        // Check-ins: log inmutable — solo append.
+        // Personal operativo lee todos; el socio lee y crea solo los suyos.
         match /check_ins/{checkInId} {
-          allow read:           if canManageBranch(tenantId, branchId);
-          allow create:         if isAuth() && belongsToTenant(tenantId);
+          allow read:           if canManageBranch(tenantId, branchId)
+              || (isAuth() && resource.data.member_id == request.auth.uid);
+          allow create:         if (isAuth() && belongsToTenant(tenantId))
+              || (isAuth() && request.resource.data.member_id == request.auth.uid);
           allow update, delete: if false;
         }
       }
@@ -139,7 +162,8 @@ service cloud.firestore {
       // ─── Membership Plans ───────────────────────────────────────────────
 
       match /membership_plans/{planId} {
-        allow read:  if isAuth() && belongsToTenant(tenantId);
+        // El socio lee los planes de su gym vía isMemberOf.
+        allow read:  if (isAuth() && belongsToTenant(tenantId)) || isMemberOf(tenantId);
         allow write: if isSuperUser() || isOwner(tenantId);
       }
 

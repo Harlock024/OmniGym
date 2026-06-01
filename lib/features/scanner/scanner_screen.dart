@@ -14,6 +14,20 @@ import '../../core/providers/providers.dart';
 final _scanResultProvider = StateProvider<_ScanResult?>((ref) => null);
 final _scanLoadingProvider = StateProvider<bool>((ref) => false);
 
+// Sucursal elegida por el owner para registrar accesos (null = sin elegir).
+final _selectedScanBranchProvider = StateProvider<String?>((ref) => null);
+
+// Sucursal efectiva del escáner:
+//  • staff → su propia sucursal (claim, con fallback a Firestore)
+//  • owner/superuser → la que selecciona en el encabezado
+final _scanBranchIdProvider = FutureProvider<String?>((ref) async {
+  final role = await ref.watch(currentUserRoleProvider.future);
+  if (role == 'owner' || role == 'superuser') {
+    return ref.watch(_selectedScanBranchProvider);
+  }
+  return ref.watch(currentBranchIdProvider.future);
+});
+
 class _ScanResult {
   const _ScanResult({this.member, this.error});
   final Member? member;
@@ -24,7 +38,7 @@ class _ScanResult {
 
 final _recentCheckInsProvider = StreamProvider<List<Map<String, dynamic>>>((ref) async* {
   final tenantId = await ref.watch(activeTenantIdFutureProvider.future);
-  final branchId = await ref.watch(currentBranchIdProvider.future);
+  final branchId = await ref.watch(_scanBranchIdProvider.future);
   if (tenantId == null || branchId == null) { yield []; return; }
 
   final db = ref.watch(firestoreProvider);
@@ -143,11 +157,15 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
     try {
       final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
           ?? await ref.read(activeTenantIdFutureProvider.future);
-      final branchId = await ref.read(currentBranchIdProvider.future);
+      final branchId = await ref.read(_scanBranchIdProvider.future);
 
       if (tenantId == null || branchId == null) {
-        ref.read(_scanResultProvider.notifier).state =
-            const _ScanResult(error: 'Sin sucursal asignada.');
+        final role = await ref.read(currentUserRoleProvider.future);
+        ref.read(_scanResultProvider.notifier).state = _ScanResult(
+          error: (role == 'owner' || role == 'superuser')
+              ? 'Selecciona una sucursal para registrar el acceso.'
+              : 'Sin sucursal asignada.',
+        );
         return;
       }
 
@@ -216,6 +234,7 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            const _OwnerBranchSelector(),
             // Camera preview
             ClipRRect(
               borderRadius: BorderRadius.circular(14),
@@ -366,6 +385,7 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
             style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
           ),
           const SizedBox(height: 32),
+          const _OwnerBranchSelector(),
           KeyboardListener(
             focusNode: FocusNode(),
             onKeyEvent: (event) {
@@ -441,6 +461,82 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
             ),
         ],
       ),
+    );
+  }
+}
+
+// ─── Selector de sucursal (solo owner/superuser) ───────────────────────────────
+
+class _OwnerBranchSelector extends ConsumerWidget {
+  const _OwnerBranchSelector();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final role = ref.watch(currentUserRoleProvider).valueOrNull;
+    if (role != 'owner' && role != 'superuser') return const SizedBox.shrink();
+
+    final tenantId = ref.watch(activeTenantIdFutureProvider).valueOrNull;
+    if (tenantId == null) return const SizedBox.shrink();
+
+    final branchesAsync = ref.watch(branchesProvider(tenantId));
+    return branchesAsync.maybeWhen(
+      orElse: () => const SizedBox.shrink(),
+      data: (branches) {
+        if (branches.isEmpty) return const SizedBox.shrink();
+
+        final selected = ref.watch(_selectedScanBranchProvider);
+        // Auto-selecciona cuando hay una sola sucursal.
+        if (selected == null && branches.length == 1) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            ref.read(_selectedScanBranchProvider.notifier).state =
+                branches.first.id;
+          });
+        }
+        // Ignora una selección que ya no exista.
+        final value = branches.any((b) => b.id == selected) ? selected : null;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 16),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: OmniGymColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: OmniGymColors.border, width: 2),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.store_outlined,
+                  color: OmniGymColors.textSecondary, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: value,
+                    hint: const Text(
+                      'Selecciona una sucursal',
+                      style: TextStyle(
+                          color: OmniGymColors.textSecondary, fontSize: 14),
+                    ),
+                    dropdownColor: OmniGymColors.surface,
+                    style: const TextStyle(
+                        color: OmniGymColors.textPrimary, fontSize: 14),
+                    items: branches
+                        .map((b) => DropdownMenuItem(
+                              value: b.id,
+                              child: Text(b.name),
+                            ))
+                        .toList(),
+                    onChanged: (id) => ref
+                        .read(_selectedScanBranchProvider.notifier)
+                        .state = id,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 }

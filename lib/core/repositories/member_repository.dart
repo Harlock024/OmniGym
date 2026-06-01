@@ -27,6 +27,32 @@ class MemberRepository {
     return snap.exists ? Member.fromFirestore(snap) : null;
   }
 
+  /// Busca el doc del socio por su uid vía collection group, sin conocer el
+  /// tenantId. Pensado para el portal del socio y para el primer login, cuando
+  /// el token todavía no trae los custom claims (tenant_id).
+  ///
+  /// Requiere el índice collection-group sobre `members.uid` y la regla
+  /// `match /{path=**}/members/{memberId}` en firestore.rules.
+  Stream<Member?> watchByUid(String uid) {
+    return _db
+        .collectionGroup('members')
+        .where('uid', isEqualTo: uid)
+        .limit(1)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.isEmpty ? null : Member.fromFirestore(snap.docs.first));
+  }
+
+  Future<Member?> getByUid(String uid) async {
+    final snap = await _db
+        .collectionGroup('members')
+        .where('uid', isEqualTo: uid)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return Member.fromFirestore(snap.docs.first);
+  }
+
   Future<Member?> getByQrToken(String tenantId, String qrToken) async {
     final snap = await _col(tenantId)
         .where('qr_token', isEqualTo: qrToken)
