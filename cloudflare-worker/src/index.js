@@ -198,10 +198,10 @@ function generateQrToken() {
 
 // ── Email de bienvenida (Resend) ──────────────────────────────────────────────
 
+// Devuelve true si el email se envió correctamente, false si falló.
 async function sendWelcomeEmail(to, memberName, tempPassword, gymName, env) {
   if (!env.RESEND_API_KEY) {
-    console.warn('[sendWelcomeEmail] RESEND_API_KEY no configurada, se omite el email.');
-    return;
+    return false;
   }
   const from = env.EMAIL_FROM ?? `OmniGym <noreply@omni-gym.com>`;
   const res = await fetch('https://api.resend.com/emails', {
@@ -230,9 +230,10 @@ async function sendWelcomeEmail(to, memberName, tempPassword, gymName, env) {
     }),
   });
   if (!res.ok) {
-    // No lanzamos error — la cuenta ya fue creada aunque el email falle
     console.error('[sendWelcomeEmail] Resend error:', await res.text());
+    return false;
   }
+  return true;
 }
 
 // ── Main handler ──────────────────────────────────────────────────────────────
@@ -357,11 +358,13 @@ export default {
         created_at: new Date(),
       }, token);
 
-      // 5. Email: si hay RESEND_API_KEY envía email personalizado;
-      //    si no, Firebase envía su email de "configura tu contraseña" (sin dominio propio).
+      // 5. Email: intenta Resend si hay API key; si falla o no hay key,
+      //    usa el email de Firebase (password reset) como fallback.
+      let emailSent = false;
       if (env.RESEND_API_KEY) {
-        await sendWelcomeEmail(email, name, tempPassword, gymName ?? 'OmniGym', env);
-      } else {
+        emailSent = await sendWelcomeEmail(email, name, tempPassword, gymName ?? 'OmniGym', env);
+      }
+      if (!emailSent) {
         await sendPasswordReset(email, token);
       }
 
