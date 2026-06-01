@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
@@ -103,17 +104,31 @@ class _ScanPanel extends ConsumerStatefulWidget {
 class _ScanPanelState extends ConsumerState<_ScanPanel> {
   final _ctrl = TextEditingController();
   final _focusNode = FocusNode();
+  MobileScannerController? _cameraCtrl;
+  bool _showManualEntry = false;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _focusNode.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (context.isMobile) {
+        setState(() {
+          _cameraCtrl = MobileScannerController(
+            detectionSpeed: DetectionSpeed.noDuplicates,
+          );
+        });
+      } else {
+        _focusNode.requestFocus();
+      }
+    });
   }
 
   @override
   void dispose() {
     _ctrl.dispose();
     _focusNode.dispose();
+    _cameraCtrl?.dispose();
     super.dispose();
   }
 
@@ -164,7 +179,6 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
         return;
       }
 
-      // Registrar check-in
       await ref.read(memberRepositoryProvider).logCheckIn(
         tenantId: tenantId,
         branchId: branchId,
@@ -185,7 +199,7 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
           _ScanResult(error: 'Error inesperado: $e');
     } finally {
       ref.read(_scanLoadingProvider.notifier).state = false;
-      _focusNode.requestFocus();
+      if (_cameraCtrl == null) _focusNode.requestFocus();
     }
   }
 
@@ -193,33 +207,165 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
   Widget build(BuildContext context) {
     final result = ref.watch(_scanResultProvider);
     final loading = ref.watch(_scanLoadingProvider);
-
     final isMobile = context.isMobile;
+
+    // ── Mobile: camera scanner ───────────────────────────────────────────────
+    if (isMobile) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Camera preview
+            ClipRRect(
+              borderRadius: BorderRadius.circular(14),
+              child: AspectRatio(
+                aspectRatio: 1,
+                child: _cameraCtrl != null
+                    ? Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          MobileScanner(
+                            controller: _cameraCtrl!,
+                            onDetect: (capture) {
+                              if (loading) return;
+                              final code = capture.barcodes.firstOrNull?.rawValue;
+                              if (code != null && code.isNotEmpty) {
+                                _processCode(code);
+                              }
+                            },
+                            overlayBuilder: (_, constraints) => CustomPaint(
+                              size: constraints.biggest,
+                              painter: _CornersPainter(),
+                            ),
+                          ),
+                          if (loading)
+                            Container(
+                              color: Colors.black54,
+                              child: const Center(
+                                child: CircularProgressIndicator(
+                                    color: Colors.white),
+                              ),
+                            ),
+                        ],
+                      )
+                    : const ColoredBox(
+                        color: OmniGymColors.surface,
+                        child: Center(child: CircularProgressIndicator()),
+                      ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Apunta al código QR del socio',
+              style: TextStyle(
+                  color: OmniGymColors.textSecondary, fontSize: 13),
+              textAlign: TextAlign.center,
+            ),
+            Center(
+              child: TextButton.icon(
+                onPressed: () =>
+                    setState(() => _showManualEntry = !_showManualEntry),
+                icon: Icon(
+                  _showManualEntry
+                      ? Icons.keyboard_hide_outlined
+                      : Icons.keyboard_outlined,
+                  size: 16,
+                ),
+                label: Text(_showManualEntry
+                    ? 'Ocultar teclado'
+                    : 'Ingresar código manual'),
+                style: TextButton.styleFrom(
+                  foregroundColor: OmniGymColors.textSecondary,
+                  textStyle: const TextStyle(fontSize: 12),
+                ),
+              ),
+            ),
+            if (_showManualEntry) ...[
+              KeyboardListener(
+                focusNode: FocusNode(),
+                onKeyEvent: (event) {
+                  if (event is KeyDownEvent &&
+                      event.logicalKey == LogicalKeyboardKey.enter) {
+                    _processCode(_ctrl.text);
+                  }
+                },
+                child: TextField(
+                  controller: _ctrl,
+                  focusNode: _focusNode,
+                  style: const TextStyle(
+                    color: OmniGymColors.textPrimary,
+                    fontSize: 16,
+                    fontFamily: 'monospace',
+                    letterSpacing: 2,
+                  ),
+                  textAlign: TextAlign.center,
+                  onSubmitted: _processCode,
+                  decoration: InputDecoration(
+                    hintText: 'Código QR...',
+                    hintStyle: const TextStyle(
+                        color: OmniGymColors.textSecondary, fontSize: 14),
+                    filled: true,
+                    fillColor: OmniGymColors.surface,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: OmniGymColors.border, width: 2),
+                    ),
+                    enabledBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide:
+                          const BorderSide(color: OmniGymColors.border, width: 2),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(
+                          color: OmniGymColors.primary, width: 2),
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(
+                        vertical: 16, horizontal: 16),
+                    suffixIcon: IconButton(
+                      onPressed: () => _processCode(_ctrl.text),
+                      icon:
+                          const Icon(Icons.send, color: OmniGymColors.primary),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            if (result != null)
+              AnimatedSwitcher(
+                duration: const Duration(milliseconds: 300),
+                child: result.isSuccess
+                    ? _SuccessCard(member: result.member!)
+                    : _ErrorCard(message: result.error!),
+              ),
+          ],
+        ),
+      );
+    }
+
+    // ── Desktop: text field (lector USB) ────────────────────────────────────
     return Padding(
-      padding: EdgeInsets.all(isMobile ? 20 : 32),
+      padding: const EdgeInsets.all(32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!isMobile) ...[
-            const Text(
-              'Control de Acceso',
-              style: TextStyle(
-                color: OmniGymColors.textPrimary,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+          const Text(
+            'Control de Acceso',
+            style: TextStyle(
+              color: OmniGymColors.textPrimary,
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
             ),
-            const SizedBox(height: 4),
-            const Text(
-              'Escanea el QR del socio o ingresa su código manualmente.',
-              style:
-                  TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
-            ),
-            const SizedBox(height: 32),
-          ] else
-            const SizedBox(height: 16),
-
-          // Campo de entrada — captura el QR del lector físico
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Escanea el QR del socio o ingresa su código manualmente.',
+            style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+          ),
+          const SizedBox(height: 32),
           KeyboardListener(
             focusNode: FocusNode(),
             onKeyEvent: (event) {
@@ -247,17 +393,21 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
                 fillColor: OmniGymColors.surface,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: OmniGymColors.border, width: 2),
+                  borderSide:
+                      const BorderSide(color: OmniGymColors.border, width: 2),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: OmniGymColors.border, width: 2),
+                  borderSide:
+                      const BorderSide(color: OmniGymColors.border, width: 2),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: OmniGymColors.primary, width: 2),
+                  borderSide:
+                      const BorderSide(color: OmniGymColors.primary, width: 2),
                 ),
-                contentPadding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+                contentPadding: const EdgeInsets.symmetric(
+                    vertical: 20, horizontal: 20),
                 suffixIcon: loading
                     ? const Padding(
                         padding: EdgeInsets.all(14),
@@ -269,7 +419,8 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
                       )
                     : IconButton(
                         onPressed: () => _processCode(_ctrl.text),
-                        icon: const Icon(Icons.send, color: OmniGymColors.primary),
+                        icon:
+                            const Icon(Icons.send, color: OmniGymColors.primary),
                       ),
               ),
             ),
@@ -280,10 +431,7 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
             style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 11),
             textAlign: TextAlign.center,
           ),
-
           const SizedBox(height: 32),
-
-          // Resultado
           if (result != null)
             AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
@@ -295,6 +443,35 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
       ),
     );
   }
+}
+
+// ─── Corners painter ──────────────────────────────────────────────────────────
+
+class _CornersPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    const len = 28.0;
+    const margin = 20.0;
+
+    void corner(double x, double y, double dx, double dy) {
+      canvas.drawLine(Offset(x, y + dy * len), Offset(x, y), paint);
+      canvas.drawLine(Offset(x, y), Offset(x + dx * len, y), paint);
+    }
+
+    corner(margin, margin, 1, 1);
+    corner(size.width - margin, margin, -1, 1);
+    corner(margin, size.height - margin, 1, -1);
+    corner(size.width - margin, size.height - margin, -1, -1);
+  }
+
+  @override
+  bool shouldRepaint(_) => false;
 }
 
 // ─── Tarjeta de resultado OK ──────────────────────────────────────────────────
@@ -323,7 +500,8 @@ class _SuccessCard extends StatelessWidget {
               color: OmniGymColors.success.withAlpha(40),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check_circle, color: OmniGymColors.success, size: 32),
+            child: const Icon(Icons.check_circle,
+                color: OmniGymColors.success, size: 32),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -341,18 +519,22 @@ class _SuccessCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Row(
                   children: [
-                    const Icon(Icons.verified, color: OmniGymColors.success, size: 14),
+                    const Icon(Icons.verified,
+                        color: OmniGymColors.success, size: 14),
                     const SizedBox(width: 4),
-                    Text(
+                    const Text(
                       'Acceso permitido',
-                      style: const TextStyle(color: OmniGymColors.success, fontSize: 13),
+                      style: TextStyle(
+                          color: OmniGymColors.success, fontSize: 13),
                     ),
                     const SizedBox(width: 16),
-                    Icon(Icons.calendar_today, color: OmniGymColors.textSecondary, size: 13),
+                    const Icon(Icons.calendar_today,
+                        color: OmniGymColors.textSecondary, size: 13),
                     const SizedBox(width: 4),
                     Text(
                       '$daysLeft días restantes',
-                      style: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 12),
+                      style: const TextStyle(
+                          color: OmniGymColors.textSecondary, fontSize: 12),
                     ),
                   ],
                 ),
@@ -378,7 +560,8 @@ class _ErrorCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: OmniGymColors.errorRed.withAlpha(20),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: OmniGymColors.errorRed.withAlpha(80), width: 2),
+        border:
+            Border.all(color: OmniGymColors.errorRed.withAlpha(80), width: 2),
       ),
       child: Row(
         children: [
@@ -389,7 +572,8 @@ class _ErrorCard extends StatelessWidget {
               color: OmniGymColors.errorRed.withAlpha(40),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.cancel, color: OmniGymColors.errorRed, size: 32),
+            child: const Icon(Icons.cancel,
+                color: OmniGymColors.errorRed, size: 32),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -407,7 +591,8 @@ class _ErrorCard extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   message,
-                  style: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+                  style: const TextStyle(
+                      color: OmniGymColors.textSecondary, fontSize: 13),
                 ),
               ],
             ),
@@ -448,11 +633,13 @@ class _CheckInsPanel extends ConsumerWidget {
               ),
               const Spacer(),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
                 decoration: BoxDecoration(
                   color: OmniGymColors.primary.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: OmniGymColors.primary.withAlpha(80)),
+                  border:
+                      Border.all(color: OmniGymColors.primary.withAlpha(80)),
                 ),
                 child: Text(
                   '$count',
@@ -470,24 +657,28 @@ class _CheckInsPanel extends ConsumerWidget {
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (e, _) => Center(
               child: Text('Error: $e',
-                  style: const TextStyle(color: OmniGymColors.textSecondary)),
+                  style: const TextStyle(
+                      color: OmniGymColors.textSecondary)),
             ),
             data: (checkIns) => checkIns.isEmpty
                 ? const Center(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(Icons.login, size: 36, color: OmniGymColors.textSecondary),
+                        Icon(Icons.login,
+                            size: 36, color: OmniGymColors.textSecondary),
                         SizedBox(height: 8),
                         Text('Sin accesos registrados hoy.',
-                            style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 13)),
+                            style: TextStyle(
+                                color: OmniGymColors.textSecondary,
+                                fontSize: 13)),
                       ],
                     ),
                   )
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     itemCount: checkIns.length,
-                    separatorBuilder: (_, __) =>
+                    separatorBuilder: (context, i) =>
                         const Divider(height: 1, color: OmniGymColors.border),
                     itemBuilder: (_, i) => _CheckInTile(data: checkIns[i]),
                   ),
@@ -524,19 +715,23 @@ class _CheckInTile extends StatelessWidget {
               color: OmniGymColors.success.withAlpha(30),
               shape: BoxShape.circle,
             ),
-            child: const Icon(Icons.check, color: OmniGymColors.success, size: 16),
+            child: const Icon(Icons.check,
+                color: OmniGymColors.success, size: 16),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               name,
-              style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+              style: const TextStyle(
+                  color: OmniGymColors.textPrimary, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
           Text(
             timeStr,
-            style: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 12,
+            style: const TextStyle(
+                color: OmniGymColors.textSecondary,
+                fontSize: 12,
                 fontFamily: 'monospace'),
           ),
         ],

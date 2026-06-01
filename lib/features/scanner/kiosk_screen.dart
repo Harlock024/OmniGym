@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
@@ -35,39 +36,7 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
     with SingleTickerProviderStateMixin {
   final _codeCtrl = TextEditingController();
   final _focusNode = FocusNode();
-
-  Future<void> _confirmExit() async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Salir del modo kiosko'),
-        content: const Text('¿Seguro que deseas salir?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancelar'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Salir'),
-          ),
-        ],
-      ),
-    );
-    if (!(ok ?? false) || !mounted) return;
-    if (context.canPop()) {
-      context.pop();
-    } else {
-      final role = await ref.read(currentUserRoleProvider.future);
-      if (mounted) {
-        context.go(switch (role) {
-          'superuser' => '/superadmin',
-          'staff'     => '/dashboard/manager',
-          _           => '/dashboard/owner',
-        });
-      }
-    }
-  }
+  MobileScannerController? _cameraCtrl;
 
   _KioskState _state = _KioskState.idle;
   _KioskResult? _result;
@@ -75,7 +44,6 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
   late final AnimationController _animCtrl;
   late final Animation<double> _scaleAnim;
 
-  // Branch seleccionada para el kiosko
   String? _tenantId;
   Branch? _selectedBranch;
   List<Branch> _branches = [];
@@ -90,6 +58,16 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
     );
     _scaleAnim = CurvedAnimation(parent: _animCtrl, curve: Curves.elasticOut);
     _loadSetup();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (context.isMobile) {
+        setState(() {
+          _cameraCtrl = MobileScannerController(
+            detectionSpeed: DetectionSpeed.noDuplicates,
+          );
+        });
+      }
+    });
   }
 
   @override
@@ -98,6 +76,7 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
     _focusNode.dispose();
     _resetTimer?.cancel();
     _animCtrl.dispose();
+    _cameraCtrl?.dispose();
     super.dispose();
   }
 
@@ -120,8 +99,18 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
   }
 
   void _focusTextField() {
+    if (_cameraCtrl != null) return;
     WidgetsBinding.instance.addPostFrameCallback(
         (_) => _focusNode.requestFocus());
+  }
+
+  void _exit() {
+    final role = ref.read(currentUserRoleProvider).valueOrNull;
+    context.go(switch (role) {
+      'superuser' => '/superadmin',
+      'staff'     => '/dashboard/manager',
+      _           => '/dashboard/owner',
+    });
   }
 
   Future<void> _processCode(String code) async {
@@ -151,7 +140,6 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
         return _setError('Sucursal no habilitada');
       }
 
-      // Registrar check-in
       await ref.read(memberRepositoryProvider).logCheckIn(
         tenantId: _tenantId!,
         branchId: _selectedBranch!.id,
@@ -215,7 +203,7 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
                     _selectedBranch = b;
                     _focusTextField();
                   }),
-                  onExit: _confirmExit,
+                  onExit: _exit,
                 )
               : _KioskBody(
                   branch: _selectedBranch!,
@@ -225,12 +213,13 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
                   codeCtrl: _codeCtrl,
                   focusNode: _focusNode,
                   onCode: _processCode,
+                  cameraCtrl: _cameraCtrl,
                   onChangeBranch: () => setState(() {
                     _selectedBranch = null;
                     _state = _KioskState.idle;
                     _result = null;
                   }),
-                  onExit: _confirmExit,
+                  onExit: _exit,
                 ),
     );
   }
@@ -294,7 +283,8 @@ class _BranchSelector extends StatelessWidget {
                         child: FilledButton(
                           onPressed: () => onSelect(b),
                           style: FilledButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 16),
                             shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12)),
                           ),
@@ -335,6 +325,7 @@ class _KioskBody extends StatelessWidget {
     required this.onCode,
     required this.onChangeBranch,
     required this.onExit,
+    this.cameraCtrl,
   });
 
   final Branch branch;
@@ -346,6 +337,7 @@ class _KioskBody extends StatelessWidget {
   final ValueChanged<String> onCode;
   final VoidCallback onChangeBranch;
   final VoidCallback onExit;
+  final MobileScannerController? cameraCtrl;
 
   @override
   Widget build(BuildContext context) {
@@ -363,14 +355,32 @@ class _KioskBody extends StatelessWidget {
           ),
         ),
 
+        // ── Campo oculto para lector USB (solo desktop) ──────────────────
+        if (cameraCtrl == null)
+          Positioned(
+            left: -500,
+            top: -500,
+            child: SizedBox(
+              width: 300,
+              height: 50,
+              child: TextField(
+                controller: codeCtrl,
+                focusNode: focusNode,
+                autofocus: true,
+                onSubmitted: onCode,
+                style: const TextStyle(fontSize: 0, color: Colors.transparent),
+                decoration: const InputDecoration(border: InputBorder.none),
+              ),
+            ),
+          ),
+
         // ── Contenido central ────────────────────────────────────────────
         Center(
           child: switch (state) {
             _KioskState.idle || _KioskState.loading => _IdleView(
                 branch: branch,
                 isLoading: state == _KioskState.loading,
-                codeCtrl: codeCtrl,
-                focusNode: focusNode,
+                cameraCtrl: cameraCtrl,
                 onCode: onCode,
               ),
             _KioskState.success => ScaleTransition(
@@ -384,7 +394,7 @@ class _KioskBody extends StatelessWidget {
           },
         ),
 
-        // ── Botón salir (esquina superior izquierda) ──────────────────────
+        // ── Botón salir ───────────────────────────────────────────────────
         Positioned(
           top: 12,
           left: 12,
@@ -422,19 +432,74 @@ class _IdleView extends StatelessWidget {
   const _IdleView({
     required this.branch,
     required this.isLoading,
-    required this.codeCtrl,
-    required this.focusNode,
     required this.onCode,
+    this.cameraCtrl,
   });
 
   final Branch branch;
   final bool isLoading;
-  final TextEditingController codeCtrl;
-  final FocusNode focusNode;
   final ValueChanged<String> onCode;
+  final MobileScannerController? cameraCtrl;
 
   @override
   Widget build(BuildContext context) {
+    // ── Mobile: cámara ───────────────────────────────────────────────────
+    if (cameraCtrl != null) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Escanea tu código QR',
+            style: TextStyle(
+              color: OmniGymColors.textPrimary,
+              fontSize: 26,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: 280,
+            height: 280,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  MobileScanner(
+                    controller: cameraCtrl!,
+                    onDetect: (capture) {
+                      if (isLoading) return;
+                      final code = capture.barcodes.firstOrNull?.rawValue;
+                      if (code != null && code.isNotEmpty) onCode(code);
+                    },
+                    overlayBuilder: (_, constraints) => CustomPaint(
+                      size: constraints.biggest,
+                      painter: _KioskCornersPainter(),
+                    ),
+                  ),
+                  if (isLoading)
+                    Container(
+                      color: Colors.black54,
+                      child: const Center(
+                        child: CircularProgressIndicator(color: Colors.white),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          const Text(
+            'Apunta la cámara al código de tu membresía',
+            style: TextStyle(
+                color: OmniGymColors.textSecondary, fontSize: 14),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      );
+    }
+
+    // ── Desktop/USB scanner ──────────────────────────────────────────────
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -469,22 +534,38 @@ class _IdleView extends StatelessWidget {
           style: TextStyle(
               color: OmniGymColors.textSecondary, fontSize: 16),
         ),
-        // Campo invisible para recibir el input del lector
-        SizedBox(
-          width: 0,
-          height: 0,
-          child: TextField(
-            controller: codeCtrl,
-            focusNode: focusNode,
-            autofocus: true,
-            onSubmitted: onCode,
-            style: const TextStyle(fontSize: 0, color: Colors.transparent),
-            decoration: const InputDecoration(border: InputBorder.none),
-          ),
-        ),
       ],
     );
   }
+}
+
+// ── Corners painter para kiosko ───────────────────────────────────────────────
+
+class _KioskCornersPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = Colors.white
+      ..strokeWidth = 3.5
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
+    const len = 32.0;
+    const margin = 16.0;
+
+    void corner(double x, double y, double dx, double dy) {
+      canvas.drawLine(Offset(x, y + dy * len), Offset(x, y), paint);
+      canvas.drawLine(Offset(x, y), Offset(x + dx * len, y), paint);
+    }
+
+    corner(margin, margin, 1, 1);
+    corner(size.width - margin, margin, -1, 1);
+    corner(margin, size.height - margin, 1, -1);
+    corner(size.width - margin, size.height - margin, -1, -1);
+  }
+
+  @override
+  bool shouldRepaint(_) => false;
 }
 
 // ── Vista de éxito ────────────────────────────────────────────────────────────
@@ -521,7 +602,8 @@ class _SuccessView extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+          padding:
+              const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
           decoration: BoxDecoration(
             color: OmniGymColors.success.withAlpha(30),
             borderRadius: BorderRadius.circular(20),

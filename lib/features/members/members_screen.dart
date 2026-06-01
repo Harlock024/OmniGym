@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
@@ -7,6 +8,7 @@ import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
 import '../../core/models/member.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/member_service.dart';
 import '../memberships/memberships_screen.dart' show RegisterPaymentFromMember;
 import 'member_detail_dialog.dart';
 
@@ -766,33 +768,41 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
         );
         await repo.update(tenantId, updated);
       } else {
-        final qrToken = _generateToken();
-        final member = Member(
-          id: '',
+        final tenant = ref.read(activeTenantProvider).valueOrNull;
+        final gymName = tenant?.name ?? 'OmniGym';
+        final result = await MemberService.createMember(
           tenantId: tenantId,
+          gymName: gymName,
           name: _nameCtrl.text.trim(),
           email: _emailCtrl.text.trim(),
           phone: _phoneCtrl.text.trim().isEmpty ? null : _phoneCtrl.text.trim(),
-          accessStatus: AccessStatus.active,
-          allowedBranches: _selectedBranches,
-          qrToken: qrToken,
           expirationDate: _expirationDate,
+          allowedBranches: _selectedBranches,
         );
-        await repo.create(member);
+        if (mounted) {
+          Navigator.pop(context);
+          await showDialog<void>(
+            context: context,
+            builder: (_) => _MemberCreatedDialog(
+              name: _nameCtrl.text.trim(),
+              email: _emailCtrl.text.trim(),
+              tempPassword: result.tempPassword,
+            ),
+          );
+        }
+        return;
       }
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      setState(() => _error = 'Error: $e');
+      setState(() => _error = e is MemberAlreadyExistsException
+          ? e.message
+          : 'Error: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
   }
 
-  String _generateToken() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    return 'QR${now.toRadixString(36).toUpperCase()}';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -999,6 +1009,176 @@ class _ExpirationPicker extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+// ─── Dialog: socio creado ─────────────────────────────────────────────────────
+
+class _MemberCreatedDialog extends StatelessWidget {
+  const _MemberCreatedDialog({
+    required this.name,
+    required this.email,
+    required this.tempPassword,
+  });
+
+  final String name;
+  final String email;
+  final String tempPassword;
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: OmniGymColors.card,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      insetPadding: const EdgeInsets.all(24),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 420),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: OmniGymColors.success.withAlpha(30),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_rounded,
+                    color: OmniGymColors.success, size: 32),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '¡Socio registrado!',
+                style: const TextStyle(
+                  color: OmniGymColors.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                name,
+                style: const TextStyle(
+                    color: OmniGymColors.textSecondary, fontSize: 14),
+              ),
+              const SizedBox(height: 24),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: OmniGymColors.surface,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: OmniGymColors.border),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'CREDENCIALES DEL SOCIO',
+                      style: TextStyle(
+                        color: OmniGymColors.textSecondary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    _CredRow(label: 'Correo', value: email),
+                    const SizedBox(height: 8),
+                    _CredRow(label: 'Contraseña temporal', value: tempPassword, highlight: true),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  const Icon(Icons.email_outlined,
+                      size: 14, color: OmniGymColors.textSecondary),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Se envió un correo a $email para configurar su contraseña.',
+                      style: const TextStyle(
+                          color: OmniGymColors.textSecondary, fontSize: 11),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Entendido'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _CredRow extends StatelessWidget {
+  const _CredRow({
+    required this.label,
+    required this.value,
+    this.highlight = false,
+  });
+
+  final String label;
+  final String value;
+  final bool highlight;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label,
+                  style: const TextStyle(
+                      color: OmniGymColors.textSecondary, fontSize: 11)),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: TextStyle(
+                  color: highlight
+                      ? OmniGymColors.primary
+                      : OmniGymColors.textPrimary,
+                  fontSize: highlight ? 22 : 14,
+                  fontWeight: FontWeight.bold,
+                  fontFamily: highlight ? 'monospace' : null,
+                  letterSpacing: highlight ? 3 : 0,
+                ),
+              ),
+            ],
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.copy_rounded,
+              size: 16, color: OmniGymColors.textSecondary),
+          tooltip: 'Copiar',
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: value));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('$label copiado'),
+                  duration: const Duration(seconds: 2),
+                ),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 }
