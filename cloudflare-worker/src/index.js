@@ -643,6 +643,146 @@ async function handleScheduled(event, env) {
   }
 }
 
+// ── Stripe (facturación SaaS B2B) ───────────────────────────────────────────
+
+// Codifica un objeto a application/x-www-form-urlencoded con notación de Stripe
+// (items[0][price]=..., metadata[tenant_id]=..., expand[0]=...).
+function stripeForm(obj, prefix = '', out = new URLSearchParams()) {
+  for (const [k, v] of Object.entries(obj)) {
+    if (v === undefined || v === null) continue;
+    const key = prefix ? `${prefix}[${k}]` : k;
+    if (Array.isArray(v)) {
+      v.forEach((item, i) => {
+        if (item !== null && typeof item === 'object') stripeForm(item, `${key}[${i}]`, out);
+        else out.append(`${key}[${i}]`, String(item));
+      });
+    } else if (typeof v === 'object') {
+      stripeForm(v, key, out);
+    } else {
+      out.append(key, String(v));
+    }
+  }
+  return out;
+}
+
+async function stripeRequest(path, params, env, method = 'POST') {
+  const res = await fetch(`https://api.stripe.com/v1/${path}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: method === 'GET' ? undefined : stripeForm(params).toString(),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(`Stripe ${path}: ${JSON.stringify(data?.error ?? data)}`);
+  return data;
+}
+
+// Verifica la firma del webhook de Stripe (HMAC-SHA256 sobre `${t}.${payload}`).
+async function verifyStripeSig(payload, sigHeader, secret) {
+  const items = sigHeader.split(',').map((p) => p.split('='));
+  const t = items.find(([k]) => k === 't')?.[1];
+  const v1s = items.filter(([k]) => k === 'v1').map(([, v]) => v);
+  if (!t || v1s.length === 0) return false;
+
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', key,
+    new TextEncoder().encode(`${t}.${payload}`));
+  const expected = [...new Uint8Array(sig)]
+    .map((b) => b.toString(16).padStart(2, '0')).join('');
+
+  // Tolerancia de 5 min contra replay.
+  const age = Math.abs(Math.floor(Date.now() / 1000) - parseInt(t, 10));
+  if (age > 300) return false;
+
+  // Comparación en tiempo (casi) constante.
+  return v1s.some((v) => {
+    if (v.length !== expected.length) return false;
+    let diff = 0;
+    for (let i = 0; i < v.length; i++) diff |= v.charCodeAt(i) ^ expected.charCodeAt(i);
+    return diff === 0;
+  });
+}
+
+// Busca el tenant dueño de un Customer de Stripe (índice de campo único auto).
+async function findTenantByCustomer(projectId, customerId, token) {
+  if (!customerId) return null;
+  const rows = await fsRunQuery(projectId, {
+    from: [{ collectionId: 'tenants' }],
+    where: fEq('stripe_customer_id', { stringValue: customerId }),
+    limit: 1,
+  }, token);
+  return rows[0] ?? null;
+}
+
+async function handleStripeWebhook(request, env) {
+  if (!env.STRIPE_WEBHOOK_SECRET) {
+    return jsonRes({ error: 'STRIPE_WEBHOOK_SECRET no configurado' }, 503);
+  }
+  const payload = await request.text();
+  const sig = request.headers.get('stripe-signature') ?? '';
+  if (!(await verifyStripeSig(payload, sig, env.STRIPE_WEBHOOK_SECRET))) {
+    return jsonRes({ error: 'Firma inválida' }, 400);
+  }
+
+  const event = JSON.parse(payload);
+  const token = await getAdminToken(env);
+  const projectId = JSON.parse(env.SA_JSON).project_id;
+
+  // Idempotencia: si ya procesamos este evento, salir OK.
+  if (await fsGet(projectId, `stripe_events/${event.id}`, token)) {
+    return jsonRes({ received: true, duplicate: true });
+  }
+  await fsSet(projectId, `stripe_events/${event.id}`,
+    { type: event.type, received_at: new Date() }, token);
+
+  const obj = event.data.object;
+  try {
+    switch (event.type) {
+      case 'invoice.paid':
+      case 'invoice.payment_succeeded': {
+        const tenant = await findTenantByCustomer(projectId, obj.customer, token);
+        if (tenant) {
+          const periodEnd = obj.lines?.data?.[0]?.period?.end;
+          const upd = { subscription_status: 'active', past_due: false };
+          if (periodEnd) upd.billing_cycle_end = new Date(periodEnd * 1000);
+          await fsUpdate(projectId, tenant.path, upd, token);
+          await fsSet(projectId, `tenant_invoices/${obj.id}`, {
+            tenant_id: tenant.id,
+            stripe_invoice_id: obj.id,
+            amount: (obj.amount_paid ?? 0) / 100,
+            currency: obj.currency,
+            status: 'paid',
+            created_at: new Date(),
+          }, token);
+        }
+        break;
+      }
+      case 'invoice.payment_failed': {
+        const tenant = await findTenantByCustomer(projectId, obj.customer, token);
+        if (tenant) await fsUpdate(projectId, tenant.path, { past_due: true }, token);
+        break;
+      }
+      case 'customer.subscription.deleted': {
+        const tenant = await findTenantByCustomer(projectId, obj.customer, token);
+        if (tenant) {
+          await fsUpdate(projectId, tenant.path, { subscription_status: 'cancelled' }, token);
+        }
+        break;
+      }
+      default:
+        break; // otros eventos se ignoran
+    }
+  } catch (e) {
+    console.error('[webhook]', event.type, e.message);
+    return jsonRes({ error: e.message }, 500); // 5xx → Stripe reintenta
+  }
+  return jsonRes({ received: true });
+}
+
 export default {
   async scheduled(event, env, ctx) {
     ctx.waitUntil(handleScheduled(event, env));
@@ -653,11 +793,17 @@ export default {
       return new Response(null, { status: 204, headers: CORS });
     }
 
+    const { pathname } = new URL(request.url);
+
+    // ── POST /billing/webhook ───────────────────────────────────────────────────
+    // ANTES de checkAuth: Stripe firma con su propio secreto, no manda el Bearer.
+    if (request.method === 'POST' && pathname === '/billing/webhook') {
+      return handleStripeWebhook(request, env);
+    }
+
     if (!checkAuth(request, env)) {
       return jsonRes({ error: 'Unauthorized' }, 401);
     }
-
-    const { pathname } = new URL(request.url);
 
     // ── POST /upload ──────────────────────────────────────────────────────────
     if (request.method === 'POST' && pathname === '/upload') {
@@ -708,6 +854,68 @@ export default {
         ciudad: f.ciudad,
         colonias: results.map((r) => ({ nombre: r.asentamiento, tipo: r.tipo })),
       });
+    }
+
+    // ── POST /billing/checkout ──────────────────────────────────────────────────
+    // Crea (o reutiliza) el Customer del tenant y abre un Checkout hospedado de
+    // Stripe en modo suscripción. Devuelve la URL a la que redirige la app.
+    if (request.method === 'POST' && pathname === '/billing/checkout') {
+      if (!env.STRIPE_SECRET_KEY) {
+        return jsonRes({ error: 'STRIPE_SECRET_KEY no configurado' }, 503);
+      }
+      const { tenantId, priceId, successUrl, cancelUrl } = await request.json();
+      if (!tenantId || !priceId) {
+        return jsonRes({ error: 'Faltan tenantId o priceId' }, 400);
+      }
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+      const tenant = await fsGet(projectId, `tenants/${tenantId}`, token);
+      if (!tenant) return jsonRes({ error: 'Tenant no encontrado' }, 404);
+
+      let customerId = tenant.stripe_customer_id;
+      if (!customerId) {
+        const customer = await stripeRequest('customers', {
+          email: tenant.email,
+          name: tenant.name,
+          metadata: { tenant_id: tenantId },
+        }, env);
+        customerId = customer.id;
+        await fsUpdate(projectId, `tenants/${tenantId}`,
+          { stripe_customer_id: customerId }, token);
+      }
+
+      const fallback = 'https://omni-gym.hadith024.workers.dev/billing/done';
+      const session = await stripeRequest('checkout/sessions', {
+        mode: 'subscription',
+        customer: customerId,
+        line_items: [{ price: priceId, quantity: 1 }],
+        success_url: successUrl ?? fallback,
+        cancel_url: cancelUrl ?? fallback,
+        subscription_data: { metadata: { tenant_id: tenantId } },
+        metadata: { tenant_id: tenantId },
+      }, env);
+      return jsonRes({ url: session.url, sessionId: session.id });
+    }
+
+    // ── POST /billing/portal ────────────────────────────────────────────────────
+    // Abre el Customer Portal de Stripe para que el Owner gestione/cancele.
+    if (request.method === 'POST' && pathname === '/billing/portal') {
+      if (!env.STRIPE_SECRET_KEY) {
+        return jsonRes({ error: 'STRIPE_SECRET_KEY no configurado' }, 503);
+      }
+      const { tenantId, returnUrl } = await request.json();
+      if (!tenantId) return jsonRes({ error: 'Falta tenantId' }, 400);
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+      const tenant = await fsGet(projectId, `tenants/${tenantId}`, token);
+      if (!tenant?.stripe_customer_id) {
+        return jsonRes({ error: 'El tenant no tiene suscripción activa' }, 400);
+      }
+      const session = await stripeRequest('billing_portal/sessions', {
+        customer: tenant.stripe_customer_id,
+        return_url: returnUrl ?? 'https://omni-gym.hadith024.workers.dev/billing/done',
+      }, env);
+      return jsonRes({ url: session.url });
     }
 
     // ── POST /set-claims ──────────────────────────────────────────────────────
