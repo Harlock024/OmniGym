@@ -67,6 +67,16 @@ service cloud.firestore {
         exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
     }
 
+    // True si el socio dueño del doc solo está cambiando campos de su perfil
+    // (nombre, teléfono, foto). Nunca su acceso, vencimiento, plan ni sucursales.
+    function memberSelfEdit() {
+      return isAuth()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['name', 'phone', 'photo_url']);
+    }
+
     // ─── Members: collection group (portal del socio) ───────────────────────
     // Permite que un socio encuentre/lea su propio doc sin conocer el tenantId,
     // vía collectionGroup('members').where('uid', isEqualTo: auth.uid).
@@ -112,6 +122,14 @@ service cloud.firestore {
               && userDoc().tenant_id == resource.data.tenant_id);
 
       allow delete: if isSuperUser();
+    }
+
+    // ─── Subscription packages (catálogo de cobro SaaS B2B) ─────────────────
+    // Lectura para cualquier autenticado (SuperAdmin gestiona, Owner elige).
+    // La escritura es exclusiva del worker (Admin SDK), nunca desde el cliente.
+    match /subscription_packages/{packageId} {
+      allow read:  if isAuth();
+      allow write: if false;
     }
 
     // ─── Tenants ────────────────────────────────────────────────────────────
@@ -163,7 +181,8 @@ service cloud.firestore {
 
         allow update: if isSuperUser()
             || isOwner(tenantId)
-            || isStaff(tenantId, resource.data.allowed_branches[0]);
+            || isStaff(tenantId, resource.data.allowed_branches[0])
+            || memberSelfEdit();
 
         allow delete: if isSuperUser() || isOwner(tenantId);
       }

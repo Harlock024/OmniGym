@@ -80,6 +80,59 @@ class WorkerService {
     return data['uid'] as String;
   }
 
+  /// Crea un paquete de suscripción: producto + precio en Stripe y doc Firestore.
+  static Future<void> createPackage({
+    required String name,
+    required double price,
+    int? branches,
+    int? checkins,
+    int? staff,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_base/billing/packages'),
+      headers: _headers,
+      body: jsonEncode({
+        'name': name,
+        'price': price,
+        'limits': {'branches': branches, 'checkins': checkins, 'staff': staff},
+      }),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('createPackage failed (${res.statusCode}): ${res.body}');
+    }
+  }
+
+  /// Actualiza un paquete (nombre/precio/activo/límites). Cambiar el precio crea
+  /// un nuevo precio en Stripe y archiva el anterior.
+  static Future<void> updatePackage({
+    required String id,
+    String? name,
+    double? price,
+    bool? active,
+    int? branches,
+    int? checkins,
+    int? staff,
+  }) async {
+    final body = <String, dynamic>{'id': id};
+    if (name != null) body['name'] = name;
+    if (price != null) body['price'] = price;
+    if (active != null) body['active'] = active;
+    final limits = <String, dynamic>{};
+    if (branches != null) limits['branches'] = branches;
+    if (checkins != null) limits['checkins'] = checkins;
+    if (staff != null) limits['staff'] = staff;
+    if (limits.isNotEmpty) body['limits'] = limits;
+
+    final res = await http.post(
+      Uri.parse('$_base/billing/packages/update'),
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('updatePackage failed (${res.statusCode}): ${res.body}');
+    }
+  }
+
   /// Consulta el catálogo postal SEPOMEX (Cloudflare D1) por código postal.
   /// Devuelve null si el CP no existe o falla la consulta (el catálogo es ayuda,
   /// no debe bloquear el formulario).

@@ -19,6 +19,7 @@ import '../features/scanner/kiosk_screen.dart';
 import '../features/superadmin/tenants_screen.dart';
 import '../features/superadmin/tenant_detail_screen.dart';
 import '../features/superadmin/users_admin_screen.dart';
+import '../features/superadmin/subscription_packages_screen.dart';
 import 'app_shell.dart';
 import 'app_theme.dart';
 
@@ -198,6 +199,15 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/superadmin/users',
             builder: (context, _) => const UsersAdminScreen(),
+            redirect: (context, state) async {
+              final role = await ref.read(currentUserRoleProvider.future);
+              if (role != 'superuser') return '/dashboard/owner';
+              return null;
+            },
+          ),
+          GoRoute(
+            path: '/superadmin/packages',
+            builder: (context, _) => const SubscriptionPackagesScreen(),
             redirect: (context, state) async {
               final role = await ref.read(currentUserRoleProvider.future);
               if (role != 'superuser') return '/dashboard/owner';

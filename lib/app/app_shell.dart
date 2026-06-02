@@ -67,6 +67,7 @@ class _NavSection extends _NavEntry {
 const _superuserItems = <_NavEntry>[
   _NavItem(icon: Icons.business_rounded, label: 'Empresas', route: '/superadmin'),
   _NavItem(icon: Icons.manage_accounts_rounded, label: 'Administrar usuarios', route: '/superadmin/users'),
+  _NavItem(icon: Icons.inventory_2_rounded, label: 'Paquetes', route: '/superadmin/packages'),
 ];
 
 const _ownerItems = <_NavEntry>[

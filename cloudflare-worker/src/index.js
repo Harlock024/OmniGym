@@ -918,6 +918,91 @@ export default {
       return jsonRes({ url: session.url });
     }
 
+    // ── POST /billing/packages ──────────────────────────────────────────────────
+    // Crea un paquete: producto + precio recurrente en Stripe y doc en Firestore.
+    if (request.method === 'POST' && pathname === '/billing/packages') {
+      if (!env.STRIPE_SECRET_KEY) {
+        return jsonRes({ error: 'STRIPE_SECRET_KEY no configurado' }, 503);
+      }
+      const { name, price, interval = 'month', limits = {} } = await request.json();
+      if (!name || !(price > 0)) {
+        return jsonRes({ error: 'Faltan name o price (> 0)' }, 400);
+      }
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+
+      const product = await stripeRequest('products', { name }, env);
+      const stripePrice = await stripeRequest('prices', {
+        product: product.id,
+        unit_amount: Math.round(price * 100),
+        currency: 'mxn',
+        recurring: { interval },
+      }, env);
+
+      const id = crypto.randomUUID();
+      const doc = {
+        name,
+        price,
+        currency: 'mxn',
+        interval,
+        stripe_product_id: product.id,
+        stripe_price_id: stripePrice.id,
+        limit_branches: limits.branches ?? null,
+        limit_checkins: limits.checkins ?? null,
+        limit_staff: limits.staff ?? null,
+        active: true,
+        created_at: new Date(),
+      };
+      await fsSet(projectId, `subscription_packages/${id}`, doc, token);
+      return jsonRes({ id, ...doc });
+    }
+
+    // ── POST /billing/packages/update ─────────────────────────────────────────────
+    // Actualiza nombre/límites/activo. Si cambia el precio, crea un nuevo Stripe
+    // price y archiva el anterior (los precios de Stripe son inmutables).
+    if (request.method === 'POST' && pathname === '/billing/packages/update') {
+      if (!env.STRIPE_SECRET_KEY) {
+        return jsonRes({ error: 'STRIPE_SECRET_KEY no configurado' }, 503);
+      }
+      const { id, name, price, active, limits } = await request.json();
+      if (!id) return jsonRes({ error: 'Falta id' }, 400);
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+      const pkg = await fsGet(projectId, `subscription_packages/${id}`, token);
+      if (!pkg) return jsonRes({ error: 'Paquete no encontrado' }, 404);
+
+      const upd = {};
+      if (name && name !== pkg.name) {
+        await stripeRequest(`products/${pkg.stripe_product_id}`, { name }, env);
+        upd.name = name;
+      }
+      if (limits) {
+        if (limits.branches !== undefined) upd.limit_branches = limits.branches;
+        if (limits.checkins !== undefined) upd.limit_checkins = limits.checkins;
+        if (limits.staff !== undefined) upd.limit_staff = limits.staff;
+      }
+      if (typeof active === 'boolean' && active !== pkg.active) {
+        // Archiva/reactiva el precio en Stripe para que no se pueda contratar.
+        await stripeRequest(`prices/${pkg.stripe_price_id}`, { active }, env);
+        upd.active = active;
+      }
+      if (price > 0 && price !== pkg.price) {
+        await stripeRequest(`prices/${pkg.stripe_price_id}`, { active: false }, env);
+        const newPrice = await stripeRequest('prices', {
+          product: pkg.stripe_product_id,
+          unit_amount: Math.round(price * 100),
+          currency: 'mxn',
+          recurring: { interval: pkg.interval ?? 'month' },
+        }, env);
+        upd.stripe_price_id = newPrice.id;
+        upd.price = price;
+      }
+      if (Object.keys(upd).length > 0) {
+        await fsUpdate(projectId, `subscription_packages/${id}`, upd, token);
+      }
+      return jsonRes({ id, ...pkg, ...upd });
+    }
+
     // ── POST /set-claims ──────────────────────────────────────────────────────
     if (request.method === 'POST' && pathname === '/set-claims') {
       const { uid, role, tenant_id, branch_id } = await request.json();
