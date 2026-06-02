@@ -97,6 +97,49 @@ Future<void> showSubscriptionGateDialog(
   );
 }
 
+/// Muro de bloqueo para roles que no pueden pagar (staff): el gym no tiene
+/// suscripción/prueba activa y solo el dueño puede resolverlo.
+class SubscriptionLockedScreen extends StatelessWidget {
+  const SubscriptionLockedScreen({super.key, required this.tenant});
+  final Tenant tenant;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = billingCopy(tenant);
+    return Scaffold(
+      backgroundColor: OmniGymColors.background,
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 380),
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(c.icon, color: c.color, size: 44),
+                const SizedBox(height: 16),
+                const Text('Acceso en pausa',
+                    style: TextStyle(
+                        color: OmniGymColors.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text(
+                  'La suscripción del gimnasio no está activa. Pídele al '
+                  'administrador que la active para volver a operar.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      color: OmniGymColors.textSecondary, fontSize: 13),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Banner persistente y amigable. Se oculta cuando la suscripción está activa.
 class SubscriptionBanner extends StatelessWidget {
   const SubscriptionBanner({super.key, required this.tenant});

@@ -3,8 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/models/billing_access.dart';
+import '../core/models/tenant.dart';
 import '../core/providers/providers.dart';
 import '../features/billing/subscription_gate.dart';
+import '../features/billing/subscription_screen.dart';
 import 'app_theme.dart';
 
 // ─── Shell scope ──────────────────────────────────────────────────────────────
@@ -109,12 +111,30 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _openDrawer() => _drawerKey.currentState?.openDrawer();
 
-  /// Antepone el banner de suscripción al contenido cuando el Owner no tiene
-  /// una suscripción/prueba activa (bloqueo suave, recordatorio amigable).
-  Widget _withBanner(String? role, Widget child) {
-    if (role != 'owner') return child;
+  // Rutas accesibles aun con el gimnasio bloqueado (para poder pagar o salir).
+  static const _unlockedRoutes = {'/subscription', '/profile'};
+
+  /// Gate de cobro estilo Netflix/Spotify: si el gimnasio no puede operar
+  /// (sin prueba ni suscripción activa), reemplaza el contenido por el muro de
+  /// suscripción — el Owner paga ahí mismo; el staff ve un aviso. Si está en
+  /// prueba, antepone el banner recordatorio. Activo/Superuser: sin cambios.
+  Widget _gate(String? role, String location, Widget child) {
+    if (role != 'owner' && role != 'staff') return child;
     final tenant = ref.watch(activeTenantProvider).valueOrNull;
-    if (tenant == null || tenant.billingState == BillingState.active) {
+    if (tenant == null || tenant.canOperate) {
+      return _withBanner(role, tenant, child);
+    }
+    if (_unlockedRoutes.contains(location)) return child;
+    return role == 'owner'
+        ? const SubscriptionScreen()
+        : SubscriptionLockedScreen(tenant: tenant);
+  }
+
+  /// Banner recordatorio durante la prueba (no se muestra si está activo).
+  Widget _withBanner(String? role, Tenant? tenant, Widget child) {
+    if (role != 'owner' ||
+        tenant == null ||
+        tenant.billingState == BillingState.active) {
       return child;
     }
     return Column(
@@ -169,7 +189,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             width: 280,
             child: sidebarContent,
           ),
-          body: _withBanner(role, widget.child),
+          body: _gate(role, widget.location, widget.child),
         ),
       );
     }
@@ -191,7 +211,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
             const VerticalDivider(
                 width: 1, thickness: 1, color: OmniGymColors.border),
-            Expanded(child: _withBanner(role, widget.child)),
+            Expanded(child: _gate(role, widget.location, widget.child)),
           ],
         ),
       );
@@ -205,7 +225,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           SizedBox(width: 200, child: sidebarContent),
           const VerticalDivider(
               width: 1, thickness: 1, color: OmniGymColors.border),
-          Expanded(child: _withBanner(role, widget.child)),
+          Expanded(child: _gate(role, widget.location, widget.child)),
         ],
       ),
     );
