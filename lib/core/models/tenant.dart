@@ -18,6 +18,10 @@ class Tenant with _$Tenant {
     @JsonKey(name: 'billing_cycle_end')
     @TimestampConverter()
     required DateTime billingCycleEnd,
+    // Cobro SaaS B2B (lo escribe el worker vía Stripe webhook / cron).
+    @JsonKey(name: 'past_due') @Default(false) bool pastDue,
+    @JsonKey(name: 'stripe_customer_id') String? stripeCustomerId,
+    @JsonKey(name: 'package_price_id') String? packagePriceId,
     required TenantSettings settings,
     @JsonKey(name: 'created_at')
     @NullableTimestampConverter()

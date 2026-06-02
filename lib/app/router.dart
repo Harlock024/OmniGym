@@ -20,6 +20,7 @@ import '../features/superadmin/tenants_screen.dart';
 import '../features/superadmin/tenant_detail_screen.dart';
 import '../features/superadmin/users_admin_screen.dart';
 import '../features/superadmin/subscription_packages_screen.dart';
+import '../features/billing/subscription_screen.dart';
 import 'app_shell.dart';
 import 'app_theme.dart';
 
@@ -141,6 +142,17 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/settings/fiscal',
             redirect: (context, state) => '/settings',
+          ),
+          GoRoute(
+            path: '/subscription',
+            builder: (context, _) => const SubscriptionScreen(),
+            redirect: (context, state) async {
+              final role = await ref.read(currentUserRoleProvider.future);
+              if (role != 'owner' && role != 'superuser') {
+                return '/dashboard/owner';
+              }
+              return null;
+            },
           ),
           GoRoute(
             path: '/memberships',

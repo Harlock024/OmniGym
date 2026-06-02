@@ -16,6 +16,7 @@ class SubscriptionPackage {
     required this.price,
     required this.currency,
     required this.active,
+    required this.stripePriceId,
     this.branches,
     this.checkins,
     this.staff,
@@ -26,6 +27,7 @@ class SubscriptionPackage {
   final double price;
   final String currency;
   final bool active;
+  final String stripePriceId;
   final int? branches;
   final int? checkins;
   final int? staff;
@@ -39,6 +41,7 @@ class SubscriptionPackage {
       price: ((m['price'] ?? 0) as num).toDouble(),
       currency: (m['currency'] ?? 'mxn') as String,
       active: (m['active'] ?? true) as bool,
+      stripePriceId: (m['stripe_price_id'] ?? '') as String,
       branches: (m['limit_branches'] as num?)?.toInt(),
       checkins: (m['limit_checkins'] as num?)?.toInt(),
       staff: (m['limit_staff'] as num?)?.toInt(),

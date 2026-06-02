@@ -80,6 +80,45 @@ class WorkerService {
     return data['uid'] as String;
   }
 
+  /// Crea una sesión de Stripe Checkout (suscripción) y devuelve la URL de pago.
+  static Future<String> createCheckout({
+    required String tenantId,
+    required String priceId,
+    String? successUrl,
+    String? cancelUrl,
+  }) async {
+    final body = <String, dynamic>{'tenantId': tenantId, 'priceId': priceId};
+    if (successUrl != null) body['successUrl'] = successUrl;
+    if (cancelUrl != null) body['cancelUrl'] = cancelUrl;
+    final res = await http.post(
+      Uri.parse('$_base/billing/checkout'),
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('checkout failed (${res.statusCode}): ${res.body}');
+    }
+    return (jsonDecode(res.body) as Map<String, dynamic>)['url'] as String;
+  }
+
+  /// Abre el Customer Portal de Stripe; devuelve la URL.
+  static Future<String> billingPortal({
+    required String tenantId,
+    String? returnUrl,
+  }) async {
+    final body = <String, dynamic>{'tenantId': tenantId};
+    if (returnUrl != null) body['returnUrl'] = returnUrl;
+    final res = await http.post(
+      Uri.parse('$_base/billing/portal'),
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('portal failed (${res.statusCode}): ${res.body}');
+    }
+    return (jsonDecode(res.body) as Map<String, dynamic>)['url'] as String;
+  }
+
   /// Crea un paquete de suscripción: producto + precio en Stripe y doc Firestore.
   static Future<void> createPackage({
     required String name,

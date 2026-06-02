@@ -77,6 +77,7 @@ const _ownerItems = <_NavEntry>[
   _NavItem(icon: Icons.card_membership_rounded, label: 'Membresías', route: '/memberships'),
   _NavItem(icon: Icons.bar_chart_rounded, label: 'Reportes', route: '/reports'),
   _NavItem(icon: Icons.badge_rounded, label: 'Staff', route: '/staff'),
+  _NavItem(icon: Icons.workspace_premium_rounded, label: 'Mi suscripción', route: '/subscription'),
   _NavItem(icon: Icons.settings_rounded, label: 'Configuración', route: '/settings'),
 ];
 
