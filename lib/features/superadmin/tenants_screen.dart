@@ -206,8 +206,8 @@ class _TenantRow extends StatelessWidget {
                 ),
               ),
             ),
-            // Estado suscripción
-            _StatusBadge(status: tenant.subscriptionStatus),
+            // Estado suscripción + próximo cobro
+            _StatusBadge(tenant: tenant),
             const SizedBox(width: 16),
             // Flecha
             const Icon(Icons.chevron_right,
@@ -316,27 +316,51 @@ class _TenantAvatar extends TenantAvatar {
 // ─── Badge de estado ──────────────────────────────────────────────────────────
 
 class _StatusBadge extends StatelessWidget {
-  const _StatusBadge({required this.status});
-  final SubscriptionStatus status;
+  const _StatusBadge({required this.tenant});
+  final Tenant tenant;
 
   @override
   Widget build(BuildContext context) {
-    final (label, color) = switch (status) {
-      SubscriptionStatus.active => ('Activo', OmniGymColors.success),
-      SubscriptionStatus.suspended => ('Suspendido', Colors.orange),
-      SubscriptionStatus.cancelled => ('Cancelado', OmniGymColors.errorRed),
-    };
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-      decoration: BoxDecoration(
-        color: color.withAlpha(30),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withAlpha(80)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
-      ),
+    final pastDue =
+        tenant.pastDue && tenant.subscriptionStatus == SubscriptionStatus.active;
+
+    final (label, color) = pastDue
+        ? ('Pago vencido', OmniGymColors.errorRed)
+        : switch (tenant.subscriptionStatus) {
+            SubscriptionStatus.active => ('Activo', OmniGymColors.success),
+            SubscriptionStatus.suspended => ('Suspendido', Colors.orange),
+            SubscriptionStatus.cancelled =>
+              ('Cancelado', OmniGymColors.errorRed),
+          };
+
+    final d = tenant.billingCycleEnd;
+    final fecha =
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+          decoration: BoxDecoration(
+            color: color.withAlpha(30),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withAlpha(80)),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+                color: color, fontSize: 11, fontWeight: FontWeight.w600),
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Próx. cobro $fecha',
+          style: const TextStyle(
+              color: OmniGymColors.textSecondary, fontSize: 10),
+        ),
+      ],
     );
   }
 }

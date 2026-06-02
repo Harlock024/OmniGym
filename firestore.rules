@@ -132,6 +132,14 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // ─── Tenant invoices (facturas del cobro SaaS B2B) ──────────────────────
+    // Las escribe el worker (Admin SDK) desde el webhook de Stripe. Lectura:
+    // SuperAdmin (consola) y el Owner de su propio tenant ("Mi suscripción").
+    match /tenant_invoices/{invoiceId} {
+      allow read:  if isSuperUser() || belongsToTenant(resource.data.tenant_id);
+      allow write: if false;
+    }
+
     // ─── Tenants ────────────────────────────────────────────────────────────
 
     match /tenants/{tenantId} {

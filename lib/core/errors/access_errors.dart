@@ -12,6 +12,12 @@ class TenantSuspendedError extends AccessError {
       : super('403_TENANT_SUSPENDED', 'La suscripción del gimnasio está inactiva.');
 }
 
+class TenantPastDueError extends AccessError {
+  const TenantPastDueError()
+      : super('402_TENANT_PAST_DUE',
+            'La suscripción del gimnasio tiene un pago pendiente.');
+}
+
 class BranchInactiveError extends AccessError {
   const BranchInactiveError()
       : super('403_BRANCH_INACTIVE', 'La sucursal está cerrada temporalmente.');

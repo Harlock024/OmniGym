@@ -1,7 +1,22 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/app_user.dart';
 import '../../core/models/tenant.dart';
+import '../../core/models/tenant_invoice.dart';
 import '../../core/providers/providers.dart';
+
+// ── Historial de facturas de cobro SaaS de un tenant (solo lectura) ──────────
+
+final tenantInvoicesProvider =
+    StreamProvider.family<List<TenantInvoice>, String>((ref, tenantId) {
+  return ref
+      .watch(firestoreProvider)
+      .collection('tenant_invoices')
+      .where('tenant_id', isEqualTo: tenantId)
+      .orderBy('created_at', descending: true)
+      .limit(50)
+      .snapshots()
+      .map((s) => s.docs.map(TenantInvoice.fromFirestore).toList());
+});
 
 // ── Lista de todos los tenants (solo superuser) ──────────────────────────────
 

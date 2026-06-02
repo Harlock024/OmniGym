@@ -10,7 +10,19 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
 import '../../core/models/member.dart';
+import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
+
+/// Mensaje de bloqueo por cobro SaaS B2B, o null si el gimnasio puede operar.
+String? _tenantBillingError(Tenant tenant) {
+  if (tenant.subscriptionStatus != SubscriptionStatus.active) {
+    return 'Suscripción del gimnasio inactiva';
+  }
+  if (tenant.pastDue) {
+    return 'Suscripción con pago pendiente';
+  }
+  return null;
+}
 
 // ─── Estado del kiosko ────────────────────────────────────────────────────────
 
@@ -123,6 +135,14 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
     setState(() => _state = _KioskState.loading);
 
     try {
+      // Kill switch del cobro SaaS: bloquea el check-in si la suscripción del
+      // gimnasio no está activa o tiene un pago pendiente con la plataforma.
+      final tenant = ref.read(activeTenantProvider).valueOrNull;
+      if (tenant != null) {
+        final billingError = _tenantBillingError(tenant);
+        if (billingError != null) return _setError(billingError);
+      }
+
       final member = await ref
           .read(memberRepositoryProvider)
           .getByQrToken(_tenantId!, trimmed);

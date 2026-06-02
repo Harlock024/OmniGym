@@ -27,6 +27,11 @@ class KillSwitchService {
     if (tenant.subscriptionStatus != SubscriptionStatus.active) {
       throw const TenantSuspendedError();
     }
+    // Cobro SaaS B2B: si el gimnasio tiene un pago pendiente con la plataforma,
+    // se corta el acceso (kill switch) hasta que regularice.
+    if (tenant.pastDue) {
+      throw const TenantPastDueError();
+    }
   }
 
   void _checkBranch(Branch branch) {

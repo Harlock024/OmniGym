@@ -465,6 +465,37 @@ function ownerSummaryHtml(ownerName, gymName, members) {
     </div>`;
 }
 
+// Aviso al Owner cuando Stripe rechaza el cobro de su suscripción SaaS.
+function paymentFailedHtml(ownerName, gymName) {
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#0f0f0f;color:#fff;border-radius:16px;">
+      <h2 style="color:#EF4444;margin:0 0 8px;">Pago rechazado</h2>
+      <p style="color:#aaa;margin:0 0 16px;">Hola ${esc(ownerName)}, no pudimos cobrar la suscripción de <strong style="color:#fff;">${esc(gymName)}</strong>.</p>
+      <p style="color:#aaa;margin:0 0 24px;">Actualiza tu método de pago desde <strong style="color:#fff;">Mi suscripción</strong> para reactivar el servicio. Mientras el pago siga pendiente, el acceso al sistema queda suspendido.</p>
+      <p style="color:#555;font-size:0.82em;margin:0;">Si ya lo resolviste, ignora este mensaje.</p>
+    </div>`;
+}
+
+// Recordatorio al Owner de que su suscripción se renueva (cobra) pronto.
+function renewalReminderHtml(ownerName, gymName, fecha) {
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#0f0f0f;color:#fff;border-radius:16px;">
+      <h2 style="color:#3B82F6;margin:0 0 8px;">Tu suscripción se renueva pronto</h2>
+      <p style="color:#aaa;margin:0 0 16px;">Hola ${esc(ownerName)}, la suscripción de <strong style="color:#fff;">${esc(gymName)}</strong> se renovará el <strong style="color:#fff;">${esc(fecha)}</strong>.</p>
+      <p style="color:#aaa;margin:0 0 24px;">El cobro es automático con tu método de pago registrado. No necesitas hacer nada si todo está en orden.</p>
+      <p style="color:#555;font-size:0.82em;margin:0;">Reporte automático de OmniGym.</p>
+    </div>`;
+}
+
+// Owners activos de un tenant (con email), para notificaciones de cobro.
+async function tenantOwners(projectId, tenantId, token) {
+  const users = await fsRunQuery(projectId, {
+    from: [{ collectionId: 'users' }],
+    where: fEq('tenant_id', { stringValue: tenantId }),
+  }, token);
+  return users.filter((u) => u.role === 'owner' && u.status !== 'suspended' && u.email);
+}
+
 // Registra cada ejecución de cron para auditoría del SuperAdmin.
 async function logCronRun(projectId, token, log) {
   const id = `${log.job}_${Date.now()}`;
@@ -626,6 +657,47 @@ async function runNotifyOwnersExpired(projectId, token, env) {
   });
 }
 
+// Job diario: avisa a los Owners cuya suscripción SaaS se renueva en ~3 días.
+// La ventana [+2d, +3d) garantiza un único aviso por ciclo (corre cada día).
+async function runNotifyOwnersUpcomingRenewal(projectId, token, env) {
+  const started = Date.now();
+  const now = new Date();
+  const in2 = new Date(now.getTime() + 2 * DAY_MS);
+  const in3 = new Date(now.getTime() + 3 * DAY_MS);
+  let scanned = 0, emailsSent = 0; const errors = [];
+  try {
+    const tenants = await fsRunQuery(projectId, {
+      from: [{ collectionId: 'tenants' }],
+      where: fAnd(
+        fEq('subscription_status', { stringValue: 'active' }),
+        fCmp('billing_cycle_end', 'GREATER_THAN_OR_EQUAL', { timestampValue: in2.toISOString() }),
+        fCmp('billing_cycle_end', 'LESS_THAN', { timestampValue: in3.toISOString() }),
+      ),
+    }, token);
+    scanned = tenants.length;
+    for (const t of tenants) {
+      if (t.past_due === true) continue; // si ya está vencido, no recordamos renovación
+      try {
+        const owners = await tenantOwners(projectId, t.id, token);
+        const fecha = new Date(t.billing_cycle_end).toLocaleDateString('es-MX');
+        for (const o of owners) {
+          const ok = await sendEmail(
+            o.email,
+            `Tu suscripción se renueva pronto — ${t.name}`,
+            renewalReminderHtml(o.name, t.name, fecha),
+            env,
+          );
+          if (ok) emailsSent++;
+        }
+      } catch (e) { errors.push(`${t.path}: ${e.message}`); }
+    }
+  } catch (e) { errors.push(e.message); }
+  await logCronRun(projectId, token, {
+    job: 'notify_owners_renewal', ran_at: now, duration_ms: Date.now() - started,
+    scanned, updated: 0, emails_sent: emailsSent, ok: errors.length === 0, errors,
+  });
+}
+
 async function handleScheduled(event, env) {
   const token = await getAdminToken(env);
   const projectId = JSON.parse(env.SA_JSON).project_id;
@@ -633,6 +705,7 @@ async function handleScheduled(event, env) {
     case '0 9 * * *': // 03:00 MX — mantenimiento diario de estados
       await runMarkDebtors(projectId, token);
       await runMarkPastDueTenants(projectId, token);
+      await runNotifyOwnersUpcomingRenewal(projectId, token, env);
       break;
     case '0 15 * * 1': // 09:00 MX lunes — notificaciones semanales
       await runNotifyExpiringMembers(projectId, token, env);
@@ -763,7 +836,17 @@ async function handleStripeWebhook(request, env) {
       }
       case 'invoice.payment_failed': {
         const tenant = await findTenantByCustomer(projectId, obj.customer, token);
-        if (tenant) await fsUpdate(projectId, tenant.path, { past_due: true }, token);
+        if (tenant) {
+          await fsUpdate(projectId, tenant.path, { past_due: true }, token);
+          // Avisa a los Owners (best-effort; un fallo de email no debe romper el webhook).
+          try {
+            const owners = await tenantOwners(projectId, tenant.id, token);
+            for (const o of owners) {
+              await sendEmail(o.email, `Pago rechazado — ${tenant.name}`,
+                paymentFailedHtml(o.name, tenant.name), env);
+            }
+          } catch (e) { console.error('[webhook] notify payment_failed:', e.message); }
+        }
         break;
       }
       case 'customer.subscription.deleted': {

@@ -7,7 +7,19 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/member.dart';
+import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
+
+/// Mensaje de bloqueo por cobro SaaS B2B, o null si el gimnasio puede operar.
+String? _tenantBillingError(Tenant tenant) {
+  if (tenant.subscriptionStatus != SubscriptionStatus.active) {
+    return 'Suscripción del gimnasio inactiva. Contacta al administrador.';
+  }
+  if (tenant.pastDue) {
+    return 'Suscripción con pago pendiente. Regulariza para reactivar el acceso.';
+  }
+  return null;
+}
 
 // ─── Providers ────────────────────────────────────────────────────────────────
 
@@ -170,6 +182,18 @@ class _ScanPanelState extends ConsumerState<_ScanPanel> {
               : 'Sin sucursal asignada.',
         );
         return;
+      }
+
+      // Kill switch del cobro SaaS: si la suscripción del gimnasio no está activa
+      // o tiene un pago pendiente con la plataforma, se bloquea el check-in.
+      final tenant = ref.read(activeTenantProvider).valueOrNull;
+      if (tenant != null) {
+        final billingError = _tenantBillingError(tenant);
+        if (billingError != null) {
+          ref.read(_scanResultProvider.notifier).state =
+              _ScanResult(error: billingError);
+          return;
+        }
       }
 
       final member = await ref

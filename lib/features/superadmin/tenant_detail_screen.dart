@@ -9,12 +9,14 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../app/app_theme.dart';
 import '../../core/models/tenant.dart';
+import '../../core/models/tenant_invoice.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/r2_storage_service.dart';
 import '../../core/services/worker_service.dart';
 import '../../core/utils/rfc_validator.dart';
 import 'mexico_data.dart';
 import 'sat_catalogs.dart';
+import 'superadmin_providers.dart';
 import 'tenants_screen.dart';
 
 class TenantDetailScreen extends ConsumerStatefulWidget {
@@ -90,7 +92,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   @override
   void initState() {
     super.initState();
-    _tabs = TabController(length: 3, vsync: this);
+    // En modo SuperAdmin se añade la pestaña de cobro (facturación SaaS B2B).
+    _tabs = TabController(length: widget.isOwnerMode ? 3 : 4, vsync: this);
     _loadTenant();
   }
 
@@ -382,6 +385,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                 _buildGeneralTab(),
                 _buildFiscalTab(),
                 _buildCertsTab(),
+                if (!widget.isOwnerMode) _buildBillingTab(),
               ],
             ),
           ),
@@ -468,10 +472,11 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             unselectedLabelColor: OmniGymColors.textSecondary,
             labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             unselectedLabelStyle: const TextStyle(fontSize: 13),
-            tabs: const [
-              Tab(text: 'Datos generales'),
-              Tab(text: 'Datos fiscales'),
-              Tab(text: 'Datos de certificados'),
+            tabs: [
+              const Tab(text: 'Datos generales'),
+              const Tab(text: 'Datos fiscales'),
+              const Tab(text: 'Datos de certificados'),
+              if (!widget.isOwnerMode) const Tab(text: 'Cobro'),
             ],
           ),
         ],
@@ -764,6 +769,187 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                 ),
               ],
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab 4: Cobro (facturación SaaS B2B, solo SuperAdmin) ──────────────────
+
+  /// Suspende o reactiva manualmente el acceso del gimnasio (kill switch del
+  /// SuperAdmin). Es independiente de `past_due`, que gobierna Stripe.
+  Future<void> _setSubscriptionStatus(SubscriptionStatus status) async {
+    final id = widget.tenantId;
+    if (id == null) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      await ref
+          .read(tenantRepositoryProvider)
+          .updateSubscriptionStatus(id, status);
+      if (mounted) {
+        setState(() =>
+            _tenant = _tenant?.copyWith(subscriptionStatus: status));
+      }
+    } catch (e) {
+      if (mounted) setState(() => _error = 'No se pudo actualizar el estado: $e');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  Widget _buildBillingTab() {
+    final tenant = _tenant;
+    if (tenant == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    final status = tenant.subscriptionStatus;
+    final pastDue =
+        tenant.pastDue && status == SubscriptionStatus.active;
+    final d = tenant.billingCycleEnd;
+    final fecha =
+        '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+    final (statusLabel, statusColor) = pastDue
+        ? ('Pago vencido', OmniGymColors.errorRed)
+        : switch (status) {
+            SubscriptionStatus.active => ('Activo', OmniGymColors.success),
+            SubscriptionStatus.suspended => ('Suspendido', Colors.orange),
+            SubscriptionStatus.cancelled =>
+              ('Cancelado', OmniGymColors.errorRed),
+          };
+
+    final isActive = status == SubscriptionStatus.active;
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const _SectionLabel('Estado de la suscripción'),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: OmniGymColors.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: statusColor.withAlpha(80)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: statusColor.withAlpha(30),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: statusColor.withAlpha(80)),
+                    ),
+                    child: Text(statusLabel,
+                        style: TextStyle(
+                            color: statusColor,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600)),
+                  ),
+                  const Spacer(),
+                  Text('Próximo cobro: $fecha',
+                      style: const TextStyle(
+                          color: OmniGymColors.textSecondary, fontSize: 12)),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _kv('Cliente Stripe', tenant.stripeCustomerId ?? '—'),
+              _kv('Plan (price ID)', tenant.packagePriceId ?? '—'),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        const _SectionLabel('Kill switch manual'),
+        const SizedBox(height: 8),
+        Text(
+          isActive
+              ? 'Suspende el acceso del gimnasio de inmediato. Úsalo solo como medida administrativa; el estado de pago lo gestiona Stripe automáticamente.'
+              : 'Reactiva el acceso del gimnasio. Si tiene un pago pendiente con Stripe, seguirá bloqueado hasta que regularice.',
+          style: const TextStyle(
+              color: OmniGymColors.textSecondary, fontSize: 12),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: isActive
+              ? OutlinedButton.icon(
+                  onPressed: _saving
+                      ? null
+                      : () => _setSubscriptionStatus(
+                          SubscriptionStatus.suspended),
+                  style: OutlinedButton.styleFrom(
+                      foregroundColor: OmniGymColors.errorRed,
+                      side: const BorderSide(color: OmniGymColors.errorRed)),
+                  icon: const Icon(Icons.block, size: 18),
+                  label: const Text('Suspender acceso'),
+                )
+              : FilledButton.icon(
+                  onPressed: _saving
+                      ? null
+                      : () => _setSubscriptionStatus(
+                          SubscriptionStatus.active),
+                  icon: const Icon(Icons.play_arrow, size: 18),
+                  label: const Text('Reactivar acceso'),
+                ),
+        ),
+        const SizedBox(height: 24),
+        const _SectionLabel('Historial de facturas'),
+        const SizedBox(height: 12),
+        Consumer(
+          builder: (context, ref, _) {
+            final invoicesAsync =
+                ref.watch(tenantInvoicesProvider(widget.tenantId!));
+            return invoicesAsync.when(
+              loading: () => const Padding(
+                padding: EdgeInsets.all(24),
+                child: Center(child: CircularProgressIndicator()),
+              ),
+              error: (e, _) => Text('No se pudo cargar el historial: $e',
+                  style: const TextStyle(
+                      color: OmniGymColors.textSecondary, fontSize: 12)),
+              data: (invoices) => invoices.isEmpty
+                  ? const Text('Aún no hay facturas registradas.',
+                      style: TextStyle(
+                          color: OmniGymColors.textSecondary, fontSize: 13))
+                  : Column(
+                      children: invoices
+                          .map((inv) => _InvoiceTile(invoice: inv))
+                          .toList(),
+                    ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _kv(String k, String v) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(k,
+                style: const TextStyle(
+                    color: OmniGymColors.textSecondary, fontSize: 12)),
+          ),
+          Expanded(
+            child: Text(v,
+                style: const TextStyle(
+                    color: OmniGymColors.textPrimary,
+                    fontSize: 12,
+                    fontFamily: 'monospace')),
           ),
         ],
       ),
@@ -1198,4 +1384,74 @@ class _ColorPicker extends StatelessWidget {
 
 extension _StringX on String {
   String? get nullIfEmpty => isEmpty ? null : this;
+}
+
+class _InvoiceTile extends StatelessWidget {
+  const _InvoiceTile({required this.invoice});
+  final TenantInvoice invoice;
+
+  @override
+  Widget build(BuildContext context) {
+    final (label, color) = switch (invoice.status) {
+      'paid' => ('Pagada', OmniGymColors.success),
+      'open' => ('Pendiente', Colors.orange),
+      'void' => ('Anulada', OmniGymColors.textSecondary),
+      'uncollectible' => ('Incobrable', OmniGymColors.errorRed),
+      _ => (invoice.status, OmniGymColors.textSecondary),
+    };
+    final d = invoice.createdAt;
+    final fecha = d == null
+        ? '—'
+        : '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: OmniGymColors.surface,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: OmniGymColors.border),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(fecha,
+                    style: const TextStyle(
+                        color: OmniGymColors.textPrimary,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 2),
+                Text(invoice.id,
+                    style: const TextStyle(
+                        color: OmniGymColors.textSecondary,
+                        fontSize: 11,
+                        fontFamily: 'monospace')),
+              ],
+            ),
+          ),
+          Text(
+            '\$${invoice.amount.toStringAsFixed(2)} ${invoice.currency.toUpperCase()}',
+            style: const TextStyle(
+                color: OmniGymColors.textPrimary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600),
+          ),
+          const SizedBox(width: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+            decoration: BoxDecoration(
+              color: color.withAlpha(30),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(label,
+                style: TextStyle(
+                    color: color, fontSize: 11, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
 }
