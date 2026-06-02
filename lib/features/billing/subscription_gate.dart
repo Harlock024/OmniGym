@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/app_theme.dart';
 import '../../core/models/billing_access.dart';
 import '../../core/models/tenant.dart';
+import '../../core/providers/providers.dart';
 
 /// Copy amigable por estado de cobro, reutilizado por el banner y el diálogo.
 ({String title, String message, String cta, IconData icon, Color color})
@@ -99,12 +101,12 @@ Future<void> showSubscriptionGateDialog(
 
 /// Muro de bloqueo para roles que no pueden pagar (staff): el gym no tiene
 /// suscripción/prueba activa y solo el dueño puede resolverlo.
-class SubscriptionLockedScreen extends StatelessWidget {
+class SubscriptionLockedScreen extends ConsumerWidget {
   const SubscriptionLockedScreen({super.key, required this.tenant});
   final Tenant tenant;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final c = billingCopy(tenant);
     return Scaffold(
       backgroundColor: OmniGymColors.background,
@@ -130,6 +132,12 @@ class SubscriptionLockedScreen extends StatelessWidget {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                       color: OmniGymColors.textSecondary, fontSize: 13),
+                ),
+                const SizedBox(height: 24),
+                TextButton.icon(
+                  onPressed: () => ref.read(firebaseAuthProvider).signOut(),
+                  icon: const Icon(Icons.logout, size: 18),
+                  label: const Text('Cerrar sesión'),
                 ),
               ],
             ),

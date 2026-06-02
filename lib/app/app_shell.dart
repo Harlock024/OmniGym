@@ -3,7 +3,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/models/billing_access.dart';
-import '../core/models/tenant.dart';
 import '../core/providers/providers.dart';
 import '../features/billing/subscription_gate.dart';
 import '../features/billing/subscription_screen.dart';
@@ -111,30 +110,25 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _openDrawer() => _drawerKey.currentState?.openDrawer();
 
-  // Rutas accesibles aun con el gimnasio bloqueado (para poder pagar o salir).
-  static const _unlockedRoutes = {'/subscription', '/profile'};
-
-  /// Gate de cobro estilo Netflix/Spotify: si el gimnasio no puede operar
-  /// (sin prueba ni suscripción activa), reemplaza el contenido por el muro de
-  /// suscripción — el Owner paga ahí mismo; el staff ve un aviso. Si está en
-  /// prueba, antepone el banner recordatorio. Activo/Superuser: sin cambios.
-  Widget _gate(String? role, String location, Widget child) {
-    if (role != 'owner' && role != 'staff') return child;
+  /// Gate de cobro estilo Netflix/Spotify: si el gimnasio no puede operar (sin
+  /// prueba ni suscripción activa), devuelve el muro a pantalla completa SIN
+  /// barra lateral — el Owner paga ahí mismo; el staff ve un aviso. Devuelve
+  /// null cuando el gym sí puede operar (o el rol no aplica) para seguir con la
+  /// navegación normal con sidebar.
+  Widget? _blockedWall(String? role) {
+    if (role != 'owner' && role != 'staff') return null;
     final tenant = ref.watch(activeTenantProvider).valueOrNull;
-    if (tenant == null || tenant.canOperate) {
-      return _withBanner(role, tenant, child);
-    }
-    if (_unlockedRoutes.contains(location)) return child;
+    if (tenant == null || tenant.canOperate) return null;
     return role == 'owner'
         ? const SubscriptionScreen()
         : SubscriptionLockedScreen(tenant: tenant);
   }
 
   /// Banner recordatorio durante la prueba (no se muestra si está activo).
-  Widget _withBanner(String? role, Tenant? tenant, Widget child) {
-    if (role != 'owner' ||
-        tenant == null ||
-        tenant.billingState == BillingState.active) {
+  Widget _withBanner(String? role, Widget child) {
+    if (role != 'owner') return child;
+    final tenant = ref.watch(activeTenantProvider).valueOrNull;
+    if (tenant == null || tenant.billingState == BillingState.active) {
       return child;
     }
     return Column(
@@ -164,6 +158,11 @@ class _AppShellState extends ConsumerState<AppShell> {
   Widget build(BuildContext context) {
     final role = ref.watch(currentUserRoleProvider).valueOrNull;
     final user = ref.watch(currentAppUserProvider).valueOrNull;
+
+    // Gimnasio bloqueado por cobro: muro a pantalla completa, sin barra lateral.
+    final wall = _blockedWall(role);
+    if (wall != null) return wall;
+
     final width = MediaQuery.sizeOf(context).width;
     final isMobile = width < Breakpoints.mobile;
     final isTablet =
@@ -189,7 +188,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             width: 280,
             child: sidebarContent,
           ),
-          body: _gate(role, widget.location, widget.child),
+          body: _withBanner(role, widget.child),
         ),
       );
     }
@@ -211,7 +210,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
             const VerticalDivider(
                 width: 1, thickness: 1, color: OmniGymColors.border),
-            Expanded(child: _gate(role, widget.location, widget.child)),
+            Expanded(child: _withBanner(role, widget.child)),
           ],
         ),
       );
@@ -225,7 +224,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           SizedBox(width: 200, child: sidebarContent),
           const VerticalDivider(
               width: 1, thickness: 1, color: OmniGymColors.border),
-          Expanded(child: _gate(role, widget.location, widget.child)),
+          Expanded(child: _withBanner(role, widget.child)),
         ],
       ),
     );

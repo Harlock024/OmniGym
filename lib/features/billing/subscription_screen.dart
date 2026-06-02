@@ -63,6 +63,15 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         leading: context.isMobile ? const DrawerMenuButton() : null,
         automaticallyImplyLeading: false,
         title: const Text('Mi suscripción'),
+        actions: [
+          // Cuando es el muro de bloqueo (sin barra lateral), ofrecer salir.
+          if (!(tenantAsync.valueOrNull?.canOperate ?? true))
+            IconButton(
+              icon: const Icon(Icons.logout, size: 20),
+              tooltip: 'Cerrar sesión',
+              onPressed: () => ref.read(firebaseAuthProvider).signOut(),
+            ),
+        ],
       ),
       body: tenantAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
