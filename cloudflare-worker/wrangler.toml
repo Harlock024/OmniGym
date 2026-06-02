@@ -5,3 +5,9 @@ compatibility_date = "2025-01-01"
 [[r2_buckets]]
 binding = "R2_BUCKET"
 bucket_name = "omni-gym"
+
+# Cron Triggers (UTC). México es UTC-6 todo el año.
+#   "0 9 * * *"  → 03:00 MX diario : marca deudores + tenants past_due
+#   "0 15 * * 1" → 09:00 MX lunes  : avisos de vencimiento + resumen a Owners
+[triggers]
+crons = ["0 9 * * *", "0 15 * * 1"]

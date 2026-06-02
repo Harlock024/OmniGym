@@ -42,6 +42,22 @@
       ]
     },
     {
+      "collectionGroup": "members",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "access_status", "order": "ASCENDING" },
+        { "fieldPath": "expiration_date", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tenants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "subscription_status", "order": "ASCENDING" },
+        { "fieldPath": "billing_cycle_end", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "payments",
       "queryScope": "COLLECTION",
       "fields": [

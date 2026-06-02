@@ -218,6 +218,83 @@ async function fsDelete(projectId, docPath, token) {
   }
 }
 
+// Actualiza (merge) campos de un documento usando updateMask para NO sobrescribir
+// el resto del documento. Imprescindible para los crons que marcan banderas.
+async function fsUpdate(projectId, docPath, data, token) {
+  const params = Object.keys(data)
+    .map((k) => `updateMask.fieldPaths=${encodeURIComponent(k)}`)
+    .join('&');
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${docPath}?${params}`;
+  const fields = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (v !== undefined) fields[k] = toFsVal(v);
+  }
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ fields }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Firestore update error: ${JSON.stringify(err?.error ?? err)}`);
+  }
+  return res.json();
+}
+
+// ── Firestore REST: lectura ─────────────────────────────────────────────────
+
+// Convierte un valor REST de Firestore a JS (inverso de toFsVal).
+function fromFsVal(v) {
+  if (v == null || 'nullValue' in v) return null;
+  if ('booleanValue' in v) return v.booleanValue;
+  if ('integerValue' in v) return parseInt(v.integerValue, 10);
+  if ('doubleValue' in v) return v.doubleValue;
+  if ('stringValue' in v) return v.stringValue;
+  if ('timestampValue' in v) return new Date(v.timestampValue);
+  if ('referenceValue' in v) return v.referenceValue;
+  if ('arrayValue' in v) return (v.arrayValue.values ?? []).map(fromFsVal);
+  if ('mapValue' in v) {
+    const out = {};
+    for (const [k, val] of Object.entries(v.mapValue.fields ?? {})) out[k] = fromFsVal(val);
+    return out;
+  }
+  return null;
+}
+
+// Aplana un documento REST a { id, path, ...campos }.
+function fsParseDoc(doc) {
+  const fields = {};
+  for (const [k, v] of Object.entries(doc.fields ?? {})) fields[k] = fromFsVal(v);
+  const marker = '/documents/';
+  const path = doc.name.substring(doc.name.indexOf(marker) + marker.length);
+  return { id: path.split('/').pop(), path, ...fields };
+}
+
+// Ejecuta una structuredQuery (soporta collectionGroup con allDescendants).
+async function fsRunQuery(projectId, structuredQuery, token) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents:runQuery`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ structuredQuery }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Firestore runQuery error: ${JSON.stringify(err?.error ?? err)}`);
+  }
+  const rows = await res.json();
+  return rows.filter((r) => r.document).map((r) => fsParseDoc(r.document));
+}
+
+// Atajos para construir filtros de structuredQuery.
+const fEq = (field, value) => ({
+  fieldFilter: { field: { fieldPath: field }, op: 'EQUAL', value },
+});
+const fCmp = (field, op, value) => ({
+  fieldFilter: { field: { fieldPath: field }, op, value },
+});
+const fAnd = (...filters) => ({ compositeFilter: { op: 'AND', filters } });
+
 // ── Generadores ───────────────────────────────────────────────────────────────
 
 function generateTempPassword() {
@@ -320,7 +397,257 @@ async function sendStaffInviteEmail(to, name, gymName, roleLabel, link, env) {
 
 // ── Main handler ──────────────────────────────────────────────────────────────
 
+// ── Cron Triggers: automatización (sin Firebase Blaze) ──────────────────────
+// Cloudflare ejecuta crons en UTC. México es UTC-6 todo el año.
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const esc = (s) =>
+  String(s ?? '').replace(/[&<>"]/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+// Lee un documento por path; null si no existe.
+async function fsGet(projectId, docPath, token) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${docPath}`;
+  const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+  if (res.status === 404) return null;
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(`Firestore get error: ${JSON.stringify(err?.error ?? err)}`);
+  }
+  return fsParseDoc(await res.json());
+}
+
+// Envío genérico de correo vía Resend. Devuelve true si se envió.
+async function sendEmail(to, subject, html, env) {
+  if (!env.RESEND_API_KEY) return false;
+  const from = env.EMAIL_FROM ?? 'OmniGym <noreply@omni-gym.com>';
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ from, to: [to], subject, html }),
+  });
+  if (!res.ok) {
+    console.error('[sendEmail] Resend error:', await res.text());
+    return false;
+  }
+  return true;
+}
+
+function expiryReminderHtml(memberName, gymName, daysLeft) {
+  const cuando = daysLeft <= 0
+    ? 'hoy'
+    : (daysLeft === 1 ? 'mañana' : `en ${daysLeft} días`);
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#0f0f0f;color:#fff;border-radius:16px;">
+      <h2 style="color:#3B82F6;margin:0 0 8px;">Hola, ${esc(memberName)}</h2>
+      <p style="color:#aaa;margin:0 0 24px;">Tu membresía en <strong style="color:#fff;">${esc(gymName)}</strong> vence <strong style="color:#fff;">${cuando}</strong>.</p>
+      <p style="color:#aaa;margin:0 0 24px;">Renueva a tiempo para no perder el acceso al gimnasio.</p>
+      <p style="color:#555;font-size:0.82em;margin:0;">Si ya renovaste, ignora este mensaje.</p>
+    </div>`;
+}
+
+function ownerSummaryHtml(ownerName, gymName, members) {
+  const items = members
+    .slice(0, 25)
+    .map((m) => `<li style="margin:4px 0;">${esc(m.name)} — venció el ${new Date(m.expiration_date).toLocaleDateString('es-MX')}</li>`)
+    .join('');
+  const extra = members.length > 25 ? `<p style="color:#888;">…y ${members.length - 25} más.</p>` : '';
+  return `
+    <div style="font-family:Arial,sans-serif;max-width:560px;margin:0 auto;padding:32px;background:#0f0f0f;color:#fff;border-radius:16px;">
+      <h2 style="color:#3B82F6;margin:0 0 8px;">Resumen semanal — ${esc(gymName)}</h2>
+      <p style="color:#aaa;margin:0 0 16px;">Hola ${esc(ownerName)}, tienes <strong style="color:#fff;">${members.length}</strong> socio(s) vencido(s) sin renovar en los últimos 30 días:</p>
+      <ul style="color:#ddd;padding-left:20px;margin:0 0 16px;">${items}</ul>
+      ${extra}
+      <p style="color:#555;font-size:0.82em;margin:0;">Reporte automático de OmniGym.</p>
+    </div>`;
+}
+
+// Registra cada ejecución de cron para auditoría del SuperAdmin.
+async function logCronRun(projectId, token, log) {
+  const id = `${log.job}_${Date.now()}`;
+  try {
+    await fsSet(projectId, `cron_runs/${id}`, { ...log, ran_at: new Date(log.ran_at) }, token);
+  } catch (e) {
+    console.error('[logCronRun] no se pudo registrar la ejecución:', e.message);
+  }
+}
+
+// Job diario: marca como deudores a los socios vencidos y aún activos.
+async function runMarkDebtors(projectId, token) {
+  const started = Date.now();
+  const now = new Date();
+  let scanned = 0, updated = 0; const errors = [];
+  try {
+    const members = await fsRunQuery(projectId, {
+      from: [{ collectionId: 'members', allDescendants: true }],
+      where: fAnd(
+        fEq('access_status', { stringValue: 'active' }),
+        fCmp('expiration_date', 'LESS_THAN', { timestampValue: now.toISOString() }),
+      ),
+    }, token);
+    scanned = members.length;
+    for (const m of members) {
+      if (m.is_debtor === true) continue; // idempotente
+      try {
+        await fsUpdate(projectId, m.path, { is_debtor: true, debtor_since: now }, token);
+        updated++;
+      } catch (e) { errors.push(`${m.path}: ${e.message}`); }
+    }
+  } catch (e) { errors.push(e.message); }
+  await logCronRun(projectId, token, {
+    job: 'mark_debtors', ran_at: now, duration_ms: Date.now() - started,
+    scanned, updated, emails_sent: 0, ok: errors.length === 0, errors,
+  });
+}
+
+// Job diario: marca tenants con ciclo de facturación vencido como past_due.
+async function runMarkPastDueTenants(projectId, token) {
+  const started = Date.now();
+  const now = new Date();
+  let scanned = 0, updated = 0; const errors = [];
+  try {
+    const tenants = await fsRunQuery(projectId, {
+      from: [{ collectionId: 'tenants' }],
+      where: fAnd(
+        fEq('subscription_status', { stringValue: 'active' }),
+        fCmp('billing_cycle_end', 'LESS_THAN', { timestampValue: now.toISOString() }),
+      ),
+    }, token);
+    scanned = tenants.length;
+    for (const t of tenants) {
+      if (t.past_due === true) continue;
+      try {
+        await fsUpdate(projectId, t.path, { past_due: true, past_due_since: now }, token);
+        updated++;
+      } catch (e) { errors.push(`${t.path}: ${e.message}`); }
+    }
+  } catch (e) { errors.push(e.message); }
+  await logCronRun(projectId, token, {
+    job: 'mark_past_due_tenants', ran_at: now, duration_ms: Date.now() - started,
+    scanned, updated, emails_sent: 0, ok: errors.length === 0, errors,
+  });
+}
+
+// Job semanal: avisa a socios cuya membresía vence en los próximos 7 días.
+async function runNotifyExpiringMembers(projectId, token, env) {
+  const started = Date.now();
+  const now = new Date();
+  const in7 = new Date(now.getTime() + 7 * DAY_MS);
+  let scanned = 0, emailsSent = 0; const errors = [];
+  const gymNameCache = {};
+  try {
+    const members = await fsRunQuery(projectId, {
+      from: [{ collectionId: 'members', allDescendants: true }],
+      where: fAnd(
+        fEq('access_status', { stringValue: 'active' }),
+        fCmp('expiration_date', 'GREATER_THAN_OR_EQUAL', { timestampValue: now.toISOString() }),
+        fCmp('expiration_date', 'LESS_THAN_OR_EQUAL', { timestampValue: in7.toISOString() }),
+      ),
+    }, token);
+    scanned = members.length;
+    for (const m of members) {
+      if (!m.email) continue;
+      const tenantId = m.tenant_id;
+      if (tenantId && gymNameCache[tenantId] === undefined) {
+        const t = await fsGet(projectId, `tenants/${tenantId}`, token);
+        gymNameCache[tenantId] = t?.name ?? 'tu gimnasio';
+      }
+      const daysLeft = Math.ceil((new Date(m.expiration_date).getTime() - now.getTime()) / DAY_MS);
+      try {
+        const ok = await sendEmail(
+          m.email,
+          'Tu membresía vence pronto',
+          expiryReminderHtml(m.name, gymNameCache[tenantId] ?? 'tu gimnasio', daysLeft),
+          env,
+        );
+        if (ok) emailsSent++;
+      } catch (e) { errors.push(`${m.email}: ${e.message}`); }
+    }
+  } catch (e) { errors.push(e.message); }
+  await logCronRun(projectId, token, {
+    job: 'notify_expiring_members', ran_at: now, duration_ms: Date.now() - started,
+    scanned, updated: 0, emails_sent: emailsSent, ok: errors.length === 0, errors,
+  });
+}
+
+// Job semanal: envía a cada Owner un resumen de socios vencidos (últimos 30 días).
+async function runNotifyOwnersExpired(projectId, token, env) {
+  const started = Date.now();
+  const now = new Date();
+  const ago30 = new Date(now.getTime() - 30 * DAY_MS);
+  let scanned = 0, emailsSent = 0; const errors = [];
+  try {
+    const members = await fsRunQuery(projectId, {
+      from: [{ collectionId: 'members', allDescendants: true }],
+      where: fAnd(
+        fEq('access_status', { stringValue: 'active' }),
+        fCmp('expiration_date', 'GREATER_THAN_OR_EQUAL', { timestampValue: ago30.toISOString() }),
+        fCmp('expiration_date', 'LESS_THAN', { timestampValue: now.toISOString() }),
+      ),
+    }, token);
+    scanned = members.length;
+
+    // Agrupar por tenant
+    const byTenant = {};
+    for (const m of members) {
+      if (!m.tenant_id) continue;
+      (byTenant[m.tenant_id] ??= []).push(m);
+    }
+
+    for (const [tenantId, list] of Object.entries(byTenant)) {
+      try {
+        const tenant = await fsGet(projectId, `tenants/${tenantId}`, token);
+        const gymName = tenant?.name ?? 'tu gimnasio';
+        // Owners del tenant (single-field index: tenant_id), se filtra rol en código.
+        const users = await fsRunQuery(projectId, {
+          from: [{ collectionId: 'users' }],
+          where: fEq('tenant_id', { stringValue: tenantId }),
+        }, token);
+        const owners = users.filter(
+          (u) => u.role === 'owner' && u.status !== 'suspended' && u.email);
+        for (const owner of owners) {
+          const ok = await sendEmail(
+            owner.email,
+            `Socios vencidos sin renovar — ${gymName}`,
+            ownerSummaryHtml(owner.name, gymName, list),
+            env,
+          );
+          if (ok) emailsSent++;
+        }
+      } catch (e) { errors.push(`tenant ${tenantId}: ${e.message}`); }
+    }
+  } catch (e) { errors.push(e.message); }
+  await logCronRun(projectId, token, {
+    job: 'notify_owners_expired', ran_at: now, duration_ms: Date.now() - started,
+    scanned, updated: 0, emails_sent: emailsSent, ok: errors.length === 0, errors,
+  });
+}
+
+async function handleScheduled(event, env) {
+  const token = await getAdminToken(env);
+  const projectId = JSON.parse(env.SA_JSON).project_id;
+  switch (event.cron) {
+    case '0 9 * * *': // 03:00 MX — mantenimiento diario de estados
+      await runMarkDebtors(projectId, token);
+      await runMarkPastDueTenants(projectId, token);
+      break;
+    case '0 15 * * 1': // 09:00 MX lunes — notificaciones semanales
+      await runNotifyExpiringMembers(projectId, token, env);
+      await runNotifyOwnersExpired(projectId, token, env);
+      break;
+    default:
+      console.warn('[scheduled] cron no reconocido:', event.cron);
+  }
+}
+
 export default {
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(handleScheduled(event, env));
+  },
+
   async fetch(request, env) {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: CORS });
