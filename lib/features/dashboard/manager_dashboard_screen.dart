@@ -33,10 +33,19 @@ class ManagerDashboardScreen extends ConsumerWidget {
                   icon: const Icon(Icons.more_vert),
                   color: OmniGymColors.card,
                   onSelected: (v) {
+                    if (v == 'kiosk') context.push('/kiosk');
                     if (v == 'profile') context.push('/profile');
                     if (v == 'logout') ref.read(firebaseAuthProvider).signOut();
                   },
                   itemBuilder: (_) => const [
+                    PopupMenuItem(
+                      value: 'kiosk',
+                      child: Row(children: [
+                        Icon(Icons.tablet_android_rounded, size: 18),
+                        SizedBox(width: 10),
+                        Text('Modo kiosko'),
+                      ]),
+                    ),
                     PopupMenuItem(
                       value: 'profile',
                       child: Row(children: [
@@ -154,21 +163,25 @@ class _ManagerContent extends ConsumerWidget {
                 ],
               ),
             ),
-            FilledButton.icon(
-              icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
-              label: const Text('Escáner'),
-              onPressed: () => context.push('/scanner'),
-            ),
-            const SizedBox(width: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.tablet_android_rounded, size: 18),
-              label: const Text('Kiosko'),
-              onPressed: () => context.push('/kiosk'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: OmniGymColors.textSecondary,
-                side: const BorderSide(color: OmniGymColors.border),
+            // En móvil estas acciones viven en el AppBar (escáner) y en el
+            // menú "…" (kiosko); aquí solo se muestran en pantallas anchas.
+            if (!context.isMobile) ...[
+              FilledButton.icon(
+                icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                label: const Text('Escáner'),
+                onPressed: () => context.push('/scanner'),
               ),
-            ),
+              const SizedBox(width: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.tablet_android_rounded, size: 18),
+                label: const Text('Kiosko'),
+                onPressed: () => context.push('/kiosk'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: OmniGymColors.textSecondary,
+                  side: const BorderSide(color: OmniGymColors.border),
+                ),
+              ),
+            ],
           ],
         ),
         const SizedBox(height: 24),
