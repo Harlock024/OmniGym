@@ -28,6 +28,8 @@ class AppUser with _$AppUser {
     required String id,
     @JsonKey(name: 'tenant_id') String? tenantId,
     @JsonKey(name: 'branch_id') String? branchId,
+    // Cargo/uso del CSD (informativo, p. ej. quién maneja el certificado fiscal)
+    @JsonKey(name: 'csd_cargo') String? csdCargo,
     required String name,
     required String email,
     String? phone,

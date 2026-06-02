@@ -12,6 +12,19 @@ final staffListProvider = StreamProvider<List<AppUser>>((ref) async* {
   yield* ref.watch(userRepositoryProvider).watchByTenant(tenantId);
 });
 
+// Mapa branchId -> nombre de sucursal del tenant activo (para la columna Sucursal)
+final staffBranchNamesProvider = StreamProvider<Map<String, String>>((ref) async* {
+  final tenantId = await ref.watch(activeTenantIdFutureProvider.future);
+  if (tenantId == null) {
+    yield <String, String>{};
+    return;
+  }
+  yield* ref
+      .watch(branchRepositoryProvider)
+      .watchAll(tenantId)
+      .map((branches) => {for (final b in branches) b.id: b.name});
+});
+
 // Filtro de rol seleccionado (null = todos)
 final staffRoleFilterProvider = StateProvider<UserRole?>((ref) => null);
 

@@ -6,7 +6,8 @@ import '../../app/app_theme.dart';
 import '../../core/models/app_user.dart';
 import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
-import 'invite_staff_sheet.dart';
+import '../../core/services/worker_service.dart';
+import 'invite_staff_dialog.dart';
 import 'staff_providers.dart';
 
 class StaffScreen extends ConsumerWidget {
@@ -29,23 +30,21 @@ class StaffScreen extends ConsumerWidget {
       body: Column(
         children: [
           const _StaffFilters(),
-          const Expanded(child: _StaffList()),
+          const Expanded(child: _StaffTable()),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openInviteSheet(context, ref),
+        onPressed: () => _openInviteDialog(context),
         icon: const Icon(Icons.person_add_outlined),
-        label: const Text('Invitar'),
+        label: const Text('Invitar Staff'),
       ),
     );
   }
 
-  void _openInviteSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
+  void _openInviteDialog(BuildContext context) {
+    showDialog(
       context: context,
-      isScrollControlled: true,
-      useSafeArea: true,
-      builder: (_) => const InviteStaffSheet(),
+      builder: (_) => const InviteStaffDialog(),
     );
   }
 }
@@ -99,14 +98,15 @@ class _StaffFilters extends ConsumerWidget {
   }
 }
 
-// ─── Lista ────────────────────────────────────────────────────────────────────
+// ─── Tabla ──────────────────────────────────────────────────────────────────
 
-class _StaffList extends ConsumerWidget {
-  const _StaffList();
+class _StaffTable extends ConsumerWidget {
+  const _StaffTable();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final staffAsync = ref.watch(filteredStaffProvider);
+    final branchNames = ref.watch(staffBranchNamesProvider).valueOrNull ?? {};
     final currentUser = ref.watch(currentUserProvider);
 
     return staffAsync.when(
@@ -114,66 +114,91 @@ class _StaffList extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (staff) {
         // Ocultar al superuser de la lista para owners
-        final visible = staff
-            .where((u) => u.role != UserRole.superuser)
-            .toList();
+        final visible =
+            staff.where((u) => u.role != UserRole.superuser).toList();
 
         if (visible.isEmpty) {
           return const Center(child: Text('No hay operadores registrados.'));
         }
 
-        return ListView.separated(
+        return SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
-          itemCount: visible.length,
-          separatorBuilder: (context, index) => const SizedBox(height: 8),
-          itemBuilder: (context, i) => _StaffTile(
-            user: visible[i],
-            isSelf: visible[i].id == currentUser?.uid,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                minWidth: MediaQuery.of(context).size.width - 32,
+              ),
+              child: DataTable(
+                columns: const [
+                  DataColumn(label: Text('Nombre')),
+                  DataColumn(label: Text('Rol')),
+                  DataColumn(label: Text('Sucursal asignada')),
+                  DataColumn(label: Text('Acciones')),
+                ],
+                rows: [
+                  for (final user in visible)
+                    _staffRow(
+                      context,
+                      ref,
+                      user,
+                      branchNames,
+                      isSelf: user.id == currentUser?.uid,
+                    ),
+                ],
+              ),
+            ),
           ),
         );
       },
     );
   }
-}
 
-// ─── Item ─────────────────────────────────────────────────────────────────────
+  DataRow _staffRow(
+    BuildContext context,
+    WidgetRef ref,
+    AppUser user,
+    Map<String, String> branchNames, {
+    required bool isSelf,
+  }) {
+    final branchLabel = user.role == UserRole.owner
+        ? '—'
+        : (user.branchId != null
+            ? (branchNames[user.branchId] ?? 'Sucursal eliminada')
+            : 'Sin asignar');
 
-class _StaffTile extends ConsumerWidget {
-  const _StaffTile({required this.user, required this.isSelf});
-
-  final AppUser user;
-  final bool isSelf;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final cs = Theme.of(context).colorScheme;
-    final isActive = user.status == UserStatus.active;
-
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: cs.primaryContainer,
-          child: Text(
-            user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
-            style: TextStyle(color: cs.onPrimaryContainer),
+    return DataRow(
+      cells: [
+        DataCell(
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(user.name,
+                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                user.email,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
           ),
         ),
-        title: Text(
-          user.name,
-          style: const TextStyle(fontWeight: FontWeight.w600),
-        ),
-        subtitle: Text(user.email),
-        trailing: Row(
+        DataCell(Row(
           mainAxisSize: MainAxisSize.min,
-          spacing: 8,
+          spacing: 6,
           children: [
             _RoleChip(role: user.role),
-            _StatusChip(isActive: isActive),
-            if (!isSelf)
-              _ActionMenu(user: user),
+            _StatusChip(isActive: user.status == UserStatus.active),
           ],
-        ),
-      ),
+        )),
+        DataCell(Text(branchLabel)),
+        DataCell(isSelf
+            ? const Text('—')
+            : _ActionMenu(user: user)),
+      ],
     );
   }
 }
@@ -193,6 +218,7 @@ class _RoleChip extends StatelessWidget {
     return Chip(
       label: Text(label, style: const TextStyle(fontSize: 11)),
       padding: EdgeInsets.zero,
+      visualDensity: VisualDensity.compact,
       backgroundColor: cs.secondaryContainer,
       labelStyle: TextStyle(color: cs.onSecondaryContainer),
     );
@@ -253,6 +279,14 @@ class _ActionMenu extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
             ),
           ),
+        const PopupMenuItem(
+          value: _Action.delete,
+          child: ListTile(
+            leading: Icon(Icons.delete_outline, color: Colors.redAccent),
+            title: Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
       ],
     );
   }
@@ -271,6 +305,43 @@ class _ActionMenu extends ConsumerWidget {
         await repo.updateStatus(user.id, UserStatus.active);
       case _Action.changeBranch:
         if (context.mounted) _showChangeBranchDialog(context, ref);
+      case _Action.delete:
+        if (context.mounted) await _confirmAndDelete(context);
+    }
+  }
+
+  Future<void> _confirmAndDelete(BuildContext context) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar operador'),
+        content: Text(
+            '¿Eliminar a ${user.name}? Se borrará su cuenta de acceso de forma permanente.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !context.mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await WorkerService.deleteStaff(user.id);
+      messenger.showSnackBar(
+        SnackBar(content: Text('${user.name} fue eliminado.')),
+      );
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('No se pudo eliminar: $e')),
+      );
     }
   }
 
@@ -293,7 +364,7 @@ class _ActionMenu extends ConsumerWidget {
   }
 }
 
-enum _Action { suspend, activate, changeBranch }
+enum _Action { suspend, activate, changeBranch, delete }
 
 class _ChangeBranchDialog extends ConsumerWidget {
   const _ChangeBranchDialog({required this.user, required this.branches});

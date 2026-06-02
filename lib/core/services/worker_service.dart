@@ -48,6 +48,7 @@ class WorkerService {
     required String tenantId,
     String? branchId,
     String? gymName,
+    String? csdCargo,
   }) async {
     final body = <String, dynamic>{
       'name': name,
@@ -57,6 +58,7 @@ class WorkerService {
     };
     if (branchId != null) body['branch_id'] = branchId;
     if (gymName != null && gymName.isNotEmpty) body['gymName'] = gymName;
+    if (csdCargo != null && csdCargo.isNotEmpty) body['csd_cargo'] = csdCargo;
 
     final res = await http.post(
       Uri.parse('$_base/create-staff'),
@@ -76,6 +78,18 @@ class WorkerService {
 
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return data['uid'] as String;
+  }
+
+  /// Elimina un operador: borra su cuenta de Firebase Auth y el doc /users/{uid}.
+  static Future<void> deleteStaff(String uid) async {
+    final res = await http.post(
+      Uri.parse('$_base/delete-staff'),
+      headers: _headers,
+      body: jsonEncode({'uid': uid}),
+    );
+    if (res.statusCode != 200) {
+      throw Exception('delete-staff failed (${res.statusCode}): ${res.body}');
+    }
   }
 }
 

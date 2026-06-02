@@ -129,6 +129,10 @@ async function setCustomClaims(uid, claims, token) {
   }, token);
 }
 
+async function deleteAuthUser(uid, token) {
+  await fbAuthPost('delete', { localId: uid }, token);
+}
+
 // IMPORTANTE: el correo SOLO se envía si la llamada se hace con la Web API key
 // como petición de cliente (sin token admin). Con token admin, sendOobCode solo
 // devuelve el oobLink y NO manda email.
@@ -199,6 +203,19 @@ async function fsSet(projectId, docPath, data, token) {
     throw new Error(`Firestore set error: ${JSON.stringify(err?.error ?? err)}`);
   }
   return res.json();
+}
+
+// Elimina un documento en Firestore via REST (DELETE)
+async function fsDelete(projectId, docPath, token) {
+  const url = `https://firestore.googleapis.com/v1/projects/${projectId}/databases/(default)/documents/${docPath}`;
+  const res = await fetch(url, {
+    method: 'DELETE',
+    headers: { 'Authorization': `Bearer ${token}` },
+  });
+  if (!res.ok && res.status !== 404) {
+    const err = await res.json();
+    throw new Error(`Firestore delete error: ${JSON.stringify(err?.error ?? err)}`);
+  }
 }
 
 // ── Generadores ───────────────────────────────────────────────────────────────
@@ -354,7 +371,7 @@ export default {
 
     // ── POST /create-staff ────────────────────────────────────────────────────
     if (request.method === 'POST' && pathname === '/create-staff') {
-      const { name, email, role, tenant_id, branch_id, gymName } = await request.json();
+      const { name, email, role, tenant_id, branch_id, gymName, csd_cargo } = await request.json();
       if (!name || !email || !role || !tenant_id) {
         return jsonRes({ error: 'Missing required fields' }, 400);
       }
@@ -380,8 +397,7 @@ export default {
       if (branch_id) claims.branch_id = branch_id;
       await setCustomClaims(uid, claims, token);
 
-      // 3. Documento /users/{uid} server-side (antes lo escribía la app, lo que
-      //    dejaba cuentas Auth huérfanas si la escritura fallaba).
+      // 3. Documento /users/{uid} server-side con info del staff 
       await fsSet(projectId, `users/${uid}`, {
         name,
         email,
@@ -389,6 +405,7 @@ export default {
         status: 'active',
         tenant_id,
         branch_id: branch_id || null,
+        csd_cargo: csd_cargo || null,
         created_at: new Date(),
       }, token);
 
@@ -406,6 +423,30 @@ export default {
       }
 
       return jsonRes({ uid });
+    }
+
+    // ── POST /delete-staff ──────────────────────────────────────────────────────
+    // Borra la cuenta de Firebase Auth y el documento /users/{uid} de un operador.
+    // Body: { uid }
+    if (request.method === 'POST' && pathname === '/delete-staff') {
+      const { uid } = await request.json();
+      if (!uid) return jsonRes({ error: 'Missing uid' }, 400);
+
+      const token = await getAdminToken(env);
+      const sa = JSON.parse(env.SA_JSON);
+      const projectId = sa.project_id;
+
+      // Borra el doc primero (idempotente); luego la cuenta de Auth.
+      await fsDelete(projectId, `users/${uid}`, token);
+      try {
+        await deleteAuthUser(uid, token);
+      } catch (e) {
+        // Si la cuenta ya no existe en Auth, lo consideramos éxito.
+        const msg = e.message ?? '';
+        if (!msg.includes('USER_NOT_FOUND')) throw e;
+      }
+
+      return jsonRes({ success: true });
     }
 
     // ── POST /create-member ───────────────────────────────────────────────────
