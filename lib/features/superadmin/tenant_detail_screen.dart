@@ -11,6 +11,7 @@ import '../../app/app_theme.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/r2_storage_service.dart';
+import '../../core/utils/rfc_validator.dart';
 import 'mexico_data.dart';
 import 'sat_catalogs.dart';
 import 'tenants_screen.dart';
@@ -36,6 +37,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   // ── Controllers ──────────────────────────────────────────────────────────────
   final _nameCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
+  final _coloniaCtrl = TextEditingController();
   final _postalCtrl = TextEditingController();
   final _contactCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
@@ -61,11 +63,17 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   DateTime? _fechaVencimiento;
   String _primaryColor = '#2563EB';
 
-  // Cert data (session only, never persisted in plain text)
+  String? _rfcError;
+
+  // Cert data (los bytes se suben a R2 al guardar; solo persistimos la URL).
   Uint8List? _cerBytes;
   String? _cerName;
+  String? _cerUrl;
+  bool _cerDirty = false;
   Uint8List? _keyBytes;
   String? _keyName;
+  String? _keyUrl;
+  bool _keyDirty = false;
 
   // Logo
   Uint8List? _logoBytes;
@@ -82,7 +90,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   void dispose() {
     _tabs.dispose();
     for (final c in [
-      _nameCtrl, _addressCtrl, _postalCtrl, _contactCtrl, _phoneCtrl,
+      _nameCtrl, _addressCtrl, _coloniaCtrl, _postalCtrl, _contactCtrl, _phoneCtrl,
       _emailCtrl, _rfcCtrl, _razonSocialCtrl, _giroCtrl, _serieCtrl,
       _numAprobCtrl, _anioAprobCtrl, _folioIniCtrl, _folioFinCtrl,
       _folioActCtrl, _certPassCtrl,
@@ -116,6 +124,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     final s = t.settings;
     _nameCtrl.text = t.name;
     _addressCtrl.text = s.address ?? '';
+    _coloniaCtrl.text = s.colonia ?? '';
     _postalCtrl.text = s.postalCode ?? '';
     _contactCtrl.text = s.contactName ?? '';
     _phoneCtrl.text = s.phone ?? '';
@@ -136,24 +145,55 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     _regimenFiscal = s.regimenFiscal;
     _fechaVencimiento = s.fechaVencimiento;
     _primaryColor = s.primaryColor;
-    if (s.certCerData != null) {
+    _cerName = s.certCerName;
+    _keyName = s.certKeyName;
+    _cerUrl = s.certCerUrl;
+    _keyUrl = s.certKeyUrl;
+    // Compatibilidad con tenants previos a la migración a R2 (base64 en Firestore).
+    if (s.certCerUrl == null && s.certCerData != null) {
       _cerBytes = base64Decode(s.certCerData!);
-      _cerName = s.certCerName;
     }
-    if (s.certKeyData != null) {
+    if (s.certKeyUrl == null && s.certKeyData != null) {
       _keyBytes = base64Decode(s.certKeyData!);
-      _keyName = s.certKeyName;
     }
   }
 
   Future<void> _save() async {
     if (_tenant == null) return;
+
+    // Validación de RFC (formato + dígito verificador) antes de persistir.
+    final rfcError = RfcValidator.validate(_rfcCtrl.text);
+    if (rfcError != null) {
+      setState(() { _rfcError = rfcError; _error = rfcError; });
+      _tabs.animateTo(1);
+      return;
+    }
+
     setState(() { _saving = true; _error = null; });
     try {
+      // Subir certificados nuevos a Cloudflare R2; solo persistimos la URL.
+      var cerUrl = _cerUrl;
+      var keyUrl = _keyUrl;
+      if (_cerDirty && _cerBytes != null) {
+        cerUrl = await R2StorageService.upload(
+          bytes: _cerBytes!,
+          key: 'tenant_csd/${_tenant!.id}/certificate.cer',
+          contentType: 'application/octet-stream',
+        );
+      }
+      if (_keyDirty && _keyBytes != null) {
+        keyUrl = await R2StorageService.upload(
+          bytes: _keyBytes!,
+          key: 'tenant_csd/${_tenant!.id}/certificate.key',
+          contentType: 'application/octet-stream',
+        );
+      }
+
       final newSettings = _tenant!.settings.copyWith(
         logoUrl: _tenant!.settings.logoUrl,
         primaryColor: _primaryColor,
         address: _addressCtrl.text.trim().nullIfEmpty,
+        colonia: _coloniaCtrl.text.trim().nullIfEmpty,
         postalCode: _postalCtrl.text.trim().nullIfEmpty,
         contactName: _contactCtrl.text.trim().nullIfEmpty,
         phone: _phoneCtrl.text.trim().nullIfEmpty,
@@ -173,10 +213,14 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         folioFinal: int.tryParse(_folioFinCtrl.text.trim()),
         folioActual: int.tryParse(_folioActCtrl.text.trim()),
         fechaVencimiento: _fechaVencimiento,
-        certCerData: _cerBytes != null ? base64Encode(_cerBytes!) : null,
+        certCerUrl: cerUrl,
+        certKeyUrl: keyUrl,
         certCerName: _cerName,
-        certKeyData: _keyBytes != null ? base64Encode(_keyBytes!) : null,
         certKeyName: _keyName,
+        csdUploaded: cerUrl != null && keyUrl != null,
+        // Migra fuera del esquema legacy: ya no guardamos los archivos en Firestore.
+        certCerData: null,
+        certKeyData: null,
       );
 
       final repo = ref.read(tenantRepositoryProvider);
@@ -187,7 +231,13 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Cambios guardados.')),
         );
-        setState(() { _tenant = _tenant!.copyWith(settings: newSettings); });
+        setState(() {
+          _tenant = _tenant!.copyWith(settings: newSettings);
+          _cerUrl = newSettings.certCerUrl;
+          _keyUrl = newSettings.certKeyUrl;
+          _cerDirty = false;
+          _keyDirty = false;
+        });
       }
     } catch (e) {
       setState(() => _error = 'Error al guardar: $e');
@@ -208,9 +258,11 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
       if (isCer) {
         _cerBytes = file.bytes;
         _cerName = file.name;
+        _cerDirty = true;
       } else {
         _keyBytes = file.bytes;
         _keyName = file.name;
+        _keyDirty = true;
       }
     });
   }
@@ -453,6 +505,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                       onChanged: (v) => setState(() => _municipality = v),
                     ),
                     const SizedBox(height: 14),
+                    _Field(controller: _coloniaCtrl, label: 'Colonia'),
+                    const SizedBox(height: 14),
                     _Field(controller: _postalCtrl, label: 'Código postal'),
                   ],
                 ),
@@ -489,7 +543,14 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           Expanded(
             child: Column(
               children: [
-                _Field(controller: _rfcCtrl, label: 'RFC'),
+                _Field(
+                  controller: _rfcCtrl,
+                  label: 'RFC',
+                  textCapitalization: TextCapitalization.characters,
+                  errorText: _rfcError,
+                  onChanged: (v) =>
+                      setState(() => _rfcError = RfcValidator.validate(v)),
+                ),
                 const SizedBox(height: 14),
                 _Field(controller: _razonSocialCtrl, label: 'Razón social'),
                 const SizedBox(height: 14),
@@ -564,18 +625,28 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                 const SizedBox(height: 8),
                 _CertFileRow(
                   fileName: _cerName,
-                  hasData: _cerBytes != null,
+                  hasData: _cerBytes != null || _cerUrl != null,
                   onPick: () => _pickCert(true),
-                  onClear: () => setState(() { _cerBytes = null; _cerName = null; }),
+                  onClear: () => setState(() {
+                    _cerBytes = null;
+                    _cerName = null;
+                    _cerUrl = null;
+                    _cerDirty = true;
+                  }),
                 ),
                 const SizedBox(height: 20),
                 _SectionLabel('Archivo Key SAT (.key)'),
                 const SizedBox(height: 8),
                 _CertFileRow(
                   fileName: _keyName,
-                  hasData: _keyBytes != null,
+                  hasData: _keyBytes != null || _keyUrl != null,
                   onPick: () => _pickCert(false),
-                  onClear: () => setState(() { _keyBytes = null; _keyName = null; }),
+                  onClear: () => setState(() {
+                    _keyBytes = null;
+                    _keyName = null;
+                    _keyUrl = null;
+                    _keyDirty = true;
+                  }),
                 ),
               ],
             ),
@@ -662,6 +733,9 @@ class _Field extends StatelessWidget {
     this.keyboardType,
     this.obscureText = false,
     this.suffixIcon,
+    this.errorText,
+    this.onChanged,
+    this.textCapitalization = TextCapitalization.none,
   });
 
   final TextEditingController controller;
@@ -669,6 +743,9 @@ class _Field extends StatelessWidget {
   final TextInputType? keyboardType;
   final bool obscureText;
   final Widget? suffixIcon;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
+  final TextCapitalization textCapitalization;
 
   @override
   Widget build(BuildContext context) {
@@ -676,10 +753,13 @@ class _Field extends StatelessWidget {
       controller: controller,
       keyboardType: keyboardType,
       obscureText: obscureText,
+      onChanged: onChanged,
+      textCapitalization: textCapitalization,
       style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+        errorText: errorText,
         suffixIcon: suffixIcon,
         filled: true,
         fillColor: OmniGymColors.surface,

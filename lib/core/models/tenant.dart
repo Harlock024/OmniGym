@@ -43,6 +43,7 @@ class TenantSettings with _$TenantSettings {
     @Default('MX') String country,
     String? state,
     String? municipality,
+    String? colonia,
     @JsonKey(name: 'postal_code') String? postalCode,
     @JsonKey(name: 'contact_name') String? contactName,
     String? phone,
@@ -65,14 +66,16 @@ class TenantSettings with _$TenantSettings {
     DateTime? fechaVencimiento,
 
     // ── Certificados SAT ──────────────────────────────────────────────────────
-    // Datos en base64 (guardados en Firestore hasta integrar R2)
-    @JsonKey(name: 'cert_cer_data') String? certCerData,
-    @JsonKey(name: 'cert_key_data') String? certKeyData,
-    @JsonKey(name: 'cert_cer_name') String? certCerName,
-    @JsonKey(name: 'cert_key_name') String? certKeyName,
-    // URLs para cuando se migre a R2 (vacío por ahora)
+    // Los archivos viven en Cloudflare R2; en Firestore solo guardamos las URLs,
+    // los nombres y la bandera de subida. La contraseña del CSD nunca se almacena.
     @JsonKey(name: 'cert_cer_url') String? certCerUrl,
     @JsonKey(name: 'cert_key_url') String? certKeyUrl,
+    @JsonKey(name: 'cert_cer_name') String? certCerName,
+    @JsonKey(name: 'cert_key_name') String? certKeyName,
+    @JsonKey(name: 'csd_uploaded') @Default(false) bool csdUploaded,
+    // Legacy: datos en base64 (solo lectura para tenants previos a la migración R2)
+    @JsonKey(name: 'cert_cer_data') String? certCerData,
+    @JsonKey(name: 'cert_key_data') String? certKeyData,
   }) = _TenantSettings;
 
   factory TenantSettings.fromJson(Map<String, dynamic> json) =>
