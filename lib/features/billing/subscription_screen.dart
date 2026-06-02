@@ -69,11 +69,12 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           if (tenant == null) {
             return const Center(child: Text('No se encontró tu gimnasio.'));
           }
-          // Solo se ofrecen planes para suscribirse cuando no hay una
-          // suscripción activa (o el pago está vencido y conviene renovar).
-          final isActive =
+          // "Plan pagado" se determina por package_price_id (lo escribe el worker
+          // SOLO tras un cobro Stripe confirmado), no por subscription_status, que
+          // un gym recién creado ya tiene en 'active' por defecto (estado operativo).
+          final isActive = tenant.packagePriceId != null &&
               tenant.subscriptionStatus == SubscriptionStatus.active &&
-                  !tenant.pastDue;
+              !tenant.pastDue;
           final packages = (packagesAsync.valueOrNull ?? [])
               .where((p) => p.active && p.stripePriceId.isNotEmpty)
               .toList();
@@ -129,8 +130,11 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = tenant.subscriptionStatus == SubscriptionStatus.active;
     final pastDue = tenant.pastDue;
+    // Plan pagado real (ver nota en SubscriptionScreen): package_price_id presente.
+    final active = tenant.packagePriceId != null &&
+        tenant.subscriptionStatus == SubscriptionStatus.active &&
+        !pastDue;
 
     final (Color color, String label, IconData icon) = pastDue
         ? (OmniGymColors.errorRed, 'Pago vencido', Icons.warning_amber_rounded)

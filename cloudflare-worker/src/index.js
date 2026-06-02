@@ -819,9 +819,14 @@ async function handleStripeWebhook(request, env) {
       case 'invoice.payment_succeeded': {
         const tenant = await findTenantByCustomer(projectId, obj.customer, token);
         if (tenant) {
-          const periodEnd = obj.lines?.data?.[0]?.period?.end;
+          const line = obj.lines?.data?.[0];
+          const periodEnd = line?.period?.end;
+          // package_price_id es la señal real de "tiene plan SaaS pagado":
+          // solo se escribe tras un cobro confirmado (no en el alta del gym).
+          const priceId = line?.price?.id ?? line?.plan?.id;
           const upd = { subscription_status: 'active', past_due: false };
           if (periodEnd) upd.billing_cycle_end = new Date(periodEnd * 1000);
+          if (priceId) upd.package_price_id = priceId;
           await fsUpdate(projectId, tenant.path, upd, token);
           await fsSet(projectId, `tenant_invoices/${obj.id}`, {
             tenant_id: tenant.id,
