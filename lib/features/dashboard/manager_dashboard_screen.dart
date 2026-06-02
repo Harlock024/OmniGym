@@ -174,36 +174,48 @@ class _ManagerContent extends ConsumerWidget {
         const SizedBox(height: 24),
 
         // ── KPI strip ────────────────────────────────────────────────────
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _KpiCard(
-              label: 'Socios activos',
-              icon: Icons.people_rounded,
-              valueAsync: activeMembersAsync,
-              color: OmniGymColors.primary,
-            ),
-            _KpiCard(
-              label: 'Check-ins hoy',
-              icon: Icons.login_rounded,
-              valueAsync: todayCheckInsAsync,
-              color: const Color(0xFF10B981),
-            ),
-            _KpiCard(
-              label: 'Por vencer (7d)',
-              icon: Icons.warning_amber_rounded,
-              valueAsync: expiringAsync,
-              color: const Color(0xFFF59E0B),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, c) {
+            const spacing = 12.0;
+            // 2 columnas en móvil, hasta 3 en pantallas anchas.
+            final cols = (c.maxWidth / 200).floor().clamp(2, 3);
+            final cardWidth =
+                (c.maxWidth - spacing * (cols - 1)) / cols;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                _KpiCard(
+                  width: cardWidth,
+                  label: 'Socios activos',
+                  icon: Icons.people_rounded,
+                  valueAsync: activeMembersAsync,
+                  color: OmniGymColors.primary,
+                ),
+                _KpiCard(
+                  width: cardWidth,
+                  label: 'Check-ins hoy',
+                  icon: Icons.login_rounded,
+                  valueAsync: todayCheckInsAsync,
+                  color: const Color(0xFF10B981),
+                ),
+                _KpiCard(
+                  width: cardWidth,
+                  label: 'Por vencer (7d)',
+                  icon: Icons.warning_amber_rounded,
+                  valueAsync: expiringAsync,
+                  color: const Color(0xFFF59E0B),
+                ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 24),
 
         // ── Gráfica + Aforo ──────────────────────────────────────────────
         LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth > 640) {
+            if (constraints.maxWidth > 720) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -213,7 +225,7 @@ class _ManagerContent extends ConsumerWidget {
                   ),
                   const SizedBox(width: 16),
                   SizedBox(
-                    width: 220,
+                    width: 240,
                     child: _AforoCard(
                       todayAsync: todayCheckInsAsync,
                       activeAsync: activeMembersAsync,
@@ -266,12 +278,14 @@ class _KpiCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.color,
+    required this.width,
     required this.valueAsync,
   });
 
   final String label;
   final IconData icon;
   final Color color;
+  final double width;
   final AsyncValue<int> valueAsync;
 
   @override
@@ -283,7 +297,7 @@ class _KpiCard extends StatelessWidget {
     );
 
     return Container(
-      width: 170,
+      width: width,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: OmniGymColors.card,

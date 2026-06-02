@@ -232,35 +232,48 @@ class _DashboardContent extends ConsumerWidget {
         const SizedBox(height: 24),
 
         // ── KPI strip ────────────────────────────────────────────────────
-        Wrap(
-          spacing: 12,
-          runSpacing: 12,
-          children: [
-            _KpiCard(
-              label: 'Socios activos',
-              icon: Icons.people_rounded,
-              valueAsync: totalActiveAsync,
-              color: OmniGymColors.primary,
-            ),
-            _KpiCard(
-              label: 'Por vencer (7d)',
-              icon: Icons.warning_amber_rounded,
-              valueAsync: expiringAsync,
-              color: const Color(0xFFF59E0B),
-            ),
-            _KpiCard(
-              label: 'Nuevos este mes',
-              icon: Icons.person_add_rounded,
-              valueAsync: newThisMonthAsync,
-              color: const Color(0xFF10B981),
-            ),
-            _KpiCard(
-              label: 'Sucursales activas',
-              icon: Icons.store_rounded,
-              value: branches.where((b) => b.isActive).length.toString(),
-              color: const Color(0xFF8B5CF6),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, c) {
+            const spacing = 12.0;
+            // 2 columnas en móvil, hasta 4 en pantallas anchas.
+            final cols = (c.maxWidth / 200).floor().clamp(2, 4);
+            final cardWidth =
+                (c.maxWidth - spacing * (cols - 1)) / cols;
+            return Wrap(
+              spacing: spacing,
+              runSpacing: spacing,
+              children: [
+                _KpiCard(
+                  width: cardWidth,
+                  label: 'Socios activos',
+                  icon: Icons.people_rounded,
+                  valueAsync: totalActiveAsync,
+                  color: OmniGymColors.primary,
+                ),
+                _KpiCard(
+                  width: cardWidth,
+                  label: 'Por vencer (7d)',
+                  icon: Icons.warning_amber_rounded,
+                  valueAsync: expiringAsync,
+                  color: const Color(0xFFF59E0B),
+                ),
+                _KpiCard(
+                  width: cardWidth,
+                  label: 'Nuevos este mes',
+                  icon: Icons.person_add_rounded,
+                  valueAsync: newThisMonthAsync,
+                  color: const Color(0xFF10B981),
+                ),
+                _KpiCard(
+                  width: cardWidth,
+                  label: 'Sucursales activas',
+                  icon: Icons.store_rounded,
+                  value: branches.where((b) => b.isActive).length.toString(),
+                  color: const Color(0xFF8B5CF6),
+                ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 24),
 
@@ -296,7 +309,7 @@ class _DashboardContent extends ConsumerWidget {
         // ── Gráfica + Aforo ──────────────────────────────────────────────
         LayoutBuilder(
           builder: (context, constraints) {
-            if (constraints.maxWidth > 640) {
+            if (constraints.maxWidth > 720) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -309,7 +322,7 @@ class _DashboardContent extends ConsumerWidget {
                   ),
                   const SizedBox(width: 16),
                   SizedBox(
-                    width: 220,
+                    width: 240,
                     child: _AforoCard(
                       todayAsync: todayCheckInsAsync,
                       activeAsync: activeBranchMembersAsync,
@@ -363,6 +376,7 @@ class _KpiCard extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.color,
+    required this.width,
     this.valueAsync,
     this.value,
   });
@@ -370,6 +384,7 @@ class _KpiCard extends StatelessWidget {
   final String label;
   final IconData icon;
   final Color color;
+  final double width;
   final AsyncValue<int>? valueAsync;
   final String? value;
 
@@ -384,7 +399,7 @@ class _KpiCard extends StatelessWidget {
         '…';
 
     return Container(
-      width: 170,
+      width: width,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: OmniGymColors.card,
@@ -456,12 +471,16 @@ class _LineChartCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const Spacer(),
-              Text(
-                'Últimos 7 días · $branchName',
-                style: const TextStyle(
-                  color: OmniGymColors.textSecondary,
-                  fontSize: 12,
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  'Últimos 7 días · $branchName',
+                  textAlign: TextAlign.end,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: OmniGymColors.textSecondary,
+                    fontSize: 12,
+                  ),
                 ),
               ),
             ],
@@ -932,13 +951,16 @@ class _ActivityRow extends StatelessWidget {
                       : OmniGymColors.success,
                 ),
                 const SizedBox(width: 4),
-                Text(
-                  expStr,
-                  style: TextStyle(
-                    color: expired
-                        ? OmniGymColors.errorRed
-                        : OmniGymColors.textSecondary,
-                    fontSize: 12,
+                Flexible(
+                  child: Text(
+                    expStr,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: expired
+                          ? OmniGymColors.errorRed
+                          : OmniGymColors.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
                 ),
               ],
