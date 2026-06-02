@@ -69,25 +69,15 @@ class _InviteStaffSheetState extends ConsumerState<InviteStaffSheet> {
 
       final branchId = _role == UserRole.staff ? _selectedBranchId : null;
 
-      // 1. Crear usuario en Firebase Auth + asignar claims vía Worker
-      final uid = await WorkerService.createStaff(
+      // El worker crea el usuario en Auth, asigna claims, escribe /users/{uid}
+      // y envía el email de contraseña — todo server-side de forma atómica.
+      await WorkerService.createStaff(
         name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         role: _role.name,
         tenantId: tenantId,
         branchId: branchId,
       );
-
-      // 2. Crear /users/{uid} en Firestore
-      await ref.read(firestoreProvider).collection('users').doc(uid).set({
-        'name': _nameCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
-        'role': _role.name,
-        'status': UserStatus.active.name,
-        'tenant_id': tenantId,
-        'branch_id': branchId,
-        'created_at': FieldValue.serverTimestamp(),
-      });
 
       if (mounted) {
         Navigator.pop(context);
@@ -97,6 +87,8 @@ class _InviteStaffSheetState extends ConsumerState<InviteStaffSheet> {
           ),
         );
       }
+    } on StaffAlreadyExistsException catch (e) {
+      setState(() => _error = e.message);
     } catch (e) {
       setState(() => _error = 'Error: $e');
     } finally {

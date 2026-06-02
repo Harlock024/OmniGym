@@ -295,13 +295,39 @@ export default {
       }
 
       const token = await getAdminToken(env);
+      const sa = JSON.parse(env.SA_JSON);
+      const projectId = sa.project_id;
 
-      const uid = await createAuthUser(email, name, token);
+      // 1. Crear usuario en Auth (sin contraseña; la define él mismo por email)
+      let uid;
+      try {
+        uid = await createAuthUser(email, name, token);
+      } catch (e) {
+        const msg = e.message ?? '';
+        if (msg.includes('EMAIL_EXISTS') || msg.includes('email-already-exists')) {
+          return jsonRes({ error: 'Ya existe una cuenta registrada con ese correo electrónico.' }, 409);
+        }
+        throw e;
+      }
 
+      // 2. Custom claims (role, tenant_id, branch_id?)
       const claims = { role, tenant_id };
       if (branch_id) claims.branch_id = branch_id;
       await setCustomClaims(uid, claims, token);
 
+      // 3. Documento /users/{uid} server-side (antes lo escribía la app, lo que
+      //    dejaba cuentas Auth huérfanas si la escritura fallaba).
+      await fsSet(projectId, `users/${uid}`, {
+        name,
+        email,
+        role,
+        status: 'active',
+        tenant_id,
+        branch_id: branch_id || null,
+        created_at: new Date(),
+      }, token);
+
+      // 4. Email para que el operador establezca su contraseña
       await sendPasswordReset(email, token);
 
       return jsonRes({ uid });

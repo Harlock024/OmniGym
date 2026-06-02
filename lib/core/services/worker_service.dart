@@ -62,6 +62,12 @@ class WorkerService {
       body: jsonEncode(body),
     );
 
+    if (res.statusCode == 409) {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      throw StaffAlreadyExistsException(
+          data['error'] as String? ?? 'El correo ya está registrado.');
+    }
+
     if (res.statusCode != 200) {
       throw Exception('create-staff failed (${res.statusCode}): ${res.body}');
     }
@@ -69,4 +75,11 @@ class WorkerService {
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return data['uid'] as String;
   }
+}
+
+class StaffAlreadyExistsException implements Exception {
+  const StaffAlreadyExistsException(this.message);
+  final String message;
+  @override
+  String toString() => message;
 }
