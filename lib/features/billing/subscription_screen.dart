@@ -69,6 +69,11 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           if (tenant == null) {
             return const Center(child: Text('No se encontró tu gimnasio.'));
           }
+          // Solo se ofrecen planes para suscribirse cuando no hay una
+          // suscripción activa (o el pago está vencido y conviene renovar).
+          final isActive =
+              tenant.subscriptionStatus == SubscriptionStatus.active &&
+                  !tenant.pastDue;
           final packages = (packagesAsync.valueOrNull ?? [])
               .where((p) => p.active && p.stripePriceId.isNotEmpty)
               .toList();
@@ -82,29 +87,32 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     ? () => _manage(tenant.id)
                     : null,
               ),
-              const SizedBox(height: 24),
-              const Text('Planes disponibles',
-                  style: TextStyle(
-                      color: OmniGymColors.textPrimary,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600)),
-              const SizedBox(height: 12),
-              if (packagesAsync.isLoading)
-                const Center(child: Padding(
-                    padding: EdgeInsets.all(24),
-                    child: CircularProgressIndicator()))
-              else if (packages.isEmpty)
-                const Text('No hay planes disponibles por el momento.',
-                    style: TextStyle(color: OmniGymColors.textSecondary))
-              else
-                ...packages.map((p) => Padding(
-                      padding: const EdgeInsets.only(bottom: 10),
-                      child: _PackageOption(
-                        pkg: p,
-                        busy: _busy,
-                        onSubscribe: () => _subscribe(tenant.id, p.stripePriceId),
-                      ),
-                    )),
+              if (!isActive) ...[
+                const SizedBox(height: 24),
+                const Text('Planes disponibles',
+                    style: TextStyle(
+                        color: OmniGymColors.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600)),
+                const SizedBox(height: 12),
+                if (packagesAsync.isLoading)
+                  const Center(child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: CircularProgressIndicator()))
+                else if (packages.isEmpty)
+                  const Text('No hay planes disponibles por el momento.',
+                      style: TextStyle(color: OmniGymColors.textSecondary))
+                else
+                  ...packages.map((p) => Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _PackageOption(
+                          pkg: p,
+                          busy: _busy,
+                          onSubscribe: () =>
+                              _subscribe(tenant.id, p.stripePriceId),
+                        ),
+                      )),
+              ],
             ],
           );
         },
