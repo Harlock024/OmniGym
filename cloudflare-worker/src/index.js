@@ -2,7 +2,7 @@ const PUBLIC_BASE = 'https://pub-c1dbef6de1ab47f1a5697445f13f6aec.r2.dev';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, DELETE, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type, Authorization',
 };
 
@@ -679,6 +679,35 @@ export default {
       if (!key) return jsonRes({ error: 'Missing key' }, 400);
       await env.R2_BUCKET.delete(key);
       return jsonRes({ success: true });
+    }
+
+    // ── GET /catalogs/postal?cp=XXXXX ───────────────────────────────────────────
+    // Catálogo SEPOMEX en Cloudflare D1: dado un CP devuelve estado/municipio/
+    // ciudad y la lista de colonias. Desbloquea el autocompletado fiscal (#16).
+    if (request.method === 'GET' && pathname === '/catalogs/postal') {
+      const cp = new URL(request.url).searchParams.get('cp') ?? '';
+      if (!/^\d{5}$/.test(cp)) {
+        return jsonRes({ error: 'cp inválido (5 dígitos)' }, 400);
+      }
+      if (!env.CATALOGS_DB) {
+        return jsonRes({ error: 'Catálogo no disponible (D1 sin configurar)' }, 503);
+      }
+      const { results } = await env.CATALOGS_DB
+        .prepare('SELECT estado, municipio, ciudad, asentamiento, tipo FROM sepomex WHERE cp = ? ORDER BY asentamiento')
+        .bind(cp)
+        .all();
+      if (!results || results.length === 0) {
+        return jsonRes({ cp, found: false, colonias: [] });
+      }
+      const f = results[0];
+      return jsonRes({
+        cp,
+        found: true,
+        estado: f.estado,
+        municipio: f.municipio,
+        ciudad: f.ciudad,
+        colonias: results.map((r) => ({ nombre: r.asentamiento, tipo: r.tipo })),
+      });
     }
 
     // ── POST /set-claims ──────────────────────────────────────────────────────

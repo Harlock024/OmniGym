@@ -6,6 +6,14 @@ compatibility_date = "2025-01-01"
 binding = "R2_BUCKET"
 bucket_name = "omni-gym"
 
+# Catálogo SEPOMEX (CP → colonias). Crear con:
+#   wrangler d1 create omnigym_catalogs
+# y pegar el database_id que devuelve.
+[[d1_databases]]
+binding = "CATALOGS_DB"
+database_name = "omnigym_catalogs"
+database_id = "72cd5a3a-651f-4ebc-bd8f-520f61a6786f"
+
 # Cron Triggers (UTC). México es UTC-6 todo el año.
 #   "0 9 * * *"  → 03:00 MX diario : marca deudores + tenants past_due
 #   "0 15 * * 1" → 09:00 MX lunes  : avisos de vencimiento + resumen a Owners
