@@ -129,11 +129,24 @@ async function setCustomClaims(uid, claims, token) {
   }, token);
 }
 
-async function sendPasswordReset(email, token) {
-  await fbAuthPost('sendOobCode', {
-    requestType: 'PASSWORD_RESET',
-    email,
-  }, token);
+// IMPORTANTE: el correo SOLO se envía si la llamada se hace con la Web API key
+// como petición de cliente (sin token admin). Con token admin, sendOobCode solo
+// devuelve el oobLink y NO manda email.
+async function sendPasswordReset(email, env) {
+  const apiKey = env.FIREBASE_API_KEY ?? 'AIzaSyCVRVQqgDDg9xK_ZU-i4BrkGnH7k7tNl0U';
+  const res = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requestType: 'PASSWORD_RESET', email }),
+    },
+  );
+  const data = await res.json();
+  if (!res.ok) {
+    throw new Error(`sendPasswordReset error: ${JSON.stringify(data?.error ?? data)}`);
+  }
+  return data;
 }
 
 // ── Firestore REST helpers ────────────────────────────────────────────────────
@@ -328,7 +341,7 @@ export default {
       }, token);
 
       // 4. Email para que el operador establezca su contraseña
-      await sendPasswordReset(email, token);
+      await sendPasswordReset(email, env);
 
       return jsonRes({ uid });
     }
@@ -391,7 +404,7 @@ export default {
         emailSent = await sendWelcomeEmail(email, name, tempPassword, gymName ?? 'OmniGym', env);
       }
       if (!emailSent) {
-        await sendPasswordReset(email, token);
+        await sendPasswordReset(email, env);
       }
 
       // Devuelve tempPassword para que el recepcionista pueda comunicársela al socio.
