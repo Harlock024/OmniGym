@@ -11,6 +11,7 @@ import '../../app/app_theme.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/r2_storage_service.dart';
+import '../../core/services/worker_service.dart';
 import '../../core/utils/rfc_validator.dart';
 import 'mexico_data.dart';
 import 'sat_catalogs.dart';
@@ -65,6 +66,13 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
 
   String? _rfcError;
 
+  // Autocompletado postal (catálogo SEPOMEX vía worker/D1).
+  List<String> _colonias = [];
+  String? _cpEstado;
+  String? _cpMunicipio;
+  String? _cpCiudad;
+  bool _cpLoading = false;
+
   // Cert data (los bytes se suben a R2 al guardar; solo persistimos la URL).
   Uint8List? _cerBytes;
   String? _cerName;
@@ -118,6 +126,39 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     }
     _initFromTenant(tenant);
     setState(() { _tenant = tenant; _loading = false; });
+    if (RegExp(r'^\d{5}$').hasMatch(_postalCtrl.text)) {
+      _lookupCp(_postalCtrl.text);
+    }
+  }
+
+  // Consulta el catálogo postal y precarga estado/municipio/colonias.
+  Future<void> _lookupCp(String cp) async {
+    if (!RegExp(r'^\d{5}$').hasMatch(cp)) {
+      setState(() {
+        _colonias = [];
+        _cpEstado = null;
+        _cpMunicipio = null;
+        _cpCiudad = null;
+      });
+      return;
+    }
+    setState(() => _cpLoading = true);
+    final r = await WorkerService.lookupPostalCode(cp);
+    if (!mounted) return;
+    setState(() {
+      _cpLoading = false;
+      if (r != null) {
+        _cpEstado = r.estado;
+        _cpMunicipio = r.municipio;
+        _cpCiudad = r.ciudad;
+        _colonias = r.colonias;
+      } else {
+        _cpEstado = null;
+        _cpMunicipio = null;
+        _cpCiudad = null;
+        _colonias = [];
+      }
+    });
   }
 
   void _initFromTenant(Tenant t) {
@@ -505,9 +546,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                       onChanged: (v) => setState(() => _municipality = v),
                     ),
                     const SizedBox(height: 14),
-                    _Field(controller: _coloniaCtrl, label: 'Colonia'),
+                    _buildPostalField(),
                     const SizedBox(height: 14),
-                    _Field(controller: _postalCtrl, label: 'Código postal'),
+                    _buildColoniaField(),
                   ],
                 ),
               ),
@@ -529,6 +570,62 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // Campo de CP con autocompletado postal + confirmación estado/municipio.
+  Widget _buildPostalField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _Field(
+          controller: _postalCtrl,
+          label: 'Código postal',
+          keyboardType: TextInputType.number,
+          onChanged: (v) => _lookupCp(v.trim()),
+          suffixIcon: _cpLoading
+              ? const Padding(
+                  padding: EdgeInsets.all(12),
+                  child: SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              : null,
+        ),
+        if (_cpEstado != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6, left: 4),
+            child: Text(
+              [_cpMunicipio, _cpEstado, _cpCiudad]
+                  .where((e) => e != null && e.isNotEmpty)
+                  .join(' · '),
+              style: const TextStyle(
+                  color: OmniGymColors.textSecondary, fontSize: 11),
+            ),
+          ),
+      ],
+    );
+  }
+
+  // Colonia: dropdown desde el catálogo cuando hay resultados; texto libre si no.
+  Widget _buildColoniaField() {
+    if (_colonias.isEmpty) {
+      return _Field(controller: _coloniaCtrl, label: 'Colonia');
+    }
+    final current = _coloniaCtrl.text.trim();
+    final options = <String>{
+      ..._colonias,
+      if (current.isNotEmpty) current,
+    }.toList();
+    return _Dropdown<String>(
+      label: 'Colonia',
+      value: current.isEmpty ? null : current,
+      items: options
+          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+          .toList(),
+      onChanged: (v) => setState(() => _coloniaCtrl.text = v ?? ''),
     );
   }
 

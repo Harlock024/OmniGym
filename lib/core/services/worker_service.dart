@@ -80,6 +80,31 @@ class WorkerService {
     return data['uid'] as String;
   }
 
+  /// Consulta el catálogo postal SEPOMEX (Cloudflare D1) por código postal.
+  /// Devuelve null si el CP no existe o falla la consulta (el catálogo es ayuda,
+  /// no debe bloquear el formulario).
+  static Future<PostalLookup?> lookupPostalCode(String cp) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_base/catalogs/postal?cp=$cp'),
+        headers: _headers,
+      );
+      if (res.statusCode != 200) return null;
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      if (data['found'] != true) return null;
+      return PostalLookup(
+        estado: data['estado'] as String?,
+        municipio: data['municipio'] as String?,
+        ciudad: data['ciudad'] as String?,
+        colonias: (data['colonias'] as List<dynamic>? ?? [])
+            .map((c) => (c as Map<String, dynamic>)['nombre'] as String)
+            .toList(),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Elimina un operador: borra su cuenta de Firebase Auth y el doc /users/{uid}.
   static Future<void> deleteStaff(String uid) async {
     final res = await http.post(
@@ -91,6 +116,19 @@ class WorkerService {
       throw Exception('delete-staff failed (${res.statusCode}): ${res.body}');
     }
   }
+}
+
+class PostalLookup {
+  const PostalLookup({
+    this.estado,
+    this.municipio,
+    this.ciudad,
+    this.colonias = const [],
+  });
+  final String? estado;
+  final String? municipio;
+  final String? ciudad;
+  final List<String> colonias;
 }
 
 class StaffAlreadyExistsException implements Exception {
