@@ -68,15 +68,17 @@ class _InviteStaffSheetState extends ConsumerState<InviteStaffSheet> {
       if (tenantId == null) throw Exception('Tenant no encontrado.');
 
       final branchId = _role == UserRole.staff ? _selectedBranchId : null;
+      final gymName = ref.read(activeTenantProvider).valueOrNull?.name;
 
       // El worker crea el usuario en Auth, asigna claims, escribe /users/{uid}
-      // y envía el email de contraseña — todo server-side de forma atómica.
+      // y envía el email de invitación (Resend) — todo server-side de forma atómica.
       await WorkerService.createStaff(
         name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
         role: _role.name,
         tenantId: tenantId,
         branchId: branchId,
+        gymName: gymName,
       );
 
       if (mounted) {

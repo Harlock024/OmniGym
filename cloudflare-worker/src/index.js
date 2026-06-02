@@ -149,6 +149,18 @@ async function sendPasswordReset(email, env) {
   return data;
 }
 
+// Genera el enlace para establecer contraseña SIN enviar el email de Firebase.
+// Con token admin y returnOobLink:true, sendOobCode devuelve el oobLink y no
+// manda nada — así lo enviamos nosotros con Resend (plantilla con marca).
+async function generatePasswordResetLink(email, token) {
+  const data = await fbAuthPost('sendOobCode', {
+    requestType: 'PASSWORD_RESET',
+    email,
+    returnOobLink: true,
+  }, token);
+  return data.oobLink;
+}
+
 // ── Firestore REST helpers ────────────────────────────────────────────────────
 
 function toFsVal(v) {
@@ -249,6 +261,46 @@ async function sendWelcomeEmail(to, memberName, tempPassword, gymName, env) {
   return true;
 }
 
+// Email de invitación a un operador (staff/owner) con marca, vía Resend.
+// Lleva un botón al enlace de set-password (oobLink). Devuelve true si se envió.
+async function sendStaffInviteEmail(to, name, gymName, roleLabel, link, env) {
+  if (!env.RESEND_API_KEY) {
+    return false;
+  }
+  const from = env.EMAIL_FROM ?? `OmniGym <noreply@omni-gym.com>`;
+  const res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      subject: `Te invitaron a ${gymName} 🏋️`,
+      html: `
+        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#0f0f0f;color:#fff;border-radius:16px;">
+          <h2 style="color:#3B82F6;margin:0 0 8px;">¡Hola, ${name}!</h2>
+          <p style="color:#aaa;margin:0 0 24px;">Te invitaron a unirte a <strong style="color:#fff;">${gymName}</strong> como <strong style="color:#fff;">${roleLabel}</strong>. Para activar tu cuenta, establece tu contraseña:</p>
+          <div style="text-align:center;margin:0 0 24px;">
+            <a href="${link}" style="display:inline-block;background:#3B82F6;color:#fff;text-decoration:none;font-weight:bold;padding:14px 28px;border-radius:10px;font-size:1em;">Establecer contraseña</a>
+          </div>
+          <div style="background:#1a1a1a;padding:16px 20px;border-radius:10px;border:1px solid #333;margin-bottom:24px;">
+            <p style="margin:6px 0;color:#888;">Correo de acceso:</p>
+            <p style="margin:0;font-size:1em;font-weight:bold;">${to}</p>
+          </div>
+          <p style="color:#555;font-size:0.82em;margin:0;">Si el botón no funciona, copia este enlace en tu navegador:<br><span style="color:#777;word-break:break-all;">${link}</span></p>
+        </div>
+      `,
+    }),
+  });
+  if (!res.ok) {
+    console.error('[sendStaffInviteEmail] Resend error:', await res.text());
+    return false;
+  }
+  return true;
+}
+
 // ── Main handler ──────────────────────────────────────────────────────────────
 
 export default {
@@ -302,7 +354,7 @@ export default {
 
     // ── POST /create-staff ────────────────────────────────────────────────────
     if (request.method === 'POST' && pathname === '/create-staff') {
-      const { name, email, role, tenant_id, branch_id } = await request.json();
+      const { name, email, role, tenant_id, branch_id, gymName } = await request.json();
       if (!name || !email || !role || !tenant_id) {
         return jsonRes({ error: 'Missing required fields' }, 400);
       }
@@ -340,8 +392,18 @@ export default {
         created_at: new Date(),
       }, token);
 
-      // 4. Email para que el operador establezca su contraseña
-      await sendPasswordReset(email, env);
+      // 4. Email de invitación: Resend con marca (enlace de set-password);
+      //    si no hay Resend o falla, fallback al correo de Firebase.
+      let emailSent = false;
+      if (env.RESEND_API_KEY) {
+        const link = await generatePasswordResetLink(email, token);
+        const roleLabel = role === 'owner' ? 'administrador' : 'recepcionista';
+        emailSent = await sendStaffInviteEmail(
+            email, name, gymName ?? 'OmniGym', roleLabel, link, env);
+      }
+      if (!emailSent) {
+        await sendPasswordReset(email, env);
+      }
 
       return jsonRes({ uid });
     }

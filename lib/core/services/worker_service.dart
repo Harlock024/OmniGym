@@ -47,6 +47,7 @@ class WorkerService {
     required String role,
     required String tenantId,
     String? branchId,
+    String? gymName,
   }) async {
     final body = <String, dynamic>{
       'name': name,
@@ -55,6 +56,7 @@ class WorkerService {
       'tenant_id': tenantId,
     };
     if (branchId != null) body['branch_id'] = branchId;
+    if (gymName != null && gymName.isNotEmpty) body['gymName'] = gymName;
 
     final res = await http.post(
       Uri.parse('$_base/create-staff'),
