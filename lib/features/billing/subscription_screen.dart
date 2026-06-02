@@ -5,10 +5,12 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
+import '../../core/models/billing_access.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/worker_service.dart';
 import '../superadmin/subscription_packages_screen.dart';
+import 'subscription_gate.dart';
 
 class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
@@ -69,12 +71,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
           if (tenant == null) {
             return const Center(child: Text('No se encontró tu gimnasio.'));
           }
-          // "Plan pagado" se determina por package_price_id (lo escribe el worker
-          // SOLO tras un cobro Stripe confirmado), no por subscription_status, que
-          // un gym recién creado ya tiene en 'active' por defecto (estado operativo).
-          final isActive = tenant.packagePriceId != null &&
-              tenant.subscriptionStatus == SubscriptionStatus.active &&
-              !tenant.pastDue;
+          // Solo se ofrecen planes cuando NO hay suscripción/prueba en curso:
+          // gym nuevo (none) o suscripción terminada (inactive). En prueba o
+          // activo no se muestran (ya tiene plan); en pago vencido se usa el
+          // botón "Gestionar" (portal) para actualizar la tarjeta.
+          final st = tenant.billingState;
+          final showPlans =
+              st == BillingState.none || st == BillingState.inactive;
           final packages = (packagesAsync.valueOrNull ?? [])
               .where((p) => p.active && p.stripePriceId.isNotEmpty)
               .toList();
@@ -88,7 +91,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                     ? () => _manage(tenant.id)
                     : null,
               ),
-              if (!isActive) ...[
+              if (showPlans) ...[
                 const SizedBox(height: 24),
                 const Text('Planes disponibles',
                     style: TextStyle(
@@ -130,48 +133,46 @@ class _StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pastDue = tenant.pastDue;
-    // Plan pagado real (ver nota en SubscriptionScreen): package_price_id presente.
-    final active = tenant.packagePriceId != null &&
-        tenant.subscriptionStatus == SubscriptionStatus.active &&
-        !pastDue;
-
-    final (Color color, String label, IconData icon) = pastDue
-        ? (OmniGymColors.errorRed, 'Pago vencido', Icons.warning_amber_rounded)
-        : active
-            ? (OmniGymColors.primary, 'Suscripción activa', Icons.check_circle)
-            : (OmniGymColors.textSecondary, 'Sin suscripción activa', Icons.info_outline);
+    final c = billingCopy(tenant);
+    final st = tenant.billingState;
 
     final d = tenant.billingCycleEnd;
     final fecha =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
+
+    // Subtítulo: para activo mostramos el próximo cobro; para el resto, el
+    // mensaje del estado (prueba, pago pendiente, etc.).
+    final subtitle = st == BillingState.active
+        ? 'Próximo cobro: $fecha'
+        : c.message;
 
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: OmniGymColors.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withAlpha(80)),
+        border: Border.all(color: c.color.withAlpha(80)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(icon, color: color, size: 22),
+              Icon(c.icon, color: c.color, size: 22),
               const SizedBox(width: 8),
-              Text(label,
-                  style: TextStyle(
-                      color: color, fontSize: 16, fontWeight: FontWeight.w600)),
+              Expanded(
+                child: Text(
+                    st == BillingState.active ? 'Suscripción activa' : c.title,
+                    style: TextStyle(
+                        color: c.color,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600)),
+              ),
             ],
           ),
           const SizedBox(height: 8),
           Text(
-            pastDue
-                ? 'Tu último pago no se completó. Renueva para no perder el acceso.'
-                : active
-                    ? 'Próximo cobro: $fecha'
-                    : 'Elige un plan abajo para activar tu suscripción.',
+            subtitle,
             style: const TextStyle(
                 color: OmniGymColors.textSecondary, fontSize: 13),
           ),

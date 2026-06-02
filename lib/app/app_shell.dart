@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/models/billing_access.dart';
 import '../core/providers/providers.dart';
+import '../features/billing/subscription_gate.dart';
 import 'app_theme.dart';
 
 // ─── Shell scope ──────────────────────────────────────────────────────────────
@@ -107,6 +109,22 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   void _openDrawer() => _drawerKey.currentState?.openDrawer();
 
+  /// Antepone el banner de suscripción al contenido cuando el Owner no tiene
+  /// una suscripción/prueba activa (bloqueo suave, recordatorio amigable).
+  Widget _withBanner(String? role, Widget child) {
+    if (role != 'owner') return child;
+    final tenant = ref.watch(activeTenantProvider).valueOrNull;
+    if (tenant == null || tenant.billingState == BillingState.active) {
+      return child;
+    }
+    return Column(
+      children: [
+        SubscriptionBanner(tenant: tenant),
+        Expanded(child: child),
+      ],
+    );
+  }
+
   static List<_NavItem> _navItems(String? role) => switch (role) {
         'superuser' => _superuserItems.whereType<_NavItem>().toList(),
         'owner' => _ownerItems.whereType<_NavItem>().toList(),
@@ -151,7 +169,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             width: 280,
             child: sidebarContent,
           ),
-          body: widget.child,
+          body: _withBanner(role, widget.child),
         ),
       );
     }
@@ -173,7 +191,7 @@ class _AppShellState extends ConsumerState<AppShell> {
             ),
             const VerticalDivider(
                 width: 1, thickness: 1, color: OmniGymColors.border),
-            Expanded(child: widget.child),
+            Expanded(child: _withBanner(role, widget.child)),
           ],
         ),
       );
@@ -187,7 +205,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           SizedBox(width: 200, child: sidebarContent),
           const VerticalDivider(
               width: 1, thickness: 1, color: OmniGymColors.border),
-          Expanded(child: widget.child),
+          Expanded(child: _withBanner(role, widget.child)),
         ],
       ),
     );

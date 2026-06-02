@@ -550,6 +550,9 @@ async function runMarkPastDueTenants(projectId, token) {
     scanned = tenants.length;
     for (const t of tenants) {
       if (t.past_due === true) continue;
+      // Stripe es la fuente de verdad del cobro: solo es red de seguridad para
+      // gyms con suscripción real (no para los que aún no inician su prueba).
+      if (!t.stripe_customer_id) continue;
       try {
         await fsUpdate(projectId, t.path, { past_due: true, past_due_since: now }, token);
         updated++;
@@ -824,7 +827,11 @@ async function handleStripeWebhook(request, env) {
           // package_price_id es la señal real de "tiene plan SaaS pagado":
           // solo se escribe tras un cobro confirmado (no en el alta del gym).
           const priceId = line?.price?.id ?? line?.plan?.id;
-          const upd = { subscription_status: 'active', past_due: false };
+          const upd = {
+            subscription_status: 'active',
+            stripe_subscription_status: 'active',
+            past_due: false,
+          };
           if (periodEnd) upd.billing_cycle_end = new Date(periodEnd * 1000);
           if (priceId) upd.package_price_id = priceId;
           await fsUpdate(projectId, tenant.path, upd, token);
@@ -854,10 +861,37 @@ async function handleStripeWebhook(request, env) {
         }
         break;
       }
+      // Alta y cambios de la suscripción (incluye el periodo de prueba).
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated': {
+        const tenant = await findTenantByCustomer(projectId, obj.customer, token);
+        if (tenant) {
+          const status = obj.status; // trialing | active | past_due | unpaid | canceled | …
+          const priceId = obj.items?.data?.[0]?.price?.id;
+          const periodEnd = obj.current_period_end;
+          const upd = { stripe_subscription_status: status };
+          if (priceId) upd.package_price_id = priceId;
+          if (periodEnd) upd.billing_cycle_end = new Date(periodEnd * 1000);
+          if (status === 'active' || status === 'trialing') {
+            upd.subscription_status = 'active';
+            upd.past_due = false;
+          } else if (status === 'past_due' || status === 'unpaid') {
+            upd.past_due = true;
+          } else if (status === 'canceled') {
+            upd.subscription_status = 'cancelled';
+          }
+          if (status === 'trialing') upd.trial_used = true; // prueba consumida
+          await fsUpdate(projectId, tenant.path, upd, token);
+        }
+        break;
+      }
       case 'customer.subscription.deleted': {
         const tenant = await findTenantByCustomer(projectId, obj.customer, token);
         if (tenant) {
-          await fsUpdate(projectId, tenant.path, { subscription_status: 'cancelled' }, token);
+          await fsUpdate(projectId, tenant.path, {
+            subscription_status: 'cancelled',
+            stripe_subscription_status: 'canceled',
+          }, token);
         }
         break;
       }
@@ -973,13 +1007,18 @@ export default {
       }
 
       const fallback = 'https://omni-gym.hadith024.workers.dev/billing/done';
+      // Prueba gratis: Stripe guarda la tarjeta pero no cobra hasta el día N.
+      // Solo la primera vez (trial_used evita reactivar prueba al re-suscribirse).
+      const trialDays = parseInt(env.TRIAL_DAYS ?? '14', 10);
+      const subData = { metadata: { tenant_id: tenantId } };
+      if (!tenant.trial_used && trialDays > 0) subData.trial_period_days = trialDays;
       const session = await stripeRequest('checkout/sessions', {
         mode: 'subscription',
         customer: customerId,
         line_items: [{ price: priceId, quantity: 1 }],
         success_url: successUrl ?? fallback,
         cancel_url: cancelUrl ?? fallback,
-        subscription_data: { metadata: { tenant_id: tenantId } },
+        subscription_data: subData,
         metadata: { tenant_id: tenantId },
       }, env);
       return jsonRes({ url: session.url, sessionId: session.id });

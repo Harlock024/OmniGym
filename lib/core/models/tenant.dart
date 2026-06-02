@@ -22,6 +22,10 @@ class Tenant with _$Tenant {
     @JsonKey(name: 'past_due') @Default(false) bool pastDue,
     @JsonKey(name: 'stripe_customer_id') String? stripeCustomerId,
     @JsonKey(name: 'package_price_id') String? packagePriceId,
+    // Estado de la suscripción Stripe: 'trialing' | 'active' | 'past_due' |
+    // 'canceled' … null = el gym nunca ha iniciado su prueba/plan.
+    @JsonKey(name: 'stripe_subscription_status') String? stripeSubscriptionStatus,
+    @JsonKey(name: 'trial_used') @Default(false) bool trialUsed,
     required TenantSettings settings,
     @JsonKey(name: 'created_at')
     @NullableTimestampConverter()

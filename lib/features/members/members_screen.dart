@@ -5,9 +5,11 @@ import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
+import '../../core/models/billing_access.dart';
 import '../../core/models/branch.dart';
 import '../../core/models/member.dart';
 import '../../core/providers/providers.dart';
+import '../billing/subscription_gate.dart';
 import '../../core/services/member_service.dart';
 import '../memberships/memberships_screen.dart' show RegisterPaymentFromMember;
 import 'member_detail_dialog.dart';
@@ -62,7 +64,15 @@ class MembersScreen extends ConsumerWidget {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _Header(onAdd: () => _openForm(context, ref, null, branches)),
+          _Header(onAdd: () {
+            // Bloqueo suave: el alta de socios requiere suscripción/prueba activa.
+            final tenant = ref.read(activeTenantProvider).valueOrNull;
+            if (tenant != null && !tenant.canOperate) {
+              showSubscriptionGateDialog(context, tenant);
+              return;
+            }
+            _openForm(context, ref, null, branches);
+          }),
           _Filters(branches: branches),
           // Column headers (hidden on mobile)
           if (!context.isMobile) _ColumnHeaders(),

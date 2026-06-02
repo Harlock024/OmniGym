@@ -6,19 +6,21 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
+import '../../core/models/billing_access.dart';
 import '../../core/models/member.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
 
-/// Mensaje de bloqueo por cobro SaaS B2B, o null si el gimnasio puede operar.
+/// Mensaje de bloqueo suave por cobro SaaS B2B, o null si el gym puede operar.
 String? _tenantBillingError(Tenant tenant) {
-  if (tenant.subscriptionStatus != SubscriptionStatus.active) {
-    return 'Suscripción del gimnasio inactiva. Contacta al administrador.';
-  }
-  if (tenant.pastDue) {
-    return 'Suscripción con pago pendiente. Regulariza para reactivar el acceso.';
-  }
-  return null;
+  if (tenant.canOperate) return null;
+  return switch (tenant.billingState) {
+    BillingState.none =>
+      'Inicia tu prueba gratis para registrar accesos. Ve a "Mi suscripción".',
+    BillingState.pastDue =>
+      'Suscripción con pago pendiente. Actualiza tu método de pago para reactivar.',
+    _ => 'La suscripción del gimnasio no está activa. Ve a "Mi suscripción".',
+  };
 }
 
 // ─── Providers ────────────────────────────────────────────────────────────────

@@ -8,20 +8,20 @@ import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../app/app_theme.dart';
+import '../../core/models/billing_access.dart';
 import '../../core/models/branch.dart';
 import '../../core/models/member.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
 
-/// Mensaje de bloqueo por cobro SaaS B2B, o null si el gimnasio puede operar.
+/// Mensaje de bloqueo suave por cobro SaaS B2B, o null si el gym puede operar.
 String? _tenantBillingError(Tenant tenant) {
-  if (tenant.subscriptionStatus != SubscriptionStatus.active) {
-    return 'Suscripción del gimnasio inactiva';
-  }
-  if (tenant.pastDue) {
-    return 'Suscripción con pago pendiente';
-  }
-  return null;
+  if (tenant.canOperate) return null;
+  return switch (tenant.billingState) {
+    BillingState.none => 'Inicia tu prueba gratis para operar',
+    BillingState.pastDue => 'Suscripción con pago pendiente',
+    _ => 'Suscripción del gimnasio inactiva',
+  };
 }
 
 // ─── Estado del kiosko ────────────────────────────────────────────────────────
