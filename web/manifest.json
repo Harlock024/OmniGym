@@ -1,11 +1,11 @@
 {
-    "name": "omnigym",
-    "short_name": "omnigym",
+    "name": "OmniGym",
+    "short_name": "OmniGym",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#0F0F0F",
+    "theme_color": "#2563EB",
+    "description": "SaaS B2B para gestion integral de cadenas de gimnasios con cumplimiento SAT.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

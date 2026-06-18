@@ -16,6 +16,7 @@ import '../features/memberships/memberships_screen.dart';
 import '../features/reports/reports_screen.dart';
 import '../features/scanner/scanner_screen.dart';
 import '../features/scanner/kiosk_screen.dart';
+import '../features/portal/member_portal_screen.dart';
 import '../features/superadmin/tenants_screen.dart';
 import '../features/superadmin/tenant_detail_screen.dart';
 import '../features/superadmin/users_admin_screen.dart';
@@ -60,6 +61,15 @@ final routerProvider = Provider<GoRouter>((ref) {
               .get();
           final fsRole = doc.data()?['role'] as String?;
           if (fsRole != null) return _homeForRole(fsRole);
+
+          // Fallback: verificar si es socio (member) via collectionGroup
+          final memberSnap = await ref
+              .read(firestoreProvider)
+              .collectionGroup('members')
+              .where('uid', isEqualTo: user.uid)
+              .limit(1)
+              .get();
+          if (memberSnap.docs.isNotEmpty) return _homeForRole('member');
         } catch (_) {
           // Si falla el token o Firestore, intentar con token cacheado
           try {
@@ -70,6 +80,14 @@ final routerProvider = Provider<GoRouter>((ref) {
                 .get();
             final fsRole = doc.data()?['role'] as String?;
             if (fsRole != null) return _homeForRole(fsRole);
+
+            final memberSnap = await ref
+                .read(firestoreProvider)
+                .collectionGroup('members')
+                .where('uid', isEqualTo: user.uid)
+                .limit(1)
+                .get();
+            if (memberSnap.docs.isNotEmpty) return _homeForRole('member');
           } catch (_) {}
         }
         return '/dashboard/owner';
@@ -96,6 +114,17 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/kiosk',
         builder: (context, _) => const KioskScreen(),
+        redirect: (context, state) async {
+          final user = ref.read(authStateProvider).valueOrNull;
+          if (user == null) return '/login';
+          return null;
+        },
+      ),
+
+      // ── Portal del socio (fullscreen, sin sidebar) ───────────────────────
+      GoRoute(
+        path: '/portal',
+        builder: (context, _) => const MemberPortalScreen(),
         redirect: (context, state) async {
           final user = ref.read(authStateProvider).valueOrNull;
           if (user == null) return '/login';
@@ -258,6 +287,7 @@ String _homeForRole(String? role) {
     'superuser' => '/superadmin',
     'owner' => '/dashboard/owner',
     'staff' => '/dashboard/manager',
+    'member' => '/portal',
     _ => '/login',
   };
 }
