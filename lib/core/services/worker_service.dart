@@ -3,7 +3,10 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class WorkerService {
-  static const _base = 'https://omni-gym.hadith024.workers.dev';
+  static const _base = String.fromEnvironment(
+    'WORKER_BASE_URL',
+    defaultValue: 'https://omni-gym.hadith024.workers.dev',
+  );
   static const _secret = String.fromEnvironment(
     'R2_UPLOAD_SECRET',
     defaultValue: 'omni-r2-2025-dev',

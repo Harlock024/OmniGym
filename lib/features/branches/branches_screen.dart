@@ -671,7 +671,7 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                     Switch(
                       value: _isActive,
                       onChanged: (v) => setState(() => _isActive = v),
-                      activeColor: OmniGymColors.primary,
+                      activeThumbColor: OmniGymColors.primary,
                     ),
                   ],
                 ),
@@ -754,7 +754,7 @@ class _FormDropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       items: items,
       onChanged: onChanged,
       isExpanded: true,

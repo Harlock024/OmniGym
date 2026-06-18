@@ -71,7 +71,7 @@ class _Header extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              Consumer(builder: (_, ref, __) {
+              Consumer(builder: (_, ref, _) {
                 final count =
                     ref.watch(allTenantsProvider).valueOrNull?.length ?? 0;
                 return Text(
@@ -130,7 +130,7 @@ class _TenantTable extends StatelessWidget {
     return ListView.separated(
       padding: const EdgeInsets.all(0),
       itemCount: tenants.length,
-      separatorBuilder: (_, __) =>
+      separatorBuilder: (_, _) =>
           const Divider(height: 1, color: OmniGymColors.border),
       itemBuilder: (context, i) => _TenantRow(tenant: tenants[i]),
     );

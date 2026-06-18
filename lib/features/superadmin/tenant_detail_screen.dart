@@ -87,7 +87,6 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
 
   // Logo
   Uint8List? _logoBytes;
-  bool _uploadingLogo = false;
 
   @override
   void initState() {
@@ -324,14 +323,13 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     setState(() => _logoBytes = bytes);
 
     if (widget.isOwnerMode && _tenant != null) {
-      setState(() => _uploadingLogo = true);
       try {
         final url = await R2StorageService.upload(
           bytes: bytes,
           key: 'tenant_logos/${_tenant!.id}/logo.png',
           contentType: 'image/png',
         );
-        await this.ref.read(tenantRepositoryProvider).updateSettings(
+        await ref.read(tenantRepositoryProvider).updateSettings(
               _tenant!.id,
               _tenant!.settings.copyWith(logoUrl: url),
             );
@@ -350,8 +348,6 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             SnackBar(content: Text('Error al subir logo: $e')),
           );
         }
-      } finally {
-        if (mounted) setState(() => _uploadingLogo = false);
       }
     }
   }
@@ -1080,7 +1076,7 @@ class _Dropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DropdownButtonFormField<T>(
-      value: value,
+      initialValue: value,
       items: items,
       onChanged: onChanged,
       isExpanded: true,

@@ -1048,7 +1048,7 @@ class _RegisterPaymentDialogState
 
               // ── Plan ──────────────────────────────────────────────────
               DropdownButtonFormField<MembershipPlan>(
-                value: _selectedPlan,
+                initialValue: _selectedPlan,
                 isExpanded: true,
                 menuMaxHeight: 280,
                 hint: const Text('Seleccionar plan',

@@ -22,7 +22,6 @@ import '../features/superadmin/users_admin_screen.dart';
 import '../features/superadmin/subscription_packages_screen.dart';
 import '../features/billing/subscription_screen.dart';
 import 'app_shell.dart';
-import 'app_theme.dart';
 
 // Notifica a go_router cuando el estado de auth cambia, sin recrear el router.
 class _AuthNotifier extends ChangeNotifier {
@@ -263,20 +262,3 @@ String _homeForRole(String? role) {
   };
 }
 
-class _PlaceholderScreen extends StatelessWidget {
-  const _PlaceholderScreen(this.title);
-  final String title;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: Text(title)),
-      body: Center(
-        child: Text(
-          '$title — próximamente',
-          style: const TextStyle(color: OmniGymColors.textSecondary),
-        ),
-      ),
-    );
-  }
-}

@@ -471,7 +471,7 @@ class _PrefTile extends StatelessWidget {
           Switch(
             value: value,
             onChanged: onChanged,
-            activeColor: OmniGymColors.primary,
+            activeThumbColor: OmniGymColors.primary,
             trackColor: WidgetStateProperty.resolveWith((states) =>
                 states.contains(WidgetState.selected)
                     ? OmniGymColors.primary.withAlpha(60)

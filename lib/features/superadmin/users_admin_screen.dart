@@ -37,7 +37,7 @@ class UsersAdminScreen extends ConsumerWidget {
                   : ListView.separated(
                       padding: EdgeInsets.zero,
                       itemCount: users.length,
-                      separatorBuilder: (_, __) =>
+                      separatorBuilder: (_, _) =>
                           const Divider(height: 1, color: OmniGymColors.border),
                       itemBuilder: (context, i) => _UserRow(
                         user: users[i],
@@ -81,7 +81,7 @@ class _Header extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              Consumer(builder: (_, ref, __) {
+              Consumer(builder: (_, ref, _) {
                 final count = ref.watch(allUsersProvider).valueOrNull?.length ?? 0;
                 return Text(
                   '$count usuarios',
@@ -486,11 +486,9 @@ class _RoleOption extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Radio<bool>(
-            value: true,
-            groupValue: selected,
-            onChanged: (_) => onTap(),
-            activeColor: OmniGymColors.primary,
+          Icon(
+            selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
+            color: selected ? OmniGymColors.primary : OmniGymColors.textSecondary,
           ),
           const SizedBox(width: 8),
           Expanded(

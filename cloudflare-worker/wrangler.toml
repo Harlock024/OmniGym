@@ -17,5 +17,9 @@ database_id = "72cd5a3a-651f-4ebc-bd8f-520f61a6786f"
 # Cron Triggers (UTC). México es UTC-6 todo el año.
 #   "0 9 * * *"  → 03:00 MX diario : marca deudores + tenants past_due
 #   "0 15 * * 1" → 09:00 MX lunes  : avisos de vencimiento + resumen a Owners
+[vars]
+WORKER_BASE_URL = "https://omni-gym.hadith024.workers.dev"
+R2_PUBLIC_BASE = "https://pub-c1dbef6de1ab47f1a5697445f13f6aec.r2.dev"
+
 [triggers]
 crons = ["0 9 * * *", "0 15 * * 1"]

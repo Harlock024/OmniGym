@@ -433,7 +433,7 @@ class _RevenueChart extends StatelessWidget {
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
                     getTooltipColor: (_) => OmniGymColors.surface,
-                    getTooltipItem: (group, _, rod, __) {
+                    getTooltipItem: (group, _, rod, _) {
                       final d = data[group.x];
                       return BarTooltipItem(
                         '\$${rod.toY % 1 == 0 ? rod.toY.toInt() : rod.toY.toStringAsFixed(0)}\n',

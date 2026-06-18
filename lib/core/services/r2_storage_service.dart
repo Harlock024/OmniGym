@@ -5,7 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:http_parser/http_parser.dart';
 
 class R2StorageService {
-  static const _workerBase = 'https://omni-gym.hadith024.workers.dev';
+  static const _workerBase = String.fromEnvironment(
+    'WORKER_BASE_URL',
+    defaultValue: 'https://omni-gym.hadith024.workers.dev',
+  );
 
   // Configura via --dart-define=R2_UPLOAD_SECRET=xxx al correr/buildear
   static const _secret = String.fromEnvironment(

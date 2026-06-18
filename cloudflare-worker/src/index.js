@@ -1,5 +1,3 @@
-const PUBLIC_BASE = 'https://pub-c1dbef6de1ab47f1a5697445f13f6aec.r2.dev';
-
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
@@ -938,7 +936,7 @@ export default {
       await env.R2_BUCKET.put(key, bytes, {
         httpMetadata: { contentType: file.type || 'application/octet-stream' },
       });
-      return jsonRes({ url: `${PUBLIC_BASE}/${key}`, key });
+      return jsonRes({ url: `${env.R2_PUBLIC_BASE ?? 'https://pub-c1dbef6de1ab47f1a5697445f13f6aec.r2.dev'}/${key}`, key });
     }
 
     // ── DELETE /delete ────────────────────────────────────────────────────────
@@ -1006,7 +1004,7 @@ export default {
           { stripe_customer_id: customerId }, token);
       }
 
-      const fallback = 'https://omni-gym.hadith024.workers.dev/billing/done';
+      const fallback = `${env.WORKER_BASE_URL ?? 'https://omni-gym.hadith024.workers.dev'}/billing/done`;
       // Prueba gratis: Stripe guarda la tarjeta pero no cobra hasta el día N.
       // Solo la primera vez (trial_used evita reactivar prueba al re-suscribirse).
       const trialDays = parseInt(env.TRIAL_DAYS ?? '14', 10);
@@ -1040,7 +1038,7 @@ export default {
       }
       const session = await stripeRequest('billing_portal/sessions', {
         customer: tenant.stripe_customer_id,
-        return_url: returnUrl ?? 'https://omni-gym.hadith024.workers.dev/billing/done',
+        return_url: returnUrl ?? `${env.WORKER_BASE_URL ?? 'https://omni-gym.hadith024.workers.dev'}/billing/done`,
       }, env);
       return jsonRes({ url: session.url });
     }

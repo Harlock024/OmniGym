@@ -41,9 +41,14 @@ final _filteredMembersProvider = Provider<AsyncValue<List<Member>>>((ref) {
     return members.where((m) {
       if (q.isNotEmpty &&
           !m.name.toLowerCase().contains(q) &&
-          !m.email.toLowerCase().contains(q)) return false;
+          !m.email.toLowerCase().contains(q)) {
+        return false;
+      }
       if (status != null && m.accessStatus != status) return false;
-      if (branchId != null && !m.allowedBranches.contains(branchId)) return false;
+      if (branchId != null &&
+          !m.allowedBranches.contains(branchId)) {
+        return false;
+      }
       return true;
     }).toList();
   });
@@ -296,7 +301,7 @@ class _MemberList extends ConsumerWidget {
     return ListView.separated(
       padding: EdgeInsets.zero,
       itemCount: members.length,
-      separatorBuilder: (_, __) => const Divider(height: 1, color: OmniGymColors.border),
+      separatorBuilder: (_, _) => const Divider(height: 1, color: OmniGymColors.border),
       itemBuilder: (context, i) => _MemberRow(
         member: members[i],
         branches: branches,
