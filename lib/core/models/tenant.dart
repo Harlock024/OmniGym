@@ -73,6 +73,11 @@ class TenantSettings with _$TenantSettings {
     @NullableTimestampConverter()
     DateTime? fechaVencimiento,
 
+    // ── Configuracion CFDI 4.0 ─────────────────────────────────────────────────
+    @JsonKey(name: 'metodo_pago') @Default('PUE') String metodoPago,
+    @JsonKey(name: 'forma_pago') @Default('01') String formaPago,
+    @JsonKey(name: 'uso_cfdi') @Default('G03') String usoCFDI,
+
     // ── Certificados SAT ──────────────────────────────────────────────────────
     // Los archivos viven en Cloudflare R2; en Firestore solo guardamos las URLs,
     // los nombres y la bandera de subida. La contraseña del CSD nunca se almacena.

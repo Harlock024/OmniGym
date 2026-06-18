@@ -63,6 +63,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   String? _municipality;
   String _tipoComprobante = 'I';
   String? _regimenFiscal;
+  String _metodoPago = 'PUE';
+  String _formaPago = '01';
+  String _usoCFDI = 'G03';
   DateTime? _fechaVencimiento;
   String _primaryColor = '#2563EB';
 
@@ -186,6 +189,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     _country = s.country;
     _tipoComprobante = s.tipoComprobante;
     _regimenFiscal = s.regimenFiscal;
+    _metodoPago = s.metodoPago;
+    _formaPago = s.formaPago;
+    _usoCFDI = s.usoCFDI;
     _fechaVencimiento = s.fechaVencimiento;
     _primaryColor = s.primaryColor;
     _cerName = s.certCerName;
@@ -249,6 +255,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         giro: _giroCtrl.text.trim().nullIfEmpty,
         tipoComprobante: _tipoComprobante,
         regimenFiscal: _regimenFiscal,
+        metodoPago: _metodoPago,
+        formaPago: _formaPago,
+        usoCFDI: _usoCFDI,
         serie: _serieCtrl.text.trim().nullIfEmpty,
         numAprobacion: _numAprobCtrl.text.trim().nullIfEmpty,
         anioAprobacion: _anioAprobCtrl.text.trim().nullIfEmpty,
@@ -670,6 +679,33 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                       .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
                       .toList(),
                   onChanged: (v) => setState(() => _regimenFiscal = v),
+                ),
+                const SizedBox(height: 14),
+                _Dropdown<String>(
+                  label: 'Método de pago',
+                  value: _metodoPago,
+                  items: SatCatalogs.metodosPago
+                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _metodoPago = v ?? 'PUE'),
+                ),
+                const SizedBox(height: 14),
+                _Dropdown<String>(
+                  label: 'Forma de pago',
+                  value: _formaPago,
+                  items: SatCatalogs.formasPago
+                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _formaPago = v ?? '01'),
+                ),
+                const SizedBox(height: 14),
+                _Dropdown<String>(
+                  label: 'Uso CFDI',
+                  value: _usoCFDI,
+                  items: SatCatalogs.usosCFDI
+                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
+                      .toList(),
+                  onChanged: (v) => setState(() => _usoCFDI = v ?? 'G03'),
                 ),
                 const SizedBox(height: 14),
                 _Field(controller: _serieCtrl, label: 'Serie'),
