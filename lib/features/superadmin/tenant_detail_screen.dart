@@ -12,6 +12,7 @@ import '../../core/models/tenant.dart';
 import '../../core/models/tenant_invoice.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/r2_storage_service.dart';
+import '../../core/services/theme_service.dart';
 import '../../core/services/worker_service.dart';
 import '../../core/utils/rfc_validator.dart';
 import 'mexico_data.dart';
@@ -68,6 +69,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   String _usoCFDI = 'G03';
   DateTime? _fechaVencimiento;
   String _primaryColor = '#2563EB';
+  String _secondaryColor = '#03DAC6';
+  String _themeMode = 'system';
 
   String? _rfcError;
 
@@ -157,6 +160,10 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         _cpMunicipio = r.municipio;
         _cpCiudad = r.ciudad;
         _colonias = r.colonias;
+        // Sincroniza los dropdowns de estado/municipio desde SEPOMEX
+        // para facturación precisa (CFDI requiere dirección fiscal real).
+        if (r.estado != null) _state = r.estado;
+        _municipality = r.municipio;
       } else {
         _cpEstado = null;
         _cpMunicipio = null;
@@ -194,6 +201,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     _usoCFDI = s.usoCFDI;
     _fechaVencimiento = s.fechaVencimiento;
     _primaryColor = s.primaryColor;
+    _secondaryColor = s.secondaryColor;
+    _themeMode = s.themeMode;
     _cerName = s.certCerName;
     _keyName = s.certKeyName;
     _cerUrl = s.certCerUrl;
@@ -241,6 +250,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
       final newSettings = _tenant!.settings.copyWith(
         logoUrl: _tenant!.settings.logoUrl,
         primaryColor: _primaryColor,
+        secondaryColor: _secondaryColor,
+        themeMode: _themeMode,
         address: _addressCtrl.text.trim().nullIfEmpty,
         colonia: _coloniaCtrl.text.trim().nullIfEmpty,
         postalCode: _postalCtrl.text.trim().nullIfEmpty,
@@ -364,20 +375,20 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(
-        backgroundColor: OmniGymColors.background,
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+      body: Center(child: CircularProgressIndicator()),
       );
     }
     if (_error != null && _tenant == null) {
       return Scaffold(
-        backgroundColor: OmniGymColors.background,
-        body: Center(child: Text(_error!, style: const TextStyle(color: OmniGymColors.errorRed))),
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
       );
     }
 
     return Scaffold(
-      backgroundColor: OmniGymColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -397,8 +408,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           if (_error != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              color: OmniGymColors.errorRed.withAlpha(20),
-              child: Text(_error!, style: const TextStyle(color: OmniGymColors.errorRed, fontSize: 13)),
+              color: Theme.of(context).colorScheme.error.withAlpha(20),
+              child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
             ),
           _buildFooter(),
         ],
@@ -407,24 +418,24 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   }
 
   Widget _buildHeader() {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     if (widget.isOwnerMode) {
       return Container(
         padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-        decoration: const BoxDecoration(
-          border: Border(bottom: BorderSide(color: OmniGymColors.border, width: 1)),
-        ),
+        color: cs.primary,
         child: Row(
           children: [
             IconButton(
-              icon: const Icon(Icons.arrow_back, color: OmniGymColors.textSecondary, size: 20),
+              icon: Icon(Icons.arrow_back, color: cs.onPrimary, size: 20),
               onPressed: () => context.go('/dashboard/owner'),
               tooltip: 'Volver',
             ),
             const SizedBox(width: 8),
-            const Text(
+            Text(
               'Configuración fiscal',
               style: TextStyle(
-                color: OmniGymColors.textPrimary,
+                color: cs.onPrimary,
                 fontSize: 17,
                 fontWeight: FontWeight.bold,
               ),
@@ -435,25 +446,23 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     }
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: OmniGymColors.border, width: 1)),
-      ),
+      color: cs.primary,
       child: Row(
         children: [
           // Breadcrumb
           GestureDetector(
             onTap: () => context.go('/superadmin'),
-            child: const Text('Empresas',
-                style: TextStyle(color: OmniGymColors.primary, fontSize: 13)),
+            child: Text('Empresas',
+                style: TextStyle(color: cs.onPrimary, fontSize: 13)),
           ),
-          const Text(' / ', style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 13)),
+          Text(' / ', style: TextStyle(color: cs.onPrimary.withAlpha(180), fontSize: 13)),
           Text(
             _tenant?.name ?? '',
-            style: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+            style: TextStyle(color: cs.onPrimary.withAlpha(180), fontSize: 13),
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.close, color: OmniGymColors.textSecondary, size: 18),
+            icon: Icon(Icons.close, color: cs.onPrimary, size: 18),
             onPressed: () => context.go('/superadmin'),
           ),
         ],
@@ -462,9 +471,12 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   }
 
   Widget _buildTabs() {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Container(
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: OmniGymColors.border, width: 1)),
+      decoration: BoxDecoration(
+        color: cs.surface,
+        border: Border(bottom: BorderSide(color: theme.dividerTheme.color ?? OmniGymColors.border, width: 1)),
       ),
       child: Row(
         children: [
@@ -472,9 +484,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           TabBar(
             controller: _tabs,
             isScrollable: true,
-            indicatorColor: OmniGymColors.primary,
-            labelColor: OmniGymColors.primary,
-            unselectedLabelColor: OmniGymColors.textSecondary,
+            indicatorColor: cs.primary,
+            labelColor: cs.primary,
+            unselectedLabelColor: cs.onSurfaceVariant,
             labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
             unselectedLabelStyle: const TextStyle(fontSize: 13),
             tabs: [
@@ -518,12 +530,38 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             ],
           ),
           const SizedBox(height: 24),
-          // Color corporativo
-          _SectionLabel('Color corporativo'),
+          // Apariencia del Gym
+          _SectionLabel('Apariencia del Gym'),
+          const SizedBox(height: 16),
+          _SectionLabel('Color primario'),
           const SizedBox(height: 8),
-          _ColorPicker(
+          _ColorGrid(
+            colors: OmniGymPalette.primaries,
             current: _primaryColor,
             onChanged: (c) => setState(() => _primaryColor = c),
+          ),
+          const SizedBox(height: 16),
+          _SectionLabel('Color secundario'),
+          const SizedBox(height: 8),
+          _ColorGrid(
+            colors: OmniGymPalette.secondaries,
+            current: _secondaryColor,
+            onChanged: (c) => setState(() => _secondaryColor = c),
+          ),
+          const SizedBox(height: 16),
+          _SectionLabel('Modo'),
+          const SizedBox(height: 8),
+          _ThemeModeSelector(
+            value: _themeMode,
+            onChanged: (v) => setState(() => _themeMode = v),
+          ),
+          const SizedBox(height: 16),
+          _SectionLabel('Vista previa'),
+          const SizedBox(height: 8),
+          _ThemePreview(
+            primary: _primaryColor,
+            secondary: _secondaryColor,
+            themeMode: _themeMode,
           ),
           const SizedBox(height: 24),
           // Dirección
@@ -611,8 +649,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
               [_cpMunicipio, _cpEstado, _cpCiudad]
                   .where((e) => e != null && e.isNotEmpty)
                   .join(' · '),
-              style: const TextStyle(
-                  color: OmniGymColors.textSecondary, fontSize: 11),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
             ),
           ),
       ],
@@ -795,9 +833,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                 const SizedBox(height: 8),
                 _PasswordField(controller: _certPassCtrl),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'La contraseña solo se usa en operaciones de timbrado y no se almacena.',
-                  style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 11),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
                 ),
               ],
             ),
@@ -846,12 +884,12 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
 
     final (statusLabel, statusColor) = pastDue
-        ? ('Pago vencido', OmniGymColors.errorRed)
+        ? ('Pago vencido', Theme.of(context).colorScheme.error)
         : switch (status) {
             SubscriptionStatus.active => ('Activo', OmniGymColors.success),
             SubscriptionStatus.suspended => ('Suspendido', Colors.orange),
             SubscriptionStatus.cancelled =>
-              ('Cancelado', OmniGymColors.errorRed),
+              ('Cancelado', Theme.of(context).colorScheme.error),
           };
 
     final isActive = status == SubscriptionStatus.active;
@@ -864,7 +902,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: OmniGymColors.surface,
+            color: Theme.of(context).colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: statusColor.withAlpha(80)),
           ),
@@ -889,8 +927,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                   ),
                   const Spacer(),
                   Text('Próximo cobro: $fecha',
-                      style: const TextStyle(
-                          color: OmniGymColors.textSecondary, fontSize: 12)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 ],
               ),
               const SizedBox(height: 12),
@@ -906,8 +944,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           isActive
               ? 'Suspende el acceso del gimnasio de inmediato. Úsalo solo como medida administrativa; el estado de pago lo gestiona Stripe automáticamente.'
               : 'Reactiva el acceso del gimnasio. Si tiene un pago pendiente con Stripe, seguirá bloqueado hasta que regularice.',
-          style: const TextStyle(
-              color: OmniGymColors.textSecondary, fontSize: 12),
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
         ),
         const SizedBox(height: 12),
         Align(
@@ -919,8 +957,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                       : () => _setSubscriptionStatus(
                           SubscriptionStatus.suspended),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor: OmniGymColors.errorRed,
-                      side: const BorderSide(color: OmniGymColors.errorRed)),
+                      foregroundColor: Theme.of(context).colorScheme.error,
+                      side: BorderSide(color: Theme.of(context).colorScheme.error)),
                   icon: const Icon(Icons.block, size: 18),
                   label: const Text('Suspender acceso'),
                 )
@@ -946,12 +984,12 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                 child: Center(child: CircularProgressIndicator()),
               ),
               error: (e, _) => Text('No se pudo cargar el historial: $e',
-                  style: const TextStyle(
-                      color: OmniGymColors.textSecondary, fontSize: 12)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
               data: (invoices) => invoices.isEmpty
-                  ? const Text('Aún no hay facturas registradas.',
+                  ? Text('Aún no hay facturas registradas.',
                       style: TextStyle(
-                          color: OmniGymColors.textSecondary, fontSize: 13))
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13))
                   : Column(
                       children: invoices
                           .map((inv) => _InvoiceTile(invoice: inv))
@@ -973,13 +1011,13 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           SizedBox(
             width: 120,
             child: Text(k,
-                style: const TextStyle(
-                    color: OmniGymColors.textSecondary, fontSize: 12)),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
           ),
           Expanded(
             child: Text(v,
-                style: const TextStyle(
-                    color: OmniGymColors.textPrimary,
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 12,
                     fontFamily: 'monospace')),
           ),
@@ -991,8 +1029,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   Widget _buildFooter() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-      decoration: const BoxDecoration(
-        border: Border(top: BorderSide(color: OmniGymColors.border, width: 1)),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, width: 1)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -1001,17 +1039,17 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             onPressed: () => context.go(
                 widget.isOwnerMode ? '/dashboard/owner' : '/superadmin'),
             style: TextButton.styleFrom(
-                foregroundColor: OmniGymColors.textSecondary),
+                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
             child: const Text('Cancelar'),
           ),
           const SizedBox(width: 12),
           FilledButton(
             onPressed: _saving ? null : _save,
             child: _saving
-                ? const SizedBox(
+                ? SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary),
                   )
                 : const Text('Guardar cambios'),
           ),
@@ -1031,8 +1069,8 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: OmniGymColors.textSecondary,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontSize: 11,
         fontWeight: FontWeight.w600,
         letterSpacing: 0.5,
@@ -1070,25 +1108,25 @@ class _Field extends StatelessWidget {
       obscureText: obscureText,
       onChanged: onChanged,
       textCapitalization: textCapitalization,
-      style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
         errorText: errorText,
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: OmniGymColors.surface,
+        fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: OmniGymColors.border),
+          borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: OmniGymColors.border),
+          borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: OmniGymColors.primary),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
@@ -1117,24 +1155,24 @@ class _Dropdown<T> extends StatelessWidget {
       onChanged: onChanged,
       isExpanded: true,
       menuMaxHeight: 320,
-      dropdownColor: OmniGymColors.card,
-      style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+      dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
         filled: true,
-        fillColor: OmniGymColors.surface,
+        fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: OmniGymColors.border),
+          borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: OmniGymColors.border),
+          borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: const BorderSide(color: OmniGymColors.primary),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
         ),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
@@ -1169,8 +1207,8 @@ class _DatePickerField extends StatelessWidget {
           builder: (ctx, child) => Theme(
             data: Theme.of(ctx).copyWith(
               colorScheme: Theme.of(ctx).colorScheme.copyWith(
-                    primary: OmniGymColors.primary,
-                    surface: OmniGymColors.card,
+                    primary: Theme.of(context).colorScheme.primary,
+                    surface: Theme.of(context).colorScheme.surfaceContainerHighest,
                   ),
             ),
             child: child!,
@@ -1181,20 +1219,20 @@ class _DatePickerField extends StatelessWidget {
       child: AbsorbPointer(
         child: TextField(
           controller: TextEditingController(text: text),
-          style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
           decoration: InputDecoration(
             labelText: label,
-            labelStyle: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
-            suffixIcon: const Icon(Icons.calendar_today, color: OmniGymColors.textSecondary, size: 16),
+            labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+            suffixIcon: Icon(Icons.calendar_today, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 16),
             filled: true,
-            fillColor: OmniGymColors.surface,
+            fillColor: Theme.of(context).colorScheme.surface,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: OmniGymColors.border),
+              borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: OmniGymColors.border),
+              borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
@@ -1224,7 +1262,7 @@ class _PasswordFieldState extends State<_PasswordField> {
       suffixIcon: IconButton(
         icon: Icon(
           _obscure ? Icons.visibility_off : Icons.visibility,
-          color: OmniGymColors.textSecondary,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           size: 18,
         ),
         onPressed: () => setState(() => _obscure = !_obscure),
@@ -1275,11 +1313,11 @@ class _LogoUpload extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: BoxDecoration(
-                    color: OmniGymColors.primary,
+                    color: Theme.of(context).colorScheme.primary,
                     shape: BoxShape.circle,
-                    border: Border.all(color: OmniGymColors.background, width: 2),
+                    border: Border.all(color: Theme.of(context).colorScheme.surface, width: 2),
                   ),
-                  child: const Icon(Icons.edit, size: 12, color: Colors.white),
+                  child: Icon(Icons.edit, size: 12, color: Theme.of(context).colorScheme.onPrimary),
                 ),
               ),
             ],
@@ -1288,7 +1326,7 @@ class _LogoUpload extends StatelessWidget {
         const SizedBox(height: 6),
         Text(
           'Cambiar logo',
-          style: const TextStyle(color: OmniGymColors.primary, fontSize: 11),
+          style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 11),
         ),
       ],
     );
@@ -1320,7 +1358,7 @@ class _CertFileRow extends StatelessWidget {
           Expanded(
             child: Text(
               fileName!,
-              style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -1330,14 +1368,14 @@ class _CertFileRow extends StatelessWidget {
             icon: const Icon(Icons.swap_horiz, size: 14),
             label: const Text('Reemplazar'),
             style: OutlinedButton.styleFrom(
-              foregroundColor: OmniGymColors.textSecondary,
-              side: const BorderSide(color: OmniGymColors.border),
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+              side: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
             ),
           ),
           const SizedBox(width: 8),
           IconButton(
             onPressed: onClear,
-            icon: const Icon(Icons.delete_outline, color: OmniGymColors.errorRed, size: 18),
+            icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 18),
           ),
         ],
       );
@@ -1348,53 +1386,53 @@ class _CertFileRow extends StatelessWidget {
       icon: const Icon(Icons.upload_file, size: 16),
       label: const Text('Seleccionar archivo'),
       style: OutlinedButton.styleFrom(
-        foregroundColor: OmniGymColors.textSecondary,
-        side: const BorderSide(color: OmniGymColors.border),
+        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+        side: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
     );
   }
 }
 
-// ─── Color picker ─────────────────────────────────────────────────────────────
+// ─── Color grid ───────────────────────────────────────────────────────────────
 
-class _ColorPicker extends StatelessWidget {
-  const _ColorPicker({required this.current, required this.onChanged});
+class _ColorGrid extends StatelessWidget {
+  const _ColorGrid({
+    required this.colors,
+    required this.current,
+    required this.onChanged,
+  });
 
+  final List<Color> colors;
   final String current;
   final ValueChanged<String> onChanged;
 
-  static const _presets = [
-    '#2563EB', // azul (default)
-    '#7C3AED', // morado
-    '#0891B2', // cyan
-    '#16A34A', // verde
-    '#DC2626', // rojo
-    '#EA580C', // naranja
-    '#0D9488', // teal
-    '#DB2777', // rosa
-    '#475569', // gris oscuro
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: _presets.map((hex) {
-        final color = _hexToColor(hex);
+      spacing: 10,
+      runSpacing: 10,
+      children: colors.map((color) {
+        final hex = color.toHex();
         final isSelected = current.toLowerCase() == hex.toLowerCase();
         return GestureDetector(
           onTap: () => onChanged(hex),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            width: 28,
-            height: 28,
+            width: 32,
+            height: 32,
             decoration: BoxDecoration(
               color: color,
               shape: BoxShape.circle,
               border: isSelected
-                  ? Border.all(color: Colors.white, width: 3)
-                  : null,
+                  ? Border.all(
+                      color: theme.colorScheme.onSurface,
+                      width: 3,
+                    )
+                  : Border.all(
+                      color: theme.dividerTheme.color ?? Colors.transparent,
+                      width: 1,
+                    ),
               boxShadow: isSelected
                   ? [BoxShadow(color: color.withAlpha(120), blurRadius: 6)]
                   : null,
@@ -1404,13 +1442,130 @@ class _ColorPicker extends StatelessWidget {
       }).toList(),
     );
   }
+}
 
-  Color _hexToColor(String hex) {
-    try {
-      return Color(int.parse('FF${hex.replaceAll('#', '')}', radix: 16));
-    } catch (_) {
-      return OmniGymColors.primary;
-    }
+// ─── Theme mode selector ──────────────────────────────────────────────────────
+
+class _ThemeModeSelector extends StatelessWidget {
+  const _ThemeModeSelector({required this.value, required this.onChanged});
+
+  final String value;
+  final ValueChanged<String> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(value: 'light', label: Text('Claro')),
+        ButtonSegment(value: 'dark', label: Text('Oscuro')),
+        ButtonSegment(value: 'system', label: Text('Sistema')),
+      ],
+      selected: {value},
+      onSelectionChanged: (selected) => onChanged(selected.first),
+    );
+  }
+}
+
+// ─── Theme preview ────────────────────────────────────────────────────────────
+
+class _ThemePreview extends StatelessWidget {
+  const _ThemePreview({
+    required this.primary,
+    required this.secondary,
+    required this.themeMode,
+  });
+
+  final String primary;
+  final String secondary;
+  final String themeMode;
+
+  @override
+  Widget build(BuildContext context) {
+    final platformBrightness = MediaQuery.platformBrightnessOf(context);
+    final brightness = switch (themeMode) {
+      'light' => Brightness.light,
+      'dark' => Brightness.dark,
+      _ => platformBrightness,
+    };
+    final theme = ThemeService.buildTheme(
+      tenant: Tenant(
+        id: 'preview',
+        slug: 'preview',
+        name: 'Vista previa',
+        subscriptionStatus: SubscriptionStatus.active,
+        billingCycleEnd: DateTime.now().add(const Duration(days: 30)),
+        settings: TenantSettings(
+          primaryColor: primary,
+          secondaryColor: secondary,
+          themeMode: themeMode,
+        ),
+      ),
+      brightness: brightness,
+    );
+
+    return Theme(
+      data: theme,
+      child: Builder(
+        builder: (context) {
+          final cs = Theme.of(context).colorScheme;
+          return Container(
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              color: cs.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: cs.outline),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AppBar(
+                  title: const Text('Vista previa'),
+                  centerTitle: false,
+                  automaticallyImplyLeading: false,
+                ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Ejemplo de tarjeta',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Así se verá la app con esta combinación de colores.',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 16),
+                          Row(
+                            children: [
+                              FilledButton(
+                                onPressed: () {},
+                                child: const Text('Primario'),
+                              ),
+                              const SizedBox(width: 12),
+                              OutlinedButton(
+                                onPressed: () {},
+                                child: const Text('Secundario'),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
   }
 }
 
@@ -1427,9 +1582,9 @@ class _InvoiceTile extends StatelessWidget {
     final (label, color) = switch (invoice.status) {
       'paid' => ('Pagada', OmniGymColors.success),
       'open' => ('Pendiente', Colors.orange),
-      'void' => ('Anulada', OmniGymColors.textSecondary),
-      'uncollectible' => ('Incobrable', OmniGymColors.errorRed),
-      _ => (invoice.status, OmniGymColors.textSecondary),
+      'void' => ('Anulada', Theme.of(context).colorScheme.onSurfaceVariant),
+      'uncollectible' => ('Incobrable', Theme.of(context).colorScheme.error),
+      _ => (invoice.status, Theme.of(context).colorScheme.onSurfaceVariant),
     };
     final d = invoice.createdAt;
     final fecha = d == null
@@ -1440,9 +1595,9 @@ class _InvoiceTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: OmniGymColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Row(
         children: [
@@ -1451,14 +1606,14 @@ class _InvoiceTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(fecha,
-                    style: const TextStyle(
-                        color: OmniGymColors.textPrimary,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 13,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 2),
                 Text(invoice.id,
-                    style: const TextStyle(
-                        color: OmniGymColors.textSecondary,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 11,
                         fontFamily: 'monospace')),
               ],
@@ -1466,8 +1621,8 @@ class _InvoiceTile extends StatelessWidget {
           ),
           Text(
             '\$${invoice.amount.toStringAsFixed(2)} ${invoice.currency.toUpperCase()}',
-            style: const TextStyle(
-                color: OmniGymColors.textPrimary,
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 13,
                 fontWeight: FontWeight.w600),
           ),
