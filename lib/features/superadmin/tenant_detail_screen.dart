@@ -164,11 +164,14 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         // para facturación precisa (CFDI requiere dirección fiscal real).
         if (r.estado != null) _state = r.estado;
         _municipality = r.municipio;
+        // Auto-selecciona colonia si solo hay una; si no, limpia la anterior.
+        _coloniaCtrl.text = r.colonias.length == 1 ? r.colonias.first : '';
       } else {
         _cpEstado = null;
         _cpMunicipio = null;
         _cpCiudad = null;
         _colonias = [];
+        _coloniaCtrl.text = '';
       }
     });
   }
@@ -533,61 +536,119 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           ),
           const SizedBox(height: 24),
           _SectionLabel('Dirección fiscal'),
+          const SizedBox(height: 12),
+          // CP es el campo principal: todo lo demás se deriva de él.
+          _buildPostalField(),
           const SizedBox(height: 14),
-          // Dirección
+          // Estado y municipio: auto-completados desde CP o manuales.
+          _buildEstadoMunicipioRow(),
+          const SizedBox(height: 14),
+          _buildColoniaField(),
+          const SizedBox(height: 14),
+          _Field(controller: _addressCtrl, label: 'Calle y número'),
+          const SizedBox(height: 18),
+          _SectionLabel('Información de contacto'),
+          const SizedBox(height: 14),
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Column(
-                  children: [
-                    _Field(controller: _addressCtrl, label: 'Dirección'),
-                    const SizedBox(height: 14),
-                    _Dropdown<String>(
-                      label: 'Estado',
-                      value: _state,
-                      items: MexicoData.states
-                          .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                          .toList(),
-                      onChanged: (v) => setState(() {
-                        _state = v;
-                        _municipality = null;
-                      }),
-                    ),
-                    const SizedBox(height: 14),
-                    _Dropdown<String>(
-                      label: 'Municipio',
-                      value: _municipality,
-                      items: MexicoData.getMunicipalities(_state)
-                          .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                          .toList(),
-                      onChanged: (v) => setState(() => _municipality = v),
-                    ),
-                    const SizedBox(height: 14),
-                    _buildPostalField(),
-                    const SizedBox(height: 14),
-                    _buildColoniaField(),
-                  ],
-                ),
+                child: _Field(controller: _contactCtrl, label: 'Contacto'),
               ),
-              const SizedBox(width: 24),
+              const SizedBox(width: 14),
               Expanded(
-                child: Column(
-                  children: [
-                    _Field(controller: _contactCtrl, label: 'Contacto'),
-                    const SizedBox(height: 14),
-                    _Field(controller: _phoneCtrl, label: 'Teléfono',
-                        keyboardType: TextInputType.phone),
-                    const SizedBox(height: 14),
-                    _Field(controller: _emailCtrl, label: 'Correo electrónico',
-                        keyboardType: TextInputType.emailAddress),
-                  ],
-                ),
+                child: _Field(controller: _phoneCtrl, label: 'Teléfono',
+                    keyboardType: TextInputType.phone),
               ),
             ],
           ),
+          const SizedBox(height: 14),
+          _Field(controller: _emailCtrl, label: 'Correo electrónico',
+              keyboardType: TextInputType.emailAddress),
         ],
       ),
+    );
+  }
+
+  Widget _buildEstadoMunicipioRow() {
+    if (_cpEstado != null) {
+      // CP encontrado: mostrar estado y municipio confirmados (no editables).
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primary.withAlpha(18),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+              color: Theme.of(context).colorScheme.primary.withAlpha(40)),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.check_circle_outline,
+                size: 16, color: Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                '${_state ?? ""} · ${_municipality ?? ""}',
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
+                    fontSize: 13),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // CP no encontrado o sin 5 dígitos: campos manuales.
+    return Column(
+      children: [
+        if (_cpEstado == null && _postalCtrl.text.trim().length == 5)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline,
+                    size: 14,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                const SizedBox(width: 6),
+                Text(
+                  'CP no encontrado en catálogo. Selecciona manualmente:',
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 11),
+                ),
+              ],
+            ),
+          ),
+        Row(
+          children: [
+            Expanded(
+              child: _Dropdown<String>(
+                label: 'Estado',
+                value: _state,
+                items: MexicoData.states
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .toList(),
+                onChanged: (v) => setState(() {
+                  _state = v;
+                  _municipality = null;
+                }),
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: _Dropdown<String>(
+                label: 'Municipio',
+                value: _municipality,
+                items: MexicoData.getMunicipalities(_state)
+                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                    .toList(),
+                onChanged: (v) => setState(() => _municipality = v),
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 
@@ -636,39 +697,24 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     );
   }
 
-  // Campo de CP con autocompletado postal + confirmación estado/municipio.
+  // CP: campo principal del formulario. Al escribir 5 dígitos dispara SEPOMEX.
   Widget _buildPostalField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        _Field(
-          controller: _postalCtrl,
-          label: 'Código postal',
-          keyboardType: TextInputType.number,
-          onChanged: (v) => _lookupCp(v.trim()),
-          suffixIcon: _cpLoading
-              ? const Padding(
-                  padding: EdgeInsets.all(12),
-                  child: SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                )
-              : null,
-        ),
-        if (_cpEstado != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6, left: 4),
-            child: Text(
-              [_cpMunicipio, _cpEstado, _cpCiudad]
-                  .where((e) => e != null && e.isNotEmpty)
-                  .join(' · '),
-              style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
-            ),
-          ),
-      ],
+    return _Field(
+      controller: _postalCtrl,
+      label: 'Código postal',
+      keyboardType: TextInputType.number,
+      maxLength: 5,
+      onChanged: (v) => _lookupCp(v.trim()),
+      suffixIcon: _cpLoading
+          ? Padding(
+              padding: const EdgeInsets.all(12),
+              child: SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          : null,
     );
   }
 
@@ -1103,6 +1149,7 @@ class _Field extends StatelessWidget {
     this.suffixIcon,
     this.errorText,
     this.onChanged,
+    this.maxLength,
     this.textCapitalization = TextCapitalization.none,
   });
 
@@ -1113,6 +1160,7 @@ class _Field extends StatelessWidget {
   final Widget? suffixIcon;
   final String? errorText;
   final ValueChanged<String>? onChanged;
+  final int? maxLength;
   final TextCapitalization textCapitalization;
 
   @override
@@ -1122,6 +1170,7 @@ class _Field extends StatelessWidget {
       keyboardType: keyboardType,
       obscureText: obscureText,
       onChanged: onChanged,
+      maxLength: maxLength,
       textCapitalization: textCapitalization,
       style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
       decoration: InputDecoration(
@@ -1129,6 +1178,7 @@ class _Field extends StatelessWidget {
         labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
         errorText: errorText,
         suffixIcon: suffixIcon,
+        counterText: '',
         filled: true,
         fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
