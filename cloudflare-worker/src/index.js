@@ -976,6 +976,30 @@ export default {
       });
     }
 
+    // ── GET /geocode/search?q=... ─────────────────────────────────────────────────
+    // Proxy a Nominatim (OpenStreetMap) para búsqueda de calles/colonias.
+    // La app usa este endpoint para centrar el mapa en la dirección buscada.
+    if (request.method === 'GET' && pathname === '/geocode/search') {
+      const q = new URL(request.url).searchParams.get('q') ?? '';
+      if (!q || q.length < 3) return jsonRes({ results: [] });
+      try {
+        const res = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&countrycodes=mx`,
+          { headers: { 'User-Agent': 'OmniGym/1.0' } },
+        );
+        const data = await res.json();
+        return jsonRes({
+          results: (data ?? []).map((r) => ({
+            displayName: r.display_name,
+            lat: parseFloat(r.lat),
+            lng: parseFloat(r.lon),
+          })),
+        });
+      } catch (e) {
+        return jsonRes({ error: e.message }, 502);
+      }
+    }
+
     // ── POST /billing/checkout ──────────────────────────────────────────────────
     // Crea (o reutiliza) el Customer del tenant y abre un Checkout hospedado de
     // Stripe en modo suscripción. Devuelve la URL a la que redirige la app.

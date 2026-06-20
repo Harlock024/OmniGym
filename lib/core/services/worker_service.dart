@@ -211,6 +211,29 @@ class WorkerService {
       throw Exception('delete-staff failed (${res.statusCode}): ${res.body}');
     }
   }
+
+  /// Busca direcciones vía Nominatim (OpenStreetMap) a través del worker.
+  /// Devuelve hasta 5 resultados con coordenadas para centrar el mapa.
+  static Future<List<GeocodeResult>> searchAddress(String query) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_base/geocode/search?q=${Uri.encodeComponent(query)}'),
+        headers: _headers,
+      );
+      if (res.statusCode != 200) return [];
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      return (data['results'] as List<dynamic>? ?? [])
+          .map((r) => GeocodeResult(
+                displayName:
+                    (r as Map<String, dynamic>)['displayName'] as String,
+                lat: (r['lat'] as num).toDouble(),
+                lng: (r['lng'] as num).toDouble(),
+              ))
+          .toList();
+    } catch (_) {
+      return [];
+    }
+  }
 }
 
 class PostalLookup {
@@ -224,6 +247,17 @@ class PostalLookup {
   final String? municipio;
   final String? ciudad;
   final List<String> colonias;
+}
+
+class GeocodeResult {
+  const GeocodeResult({
+    required this.displayName,
+    required this.lat,
+    required this.lng,
+  });
+  final String displayName;
+  final double lat;
+  final double lng;
 }
 
 class StaffAlreadyExistsException implements Exception {
