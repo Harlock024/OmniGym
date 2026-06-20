@@ -98,7 +98,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   void initState() {
     super.initState();
     // En modo SuperAdmin se añade la pestaña de cobro (facturación SaaS B2B).
-    _tabs = TabController(length: widget.isOwnerMode ? 3 : 4, vsync: this);
+    _tabs = TabController(length: widget.isOwnerMode ? 4 : 5, vsync: this);
     _loadTenant();
   }
 
@@ -399,6 +399,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
               controller: _tabs,
               children: [
                 _buildGeneralTab(),
+                _buildAppearanceTab(),
                 _buildFiscalTab(),
                 _buildCertsTab(),
                 if (!widget.isOwnerMode) _buildBillingTab(),
@@ -491,8 +492,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             unselectedLabelStyle: const TextStyle(fontSize: 13),
             tabs: [
               const Tab(text: 'Datos generales'),
+              const Tab(text: 'Apariencia'),
               const Tab(text: 'Datos fiscales'),
-              const Tab(text: 'Datos de certificados'),
+              const Tab(text: 'Certificados'),
               if (!widget.isOwnerMode) const Tab(text: 'Cobro'),
             ],
           ),
@@ -501,7 +503,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     );
   }
 
-  // ── Tab 1: Datos generales ────────────────────────────────────────────────
+  // ── Tab 1: Datos generales (dirección fiscal) ───────────────────────────────
 
   Widget _buildGeneralTab() {
     return SingleChildScrollView(
@@ -530,40 +532,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             ],
           ),
           const SizedBox(height: 24),
-          // Apariencia del Gym
-          _SectionLabel('Apariencia del Gym'),
-          const SizedBox(height: 16),
-          _SectionLabel('Color primario'),
-          const SizedBox(height: 8),
-          _ColorGrid(
-            colors: OmniGymPalette.primaries,
-            current: _primaryColor,
-            onChanged: (c) => setState(() => _primaryColor = c),
-          ),
-          const SizedBox(height: 16),
-          _SectionLabel('Color secundario'),
-          const SizedBox(height: 8),
-          _ColorGrid(
-            colors: OmniGymPalette.secondaries,
-            current: _secondaryColor,
-            onChanged: (c) => setState(() => _secondaryColor = c),
-          ),
-          const SizedBox(height: 16),
-          _SectionLabel('Modo'),
-          const SizedBox(height: 8),
-          _ThemeModeSelector(
-            value: _themeMode,
-            onChanged: (v) => setState(() => _themeMode = v),
-          ),
-          const SizedBox(height: 16),
-          _SectionLabel('Vista previa'),
-          const SizedBox(height: 8),
-          _ThemePreview(
-            primary: _primaryColor,
-            secondary: _secondaryColor,
-            themeMode: _themeMode,
-          ),
-          const SizedBox(height: 24),
+          _SectionLabel('Dirección fiscal'),
+          const SizedBox(height: 14),
           // Dirección
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -615,6 +585,51 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                 ),
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Tab 2: Apariencia ──────────────────────────────────────────────────────
+
+  Widget _buildAppearanceTab() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _SectionLabel('Colores del gimnasio'),
+          const SizedBox(height: 16),
+          _SectionLabel('Color primario'),
+          const SizedBox(height: 8),
+          _ColorGrid(
+            colors: OmniGymPalette.primaries,
+            current: _primaryColor,
+            onChanged: (c) => setState(() => _primaryColor = c),
+          ),
+          const SizedBox(height: 16),
+          _SectionLabel('Color secundario'),
+          const SizedBox(height: 8),
+          _ColorGrid(
+            colors: OmniGymPalette.secondaries,
+            current: _secondaryColor,
+            onChanged: (c) => setState(() => _secondaryColor = c),
+          ),
+          const SizedBox(height: 24),
+          _SectionLabel('Modo'),
+          const SizedBox(height: 8),
+          _ThemeModeSelector(
+            value: _themeMode,
+            onChanged: (v) => setState(() => _themeMode = v),
+          ),
+          const SizedBox(height: 24),
+          _SectionLabel('Vista previa'),
+          const SizedBox(height: 8),
+          _ThemePreview(
+            primary: _primaryColor,
+            secondary: _secondaryColor,
+            themeMode: _themeMode,
           ),
         ],
       ),
