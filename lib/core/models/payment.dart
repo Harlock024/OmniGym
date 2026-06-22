@@ -25,6 +25,10 @@ class Payment with _$Payment {
     required DateTime createdAt,
     String? reference,
     String? notes,
+    @JsonKey(name: 'factura_uuid') String? facturaUuid,
+    @JsonKey(name: 'facturado_at')
+    @NullableTimestampConverter()
+    DateTime? facturadoAt,
   }) = _Payment;
 
   factory Payment.fromJson(Map<String, dynamic> json) =>

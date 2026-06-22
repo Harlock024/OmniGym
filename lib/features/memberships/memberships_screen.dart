@@ -446,7 +446,7 @@ class _PagosTab extends ConsumerWidget {
             Expanded(
               child: ListView.builder(
                 itemCount: payments.length,
-                itemBuilder: (_, i) => _PaymentRow(payment: payments[i]),
+                itemBuilder: (_, i) => _PaymentRow(payment: payments[i], tenantId: tenantId),
               ),
             ),
           ],
@@ -456,15 +456,17 @@ class _PagosTab extends ConsumerWidget {
   }
 }
 
-class _PaymentRow extends StatelessWidget {
-  const _PaymentRow({required this.payment});
+class _PaymentRow extends ConsumerWidget {
+  const _PaymentRow({required this.payment, required this.tenantId});
   final Payment payment;
+  final String tenantId;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final dt = payment.createdAt;
     final dateStr =
         '${dt.day.toString().padLeft(2, '0')}/${dt.month.toString().padLeft(2, '0')}/${dt.year}';
+    final facturado = payment.facturaUuid != null;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
@@ -538,7 +540,57 @@ class _PaymentRow extends StatelessWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
             ),
           ),
+          const SizedBox(width: 12),
+          SizedBox(
+            width: 90,
+            child: facturado
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.check_circle, size: 14, color: OmniGymColors.success),
+                      const SizedBox(width: 4),
+                      Text(payment.facturaUuid!.substring(0, 8),
+                          style: const TextStyle(fontSize: 10, fontFamily: 'monospace',
+                              color: OmniGymColors.textSecondary)),
+                    ],
+                  )
+                : TextButton.icon(
+                    onPressed: () => _facturar(context, ref),
+                    icon: const Icon(Icons.receipt, size: 14),
+                    label: const Text('Facturar', style: TextStyle(fontSize: 11)),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+          ),
         ],
+      ),
+    );
+  }
+
+  void _facturar(BuildContext context, WidgetRef ref) {
+    final members = ref.read(membersProvider(tenantId)).valueOrNull ?? [];
+    final plans = ref.read(allPlansProvider(tenantId)).valueOrNull ?? [];
+    final member = members.where((m) => m.id == payment.memberId).firstOrNull;
+    final plan = plans.where((p) => p.id == payment.planId).firstOrNull;
+
+    if (member == null || plan == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se encontró el socio o plan asociado')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (ctx) => FacturarDialog(
+        tenantId: tenantId,
+        paymentId: payment.id,
+        member: member,
+        plan: plan,
+        amount: payment.amount,
       ),
     );
   }
