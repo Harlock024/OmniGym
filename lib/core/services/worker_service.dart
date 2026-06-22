@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -324,11 +323,7 @@ class WorkerService {
     return null;
   }
 
-  static String urlPdf({required String tenantId, required String uuid}) {
-    return '$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=pdf&token=$_secret';
-  }
-
-  static Future<Uint8List?> descargarPdf({
+  static Future<List<int>?> descargarPdf({
     required String tenantId,
     required String uuid,
   }) async {
