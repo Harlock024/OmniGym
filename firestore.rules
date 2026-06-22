@@ -217,6 +217,15 @@ service cloud.firestore {
             || isStaff(tenantId, resource.data.branch_id);
         allow delete: if isSuperUser();
       }
+
+      // ─── Facturas (CFDI) ────────────────────────────────────────────────
+
+      match /facturas/{facturaId} {
+        allow read: if isSuperUser()
+            || belongsToTenant(tenantId)
+            || isMemberOf(tenantId);
+        allow write: if false; // Solo el worker (Admin SDK) escribe
+      }
     }
   }
 }
