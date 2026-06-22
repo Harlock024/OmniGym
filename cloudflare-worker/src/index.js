@@ -819,6 +819,85 @@ async function runAutoFacturacion(projectId, token, env) {
   });
 }
 
+// ── Manejador de factura (PDF/XML) ──────────────────────────────────────────
+// Acepta ?token= como alternativa al Bearer para descargas desde navegador.
+async function handleInvoiceRequest(request, env) {
+  const url = new URL(request.url);
+  const uuid = url.searchParams.get('uuid');
+  const tenantId = url.searchParams.get('tenantId');
+  const format = url.searchParams.get('format') || 'json';
+  const qToken = url.searchParams.get('token') || '';
+
+  if (!uuid || !tenantId) {
+    return jsonRes({ error: 'Faltan uuid y tenantId' }, 400);
+  }
+
+  // Auth: Bearer header o ?token=
+  const hasBearer = checkAuth(request, env);
+  const hasToken = qToken && qToken === env.UPLOAD_SECRET;
+  if (!hasBearer && !hasToken) {
+    return jsonRes({ error: 'Unauthorized' }, 401);
+  }
+
+  const token = await getAdminToken(env);
+  const projectId = JSON.parse(env.SA_JSON).project_id;
+
+  const factura = await fsGet(projectId, `tenants/${tenantId}/facturas/${uuid}`, token);
+  if (!factura) return jsonRes({ error: 'Factura no encontrada' }, 404);
+
+  if (format === 'xml') {
+    if (factura.xml_timbrado) {
+      return new Response(factura.xml_timbrado, {
+        headers: { ...CORS, 'Content-Type': 'application/xml' },
+      });
+    }
+    if (factura.facturapi_invoice_id && env.FACTURAPI_API_KEY) {
+      const res = await fetch(
+        `https://www.facturapi.io/v2/invoices/${factura.facturapi_invoice_id}/xml`,
+        { headers: { Authorization: `Bearer ${env.FACTURAPI_API_KEY}` } },
+      );
+      if (res.ok) {
+        const xml = await res.text();
+        return new Response(xml, {
+          headers: { ...CORS, 'Content-Type': 'application/xml' },
+        });
+      }
+    }
+    return jsonRes({ error: 'XML no disponible' }, 404);
+  }
+
+  if (format === 'pdf') {
+    if (factura.facturapi_invoice_id && env.FACTURAPI_API_KEY) {
+      const res = await fetch(
+        `https://www.facturapi.io/v2/invoices/${factura.facturapi_invoice_id}/pdf`,
+        { headers: { Authorization: `Bearer ${env.FACTURAPI_API_KEY}` } },
+      );
+      if (res.ok) {
+        const pdf = await res.arrayBuffer();
+        return new Response(pdf, {
+          headers: { ...CORS, 'Content-Type': 'application/pdf' },
+        });
+      }
+    }
+    return jsonRes({ error: 'PDF no disponible' }, 404);
+  }
+
+  return jsonRes({
+    uuid: factura.uuid,
+    serie: factura.serie,
+    folio: factura.folio,
+    fecha: factura.fecha,
+    fecha_timbrado: factura.fecha_timbrado,
+    emisor_rfc: factura.emisor_rfc,
+    receptor_rfc: factura.receptor_rfc,
+    receptor_nombre: factura.receptor_nombre,
+    total: factura.total,
+    moneda: factura.moneda,
+    status: factura.status,
+    facturapi_invoice_id: factura.facturapi_invoice_id,
+  });
+}
+
 async function handleScheduled(event, env) {
   const token = await getAdminToken(env);
   const projectId = JSON.parse(env.SA_JSON).project_id;
@@ -1040,6 +1119,12 @@ export default {
     // ANTES de checkAuth: Stripe firma con su propio secreto, no manda el Bearer.
     if (request.method === 'POST' && pathname === '/billing/webhook') {
       return handleStripeWebhook(request, env);
+    }
+
+    // ── GET /facturacion/invoice (PDF/XML) ─────────────────────────────────────
+    // ANTES de checkAuth: acepta ?token= como alternativa al Bearer (navegador)
+    if (request.method === 'GET' && pathname === '/facturacion/invoice') {
+      return handleInvoiceRequest(request, env);
     }
 
     if (!checkAuth(request, env)) {
@@ -1482,91 +1567,6 @@ export default {
       }, token);
 
       return jsonRes({ facturas });
-    }
-
-    // ── GET /facturacion/invoice?uuid=xxx&tenantId=xxx&format=[xml|pdf] ──────────
-    if (request.method === 'GET' && pathname === '/facturacion/invoice') {
-      const url = new URL(request.url);
-      const uuid = url.searchParams.get('uuid');
-      const tenantId = url.searchParams.get('tenantId');
-      const format = url.searchParams.get('format') || 'json';
-      // Permitir auth via query param ?token=xxx (para PDF en navegador)
-      const qToken = url.searchParams.get('token') || '';
-
-      if (!uuid || !tenantId) {
-        return jsonRes({ error: 'Faltan uuid y tenantId' }, 400);
-      }
-
-      // Verificar auth: Bearer header o query param token
-      const isAuthed = checkAuth(request, env) ||
-        (qToken && qToken === env.UPLOAD_SECRET);
-      if (!isAuthed) return jsonRes({ error: 'Unauthorized' }, 401);
-
-      const token = await getAdminToken(env);
-      const projectId = JSON.parse(env.SA_JSON).project_id;
-
-      // Buscar factura en Firestore
-      const factura = await fsGet(projectId, `tenants/${tenantId}/facturas/${uuid}`, token);
-      if (!factura) return jsonRes({ error: 'Factura no encontrada' }, 404);
-
-      if (format === 'xml') {
-        // Si tenemos el XML guardado, devolverlo
-        if (factura.xml_timbrado) {
-          return new Response(factura.xml_timbrado, {
-            headers: { ...CORS, 'Content-Type': 'application/xml' },
-          });
-        }
-        // Si no, intentar obtenerlo de Facturapi
-        if (factura.facturapi_invoice_id && env.FACTURAPI_API_KEY) {
-          try {
-            const res = await fetch(
-              `https://www.facturapi.io/v2/invoices/${factura.facturapi_invoice_id}/xml`,
-              { headers: { Authorization: `Bearer ${env.FACTURAPI_API_KEY}` } },
-            );
-            if (res.ok) {
-              const xml = await res.text();
-              return new Response(xml, {
-                headers: { ...CORS, 'Content-Type': 'application/xml' },
-              });
-            }
-          } catch (_) { /* fallback a error */ }
-        }
-        return jsonRes({ error: 'XML no disponible' }, 404);
-      }
-
-      if (format === 'pdf') {
-        if (factura.facturapi_invoice_id && env.FACTURAPI_API_KEY) {
-          try {
-            const res = await fetch(
-              `https://www.facturapi.io/v2/invoices/${factura.facturapi_invoice_id}/pdf`,
-              { headers: { Authorization: `Bearer ${env.FACTURAPI_API_KEY}` } },
-            );
-            if (res.ok) {
-              const pdf = await res.arrayBuffer();
-              return new Response(pdf, {
-                headers: { ...CORS, 'Content-Type': 'application/pdf' },
-              });
-            }
-          } catch (_) { /* fallback a error */ }
-        }
-        return jsonRes({ error: 'PDF no disponible' }, 404);
-      }
-
-      // Default: devolver datos JSON
-      return jsonRes({
-        uuid: factura.uuid,
-        serie: factura.serie,
-        folio: factura.folio,
-        fecha: factura.fecha,
-        fecha_timbrado: factura.fecha_timbrado,
-        emisor_rfc: factura.emisor_rfc,
-        receptor_rfc: factura.receptor_rfc,
-        receptor_nombre: factura.receptor_nombre,
-        total: factura.total,
-        moneda: factura.moneda,
-        status: factura.status,
-        facturapi_invoice_id: factura.facturapi_invoice_id,
-      });
     }
 
     // ── POST /facturacion/cancelar ────────────────────────────────────────────────
