@@ -23,3 +23,10 @@ R2_PUBLIC_BASE = "https://pub-c1dbef6de1ab47f1a5697445f13f6aec.r2.dev"
 
 [triggers]
 crons = ["0 9 * * *", "0 15 * * 1"]
+
+# ── Facturacion SAT (Facturapi.io) ────────────────────────────────────────────
+# La API key se configura via secrets (NO en git):
+#   wrangler secret put FACTURAPI_API_KEY
+# Opcionales:
+#   wrangler secret put FACTURAPI_BASE_URL
+#   wrangler secret put FACTURAPI_TIMEOUT

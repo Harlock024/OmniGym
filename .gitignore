@@ -56,3 +56,4 @@ ios/GoogleService-Info.plist
 # Cloudflare Wrangler
 .wrangler/
 cloudflare-worker/d1/seed.sql
+.dev.vars

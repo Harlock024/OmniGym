@@ -1,3 +1,5 @@
+import { timbrarFactura } from './cfdi/facturacion.js';
+
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
@@ -699,6 +701,124 @@ async function runNotifyOwnersUpcomingRenewal(projectId, token, env) {
   });
 }
 
+// ── Auto-facturacion ───────────────────────────────────────────────────────◀
+// Busca payments completados sin factura y los timbra automaticamente.
+async function runAutoFacturacion(projectId, token, env) {
+  if (!env.FACTURAPI_API_KEY) {
+    console.log('[auto-facturacion] FACTURAPI_API_KEY no configurado, saltando');
+    return;
+  }
+  const started = Date.now();
+  let scanned = 0, facturados = 0;
+  const errors = [];
+
+  try {
+    // Buscar payments completados sin factura_uuid
+    const payments = await fsRunQuery(projectId, {
+      from: [{ collectionId: 'payments', allDescendants: true }],
+      where: fAnd(
+        fEq('status', { stringValue: 'completed' }),
+      ),
+      limit: 200,
+    }, token);
+    scanned = payments.length;
+
+    for (const p of payments) {
+      // Saltar si ya tiene factura
+      if (p.factura_uuid) continue;
+
+      const tenantId = p.path.split('/')[1]; // tenants/{id}/payments/{pid}
+      if (!tenantId) continue;
+
+      try {
+        // Cargar tenant
+        const tenantDoc = await fsGet(projectId, `tenants/${tenantId}`, token);
+        if (!tenantDoc || !tenantDoc.settings?.rfc) {
+          errors.push(`${tenantId}: sin RFC configurado`);
+          continue;
+        }
+
+        // Cargar miembro
+        let memberName = 'CLIENTE';
+        let memberRfc = 'XAXX010101000';
+        let memberCp = tenantDoc.settings?.postal_code ?? '01000';
+        if (p.member_id) {
+          try {
+            const member = await fsGet(projectId, `tenants/${tenantId}/members/${p.member_id}`, token);
+            if (member) {
+              memberName = member.name ?? memberName;
+              memberRfc = member.rfc ?? memberRfc;
+              memberCp = member.postal_code ?? memberCp;
+            }
+          } catch (_) { /* member opcional */ }
+        }
+
+        // Cargar plan para obtener clave SAT
+        let descripcion = p.plan_name || 'Membresia';
+        let claveProdServ = '80111506';
+        let claveUnidad = 'E48';
+        if (p.plan_id) {
+          try {
+            const plan = await fsGet(projectId, `tenants/${tenantId}/membership_plans/${p.plan_id}`, token);
+            if (plan) {
+              descripcion = plan.name ?? descripcion;
+              claveProdServ = plan.sat_product_key ?? claveProdServ;
+              claveUnidad = plan.sat_unit_key ?? claveUnidad;
+            }
+          } catch (_) { /* plan opcional */ }
+        }
+
+        // Concepto basado en el payment
+        const conceptos = [{
+          claveProdServ,
+          claveUnidad,
+          descripcion,
+          cantidad: 1,
+          valorUnitario: p.amount ?? 0,
+          importe: p.amount ?? 0,
+        }];
+
+        // Timbrar
+        const resultado = await timbrarFactura({
+          tenant: { id: tenantId, name: tenantDoc.name, settings: tenantDoc.settings },
+          env,
+          conceptos,
+          receptor: {
+            rfc: memberRfc,
+            nombre: memberName,
+            codigo_postal: memberCp,
+            regimen_fiscal: '616',
+            uso_cfdi: 'G03',
+          },
+          paymentId: p.id,
+          firestore: { projectId, token, fsGet, fsUpdate, fsSet },
+        });
+
+        if (resultado.ok) {
+          facturados++;
+        } else {
+          errors.push(`${tenantId}/${p.id}: ${resultado.mensaje}`);
+        }
+      } catch (e) {
+        errors.push(`${tenantId}/${p.id}: ${e.message}`);
+      }
+    }
+  } catch (e) {
+    errors.push(e.message);
+  }
+
+  await logCronRun(projectId, token, {
+    job: 'auto_facturacion',
+    ran_at: new Date(),
+    duration_ms: Date.now() - started,
+    scanned,
+    updated: facturados,
+    emails_sent: 0,
+    ok: errors.length === 0,
+    errors,
+  });
+}
+
 async function handleScheduled(event, env) {
   const token = await getAdminToken(env);
   const projectId = JSON.parse(env.SA_JSON).project_id;
@@ -707,6 +827,7 @@ async function handleScheduled(event, env) {
       await runMarkDebtors(projectId, token);
       await runMarkPastDueTenants(projectId, token);
       await runNotifyOwnersUpcomingRenewal(projectId, token, env);
+      await runAutoFacturacion(projectId, token, env);
       break;
     case '0 15 * * 1': // 09:00 MX lunes — notificaciones semanales
       await runNotifyExpiringMembers(projectId, token, env);
@@ -1310,6 +1431,177 @@ export default {
 
       // Devuelve tempPassword para que el recepcionista pueda comunicársela al socio.
       return jsonRes({ uid, qrToken, tempPassword });
+    }
+
+    // ── POST /facturacion/timbrar ───────────────────────────────────────────────
+    if (request.method === 'POST' && pathname === '/facturacion/timbrar') {
+      const body = await request.json();
+      const { tenantId, conceptos, paymentId, ...receptor } = body;
+
+      if (!tenantId || !conceptos?.length) {
+        return jsonRes({ error: 'Faltan tenantId y conceptos' }, 400);
+      }
+      if (!env.FACTURAPI_API_KEY) {
+        return jsonRes({ error: 'FACTURAPI_API_KEY no configurado' }, 503);
+      }
+
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+
+      const tenantDoc = await fsGet(projectId, `tenants/${tenantId}`, token);
+      if (!tenantDoc) return jsonRes({ error: 'Tenant no encontrado' }, 404);
+
+      const resultado = await timbrarFactura({
+        tenant: { id: tenantDoc.id, name: tenantDoc.name, settings: tenantDoc.settings },
+        env,
+        conceptos,
+        receptor,
+        paymentId: paymentId || null,
+        firestore: { projectId, token, fsGet, fsUpdate, fsSet },
+      });
+
+      return jsonRes(resultado);
+    }
+
+    // ── GET /facturacion/invoices?tenantId=xxx ────────────────────────────────────
+    // Lista las facturas timbradas de un tenant.
+    if (request.method === 'GET' && pathname === '/facturacion/invoices') {
+      const tenantId = new URL(request.url).searchParams.get('tenantId');
+      if (!tenantId) {
+        return jsonRes({ error: 'Falta tenantId' }, 400);
+      }
+
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+
+      const facturas = await fsRunQuery(projectId, {
+        from: [{ collectionId: 'facturas', allDescendants: true }],
+        where: fEq('tenant_id', { stringValue: tenantId }),
+        orderBy: [{ field: { fieldPath: 'created_at' }, direction: 'DESCENDING' }],
+        limit: 50,
+      }, token);
+
+      return jsonRes({ facturas });
+    }
+
+    // ── GET /facturacion/invoice?uuid=xxx&tenantId=xxx&format=[xml|pdf] ──────────
+    if (request.method === 'GET' && pathname === '/facturacion/invoice') {
+      const url = new URL(request.url);
+      const uuid = url.searchParams.get('uuid');
+      const tenantId = url.searchParams.get('tenantId');
+      const format = url.searchParams.get('format') || 'json';
+
+      if (!uuid || !tenantId) {
+        return jsonRes({ error: 'Faltan uuid y tenantId' }, 400);
+      }
+
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+
+      // Buscar factura en Firestore
+      const factura = await fsGet(projectId, `tenants/${tenantId}/facturas/${uuid}`, token);
+      if (!factura) return jsonRes({ error: 'Factura no encontrada' }, 404);
+
+      if (format === 'xml') {
+        // Si tenemos el XML guardado, devolverlo
+        if (factura.xml_timbrado) {
+          return new Response(factura.xml_timbrado, {
+            headers: { ...CORS, 'Content-Type': 'application/xml' },
+          });
+        }
+        // Si no, intentar obtenerlo de Facturapi
+        if (factura.facturapi_invoice_id && env.FACTURAPI_API_KEY) {
+          try {
+            const res = await fetch(
+              `https://www.facturapi.io/v2/invoices/${factura.facturapi_invoice_id}/xml`,
+              { headers: { Authorization: `Bearer ${env.FACTURAPI_API_KEY}` } },
+            );
+            if (res.ok) {
+              const xml = await res.text();
+              return new Response(xml, {
+                headers: { ...CORS, 'Content-Type': 'application/xml' },
+              });
+            }
+          } catch (_) { /* fallback a error */ }
+        }
+        return jsonRes({ error: 'XML no disponible' }, 404);
+      }
+
+      if (format === 'pdf') {
+        if (factura.facturapi_invoice_id && env.FACTURAPI_API_KEY) {
+          try {
+            const res = await fetch(
+              `https://www.facturapi.io/v2/invoices/${factura.facturapi_invoice_id}/pdf`,
+              { headers: { Authorization: `Bearer ${env.FACTURAPI_API_KEY}` } },
+            );
+            if (res.ok) {
+              const pdf = await res.arrayBuffer();
+              return new Response(pdf, {
+                headers: { ...CORS, 'Content-Type': 'application/pdf' },
+              });
+            }
+          } catch (_) { /* fallback a error */ }
+        }
+        return jsonRes({ error: 'PDF no disponible' }, 404);
+      }
+
+      // Default: devolver datos JSON
+      return jsonRes({
+        uuid: factura.uuid,
+        serie: factura.serie,
+        folio: factura.folio,
+        fecha: factura.fecha,
+        fecha_timbrado: factura.fecha_timbrado,
+        emisor_rfc: factura.emisor_rfc,
+        receptor_rfc: factura.receptor_rfc,
+        receptor_nombre: factura.receptor_nombre,
+        total: factura.total,
+        moneda: factura.moneda,
+        status: factura.status,
+        facturapi_invoice_id: factura.facturapi_invoice_id,
+      });
+    }
+
+    // ── POST /facturacion/cancelar ────────────────────────────────────────────────
+    if (request.method === 'POST' && pathname === '/facturacion/cancelar') {
+      const { uuid, tenantId } = await request.json();
+      if (!uuid || !tenantId) return jsonRes({ error: 'Faltan uuid y tenantId' }, 400);
+      if (!env.FACTURAPI_API_KEY) return jsonRes({ error: 'FACTURAPI_API_KEY no configurado' }, 503);
+
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+
+      const factura = await fsGet(projectId, `tenants/${tenantId}/facturas/${uuid}`, token);
+      if (!factura) return jsonRes({ error: 'Factura no encontrada' }, 404);
+
+      try {
+        const res = await fetch('https://www.facturapi.io/v2/invoices/cancel', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.FACTURAPI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ uuid }),
+        });
+        const body = await res.json();
+
+        if (res.ok || body.status === 'canceled') {
+          await fsUpdate(projectId, `tenants/${tenantId}/facturas/${uuid}`,
+            { status: 'cancelado', canceled_at: new Date() }, token);
+          return jsonRes({ ok: true, uuid });
+        }
+        return jsonRes({ ok: false, error: body.message || 'Error al cancelar' }, 400);
+      } catch (e) {
+        return jsonRes({ error: e.message }, 500);
+      }
+    }
+
+    // ── GET /facturacion/status ──────────────────────────────────────────────────
+    if (request.method === 'GET' && pathname === '/facturacion/status') {
+      return jsonRes({
+        provider: 'facturapi',
+        configured: !!env.FACTURAPI_API_KEY,
+      });
     }
 
     return jsonRes({ error: 'Not found' }, 404);
