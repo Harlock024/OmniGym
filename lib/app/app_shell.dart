@@ -78,6 +78,7 @@ const _ownerItems = <_NavEntry>[
   _NavItem(icon: Icons.location_city_rounded, label: 'Sucursales', route: '/branches'),
   _NavItem(icon: Icons.fitness_center, label: 'Socios', route: '/members'),
   _NavItem(icon: Icons.card_membership_rounded, label: 'Membresías', route: '/memberships'),
+  _NavItem(icon: Icons.receipt_long_rounded, label: 'Facturación', route: '/facturacion'),
   _NavItem(icon: Icons.bar_chart_rounded, label: 'Reportes', route: '/reports'),
   _NavItem(icon: Icons.badge_rounded, label: 'Staff', route: '/staff'),
   _NavItem(icon: Icons.workspace_premium_rounded, label: 'Mi suscripción', route: '/subscription'),

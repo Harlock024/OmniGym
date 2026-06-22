@@ -91,6 +91,22 @@
       ]
     },
     {
+      "collectionGroup": "facturas",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "receptor_rfc", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "facturas",
+      "queryScope": "COLLECTION_GROUP",
+      "fields": [
+        { "fieldPath": "tenant_id", "order": "ASCENDING" },
+        { "fieldPath": "created_at", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "membership_plans",
       "queryScope": "COLLECTION",
       "fields": [

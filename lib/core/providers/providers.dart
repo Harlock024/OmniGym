@@ -5,11 +5,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/app_user.dart';
 import '../models/branch.dart';
+import '../models/factura.dart';
 import '../models/member.dart';
 import '../models/membership_plan.dart';
 import '../models/payment.dart';
 import '../models/tenant.dart';
 import '../repositories/branch_repository.dart';
+import '../repositories/factura_repository.dart';
 import '../repositories/member_repository.dart';
 import '../repositories/payment_repository.dart';
 import '../repositories/plan_repository.dart';
@@ -248,6 +250,10 @@ final planRepositoryProvider = Provider<PlanRepository>(
   (ref) => PlanRepository(ref.watch(firestoreProvider)),
 );
 
+final facturaRepositoryProvider = Provider<FacturaRepository>(
+  (ref) => FacturaRepository(ref.watch(firestoreProvider)),
+);
+
 final activePlansProvider = StreamProvider.family<List<MembershipPlan>, String>(
   (ref, tenantId) =>
       ref.watch(planRepositoryProvider).watchActive(tenantId),
@@ -281,4 +287,18 @@ final memberPaymentsProvider = StreamProvider.family<List<Payment>,
   (ref, args) => ref
       .watch(paymentRepositoryProvider)
       .watchByMember(args.tenantId, args.memberId),
+);
+
+// ─── Facturación ──────────────────────────────────────────────────────────────
+
+final tenantFacturasProvider = StreamProvider.family<List<Factura>, String>(
+  (ref, tenantId) =>
+      ref.watch(facturaRepositoryProvider).watchByTenant(tenantId),
+);
+
+final facturasByReceptorProvider = StreamProvider.family<
+    List<Factura>, ({String tenantId, String rfc})>(
+  (ref, args) => ref
+      .watch(facturaRepositoryProvider)
+      .watchByReceptor(args.tenantId, args.rfc),
 );

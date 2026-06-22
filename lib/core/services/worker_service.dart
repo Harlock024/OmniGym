@@ -234,6 +234,114 @@ class WorkerService {
       return [];
     }
   }
+
+  // ── Facturación CFDI ──────────────────────────────────────────────────────
+
+  static Future<FacturacionValidacion> validarFacturacion(String tenantId) async {
+    final res = await http.get(
+      Uri.parse('$_base/facturacion/validate?tenantId=$tenantId'),
+      headers: _headers,
+    );
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return FacturacionValidacion(
+      ok: data['ok'] as bool,
+      errors: (data['errors'] as List<dynamic>?)
+              ?.map((e) => ValidacionError(
+                    campo: (e as Map<String, dynamic>)['campo'] as String,
+                    mensaje: e['mensaje'] as String,
+                  ))
+              .toList() ??
+          [],
+    );
+  }
+
+  static Future<FacturacionResultado> timbrarFactura({
+    required String tenantId,
+    required List<Map<String, dynamic>> conceptos,
+    String? rfc,
+    String? nombre,
+    String? codigoPostal,
+    String? regimenFiscal,
+    String? usoCFDI,
+    String? paymentId,
+  }) async {
+    final body = <String, dynamic>{'tenantId': tenantId, 'conceptos': conceptos};
+    if (rfc != null) body['rfc'] = rfc;
+    if (nombre != null) body['nombre'] = nombre;
+    if (codigoPostal != null) body['codigo_postal'] = codigoPostal;
+    if (regimenFiscal != null) body['regimen_fiscal'] = regimenFiscal;
+    if (usoCFDI != null) body['uso_cfdi'] = usoCFDI;
+    if (paymentId != null) body['paymentId'] = paymentId;
+
+    final res = await http.post(
+      Uri.parse('$_base/facturacion/timbrar'),
+      headers: _headers,
+      body: jsonEncode(body),
+    );
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return FacturacionResultado(
+      ok: data['ok'] as bool? ?? false,
+      uuid: data['uuid'] as String?,
+      mensaje: data['mensaje'] as String?,
+      errors: (data['errors'] as List<dynamic>?)
+              ?.map((e) => ValidacionError(
+                    campo: (e as Map<String, dynamic>)['campo'] as String,
+                    mensaje: e['mensaje'] as String,
+                  ))
+              .toList(),
+    );
+  }
+
+  static Future<FacturacionResultado> cancelarFactura({
+    required String tenantId,
+    required String uuid,
+  }) async {
+    final res = await http.post(
+      Uri.parse('$_base/facturacion/cancelar'),
+      headers: _headers,
+      body: jsonEncode({'tenantId': tenantId, 'uuid': uuid}),
+    );
+    final data = jsonDecode(res.body) as Map<String, dynamic>;
+    return FacturacionResultado(
+      ok: data['ok'] as bool? ?? false,
+      uuid: uuid,
+      mensaje: data['error'] as String?,
+    );
+  }
+
+  static Future<String?> descargarXml({
+    required String tenantId,
+    required String uuid,
+  }) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=xml'),
+        headers: _headers,
+      );
+      if (res.statusCode == 200) return res.body;
+    } catch (_) {}
+    return null;
+  }
+
+  static String urlPdf({required String tenantId, required String uuid}) {
+    return '$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=pdf';
+  }
+
+  static Future<Map<String, dynamic>?> obtenerFactura({
+    required String tenantId,
+    required String uuid,
+  }) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId'),
+        headers: _headers,
+      );
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body) as Map<String, dynamic>;
+      }
+    } catch (_) {}
+    return null;
+  }
 }
 
 class PostalLookup {
@@ -265,4 +373,31 @@ class StaffAlreadyExistsException implements Exception {
   final String message;
   @override
   String toString() => message;
+}
+
+// ── Facturación ──────────────────────────────────────────────────────────────
+
+class FacturacionValidacion {
+  const FacturacionValidacion({required this.ok, this.errors = const []});
+  final bool ok;
+  final List<ValidacionError> errors;
+}
+
+class ValidacionError {
+  const ValidacionError({required this.campo, required this.mensaje});
+  final String campo;
+  final String mensaje;
+}
+
+class FacturacionResultado {
+  const FacturacionResultado({
+    required this.ok,
+    this.uuid,
+    this.mensaje,
+    this.errors,
+  });
+  final bool ok;
+  final String? uuid;
+  final String? mensaje;
+  final List<ValidacionError>? errors;
 }
