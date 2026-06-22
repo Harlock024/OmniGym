@@ -57,7 +57,7 @@ class PaymentRepository {
         return list.take(limit).toList();
       });
 
-  Future<void> registerPayment({
+  Future<String> registerPayment({
     required String tenantId,
     required String branchId,
     required String memberId,
@@ -86,8 +86,10 @@ class PaymentRepository {
         : now;
     final newExpiration = base.add(Duration(days: durationDays));
 
+    String paymentId = '';
     await _db.runTransaction((tx) async {
       final paymentRef = _col(tenantId).doc();
+      paymentId = paymentRef.id;
       tx.set(paymentRef, {
         'tenant_id': tenantId,
         'branch_id': branchId,
@@ -108,5 +110,6 @@ class PaymentRepository {
         'access_status': AccessStatus.active.name,
       });
     });
+    return paymentId;
   }
 }

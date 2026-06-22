@@ -8,6 +8,7 @@ import '../../core/models/member.dart';
 import '../../core/models/membership_plan.dart';
 import '../../core/models/payment.dart';
 import '../../core/providers/providers.dart';
+import 'facturar_dialog.dart';
 
 class MembershipsScreen extends ConsumerStatefulWidget {
   const MembershipsScreen({super.key});
@@ -838,7 +839,7 @@ class _RegisterPaymentDialogState
       final currentBranchId =
           ref.read(currentBranchIdProvider).valueOrNull ?? branchId;
 
-      await ref.read(paymentRepositoryProvider).registerPayment(
+      final pagoId = await ref.read(paymentRepositoryProvider).registerPayment(
             tenantId: widget.tenantId,
             branchId: currentBranchId.isNotEmpty
                 ? currentBranchId
@@ -858,19 +859,29 @@ class _RegisterPaymentDialogState
 
       if (mounted) {
         Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-                'Pago registrado para ${_selectedMember!.name}.'),
-            backgroundColor: OmniGymColors.success,
-          ),
-        );
+        _mostrarDialogoFacturar(
+            context, ref, widget.tenantId, pagoId,
+            _selectedMember!, _selectedPlan!, amount);
       }
     } catch (e) {
       setState(() => _error = 'Error: $e');
     } finally {
       if (mounted) setState(() => _saving = false);
     }
+  }
+
+  void _mostrarDialogoFacturar(BuildContext context, WidgetRef ref,
+      String tenantId, String paymentId, Member member, MembershipPlan plan, double amount) {
+    showDialog(
+      context: context,
+      builder: (ctx) => FacturarDialog(
+        tenantId: tenantId,
+        paymentId: paymentId,
+        member: member,
+        plan: plan,
+        amount: amount,
+      ),
+    );
   }
 
   @override

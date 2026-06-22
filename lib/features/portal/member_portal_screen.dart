@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/app_theme.dart';
+import '../../core/models/factura.dart';
+import '../../core/models/member.dart';
 import '../../core/providers/providers.dart';
 
 class MemberPortalScreen extends ConsumerWidget {
@@ -93,6 +95,17 @@ class MemberPortalScreen extends ConsumerWidget {
                         return _CheckInList(checkIns: checkIns);
                       },
                     ),
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Mis Facturas',
+                      style: TextStyle(
+                        color: OmniGymColors.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _FacturasSection(member: member),
                   ],
                 ),
               ),
@@ -378,6 +391,96 @@ class _EmptyHistory extends StatelessWidget {
             style: TextStyle(
                 color: OmniGymColors.textSecondary, fontSize: 13),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FacturasSection extends ConsumerWidget {
+  const _FacturasSection({required this.member});
+  final Member member;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tenantId = member.tenantId;
+    final facturasAsync = ref.watch(tenantFacturasProvider(tenantId));
+
+    return facturasAsync.when(
+      loading: () => const Center(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: CircularProgressIndicator(),
+        ),
+      ),
+      error: (e, _) => Text('Error: \$e'),
+      data: (facturas) {
+        if (facturas.isEmpty) {
+          return Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: OmniGymColors.card,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: OmniGymColors.border),
+            ),
+            child: const Column(
+              children: [
+                Icon(Icons.receipt_long, size: 36, color: OmniGymColors.textSecondary),
+                SizedBox(height: 8),
+                Text('Sin facturas disponibles',
+                    style: TextStyle(color: OmniGymColors.textSecondary)),
+              ],
+            ),
+          );
+        }
+        return Column(
+          children: facturas.take(5).map((f) => _FacturaTile(factura: f)).toList(),
+        );
+      },
+    );
+  }
+}
+
+class _FacturaTile extends StatelessWidget {
+  const _FacturaTile({required this.factura});
+  final Factura factura;
+
+  @override
+  Widget build(BuildContext context) {
+    final date = factura.createdAt != null
+        ? '${factura.createdAt!.day}/${factura.createdAt!.month}/${factura.createdAt!.year}'
+        : factura.fecha ?? '';
+    final vigente = factura.status == 'vigente';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: OmniGymColors.card,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: OmniGymColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(vigente ? Icons.check_circle : Icons.cancel,
+              size: 18, color: vigente ? Colors.green : Colors.red),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${factura.serie ?? ''}${factura.folio ?? ''} - ${factura.uuid.substring(0, 8)}',
+                  style: const TextStyle(fontSize: 13, color: OmniGymColors.textPrimary),
+                ),
+                const SizedBox(height: 2),
+                Text(date,
+                    style: const TextStyle(fontSize: 11, color: OmniGymColors.textSecondary)),
+              ],
+            ),
+          ),
+          Text('\$${(factura.total ?? 0).toStringAsFixed(2)}',
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
         ],
       ),
     );
