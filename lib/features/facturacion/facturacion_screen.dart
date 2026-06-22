@@ -1,3 +1,5 @@
+import 'dart:io' show File, Directory, Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -177,24 +179,71 @@ class _FacturaRow extends ConsumerWidget {
     );
   }
 
-  void _abrirPdf(BuildContext context, String tenantId, String uuid) {
-    final url = WorkerService.urlPdf(tenantId: tenantId, uuid: uuid);
-    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  Future<void> _abrirPdf(BuildContext context, String tenantId, String uuid) async {
+    try {
+      final bytes = await WorkerService.descargarPdf(tenantId: tenantId, uuid: uuid);
+      if (bytes == null || !context.mounted) return;
+
+      // Guardar en Downloads o temp
+      final dir = Platform.isAndroid || Platform.isIOS
+          ? Directory.systemTemp
+          : Directory('${_downloadsPath()}/');
+      if (!await dir.exists()) await dir.create(recursive: true);
+
+      final file = File('${dir.path}/factura_$uuid.pdf');
+      await file.writeAsBytes(bytes);
+
+      if (context.mounted) {
+        await launchUrl(Uri.file(file.path), mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al abrir PDF: $e')),
+        );
+      }
+    }
+  }
+
+  String _downloadsPath() {
+    if (Platform.isMacOS || Platform.isLinux) {
+      final home = Platform.environment['HOME'] ?? '/tmp';
+      return '$home/Downloads';
+    }
+    if (Platform.isWindows) {
+      final home = Platform.environment['USERPROFILE'] ?? 'C:\\';
+      return '$home\\Downloads';
+    }
+    return '/tmp';
   }
 
   Future<void> _descargarXml(
       BuildContext context, WidgetRef ref, String tenantId, String uuid) async {
     final xml = await WorkerService.descargarXml(tenantId: tenantId, uuid: uuid);
-    if (context.mounted) {
-      if (xml != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('XML descargado'), duration: Duration(seconds: 2)),
-        );
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error al descargar XML')),
-        );
+    if (!context.mounted) return;
+
+    if (xml != null) {
+      try {
+        final dir = Platform.isAndroid || Platform.isIOS
+            ? Directory.systemTemp
+            : Directory(_downloadsPath());
+        if (!await dir.exists()) await dir.create(recursive: true);
+        final file = File('${dir.path}/factura_$uuid.xml');
+        await file.writeAsString(xml);
+        if (context.mounted) {
+          await launchUrl(Uri.file(file.path), mode: LaunchMode.externalApplication);
+        }
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('XML descargado'), duration: Duration(seconds: 2)),
+          );
+        }
       }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error al descargar XML')),
+      );
     }
   }
 
