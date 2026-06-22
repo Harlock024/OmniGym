@@ -1,4 +1,4 @@
-import { timbrarFactura } from './cfdi/facturacion.js';
+import { timbrarFactura, validarFacturacion } from './cfdi/facturacion.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -1591,6 +1591,60 @@ export default {
           return jsonRes({ ok: true, uuid });
         }
         return jsonRes({ ok: false, error: body.message || 'Error al cancelar' }, 400);
+      } catch (e) {
+        return jsonRes({ error: e.message }, 500);
+      }
+    }
+
+    // ── GET /facturacion/validate?tenantId=xxx ───────────────────────────────────
+    if (request.method === 'GET' && pathname === '/facturacion/validate') {
+      const tenantId = new URL(request.url).searchParams.get('tenantId');
+      if (!tenantId) return jsonRes({ error: 'Falta tenantId' }, 400);
+
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+      const tenantDoc = await fsGet(projectId, `tenants/${tenantId}`, token);
+      if (!tenantDoc) return jsonRes({ error: 'Tenant no encontrado' }, 404);
+
+      const tenant = { id: tenantDoc.id, name: tenantDoc.name, settings: tenantDoc.settings };
+      return jsonRes(validarFacturacion(tenant));
+    }
+
+    // ── POST /facturacion/enviar-email ──────────────────────────────────────────
+    if (request.method === 'POST' && pathname === '/facturacion/enviar-email') {
+      const { uuid, tenantId, email } = await request.json();
+      if (!uuid || !tenantId || !email) {
+        return jsonRes({ error: 'Faltan uuid, tenantId y email' }, 400);
+      }
+      if (!env.FACTURAPI_API_KEY) {
+        return jsonRes({ error: 'FACTURAPI_API_KEY no configurado' }, 503);
+      }
+
+      const token = await getAdminToken(env);
+      const projectId = JSON.parse(env.SA_JSON).project_id;
+      const factura = await fsGet(projectId, `tenants/${tenantId}/facturas/${uuid}`, token);
+      if (!factura) return jsonRes({ error: 'Factura no encontrada' }, 404);
+      if (!factura.facturapi_invoice_id) {
+        return jsonRes({ error: 'Factura sin ID de Facturapi' }, 400);
+      }
+
+      try {
+        const res = await fetch(
+          `https://www.facturapi.io/v2/invoices/${factura.facturapi_invoice_id}/email`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.FACTURAPI_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email }),
+          },
+        );
+        if (res.ok) {
+          return jsonRes({ ok: true, mensaje: 'Email enviado a ' + email });
+        }
+        const body = await res.json();
+        return jsonRes({ ok: false, error: body.message || 'Error al enviar' }, 400);
       } catch (e) {
         return jsonRes({ error: e.message }, 500);
       }

@@ -342,6 +342,29 @@ class WorkerService {
     } catch (_) {}
     return null;
   }
+
+  static Future<bool> enviarFacturaEmail({
+    required String tenantId,
+    required String uuid,
+    required String email,
+  }) async {
+    try {
+      final res = await http.post(
+        Uri.parse('$_base/facturacion/enviar-email'),
+        headers: _headers,
+        body: jsonEncode({
+          'tenantId': tenantId,
+          'uuid': uuid,
+          'email': email,
+        }),
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map<String, dynamic>;
+        return data['ok'] == true;
+      }
+    } catch (_) {}
+    return false;
+  }
 }
 
 class PostalLookup {

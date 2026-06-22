@@ -153,6 +153,12 @@ class _FacturaRow extends ConsumerWidget {
                   label: 'XML',
                   onTap: () => _descargarXml(context, ref, tenantId, factura.uuid),
                 ),
+                const SizedBox(width: 8),
+                _ActionChip(
+                  icon: Icons.email_outlined,
+                  label: 'Email',
+                  onTap: () => _enviarEmail(context, tenantId, factura),
+                ),
                 if (vigente) ...[
                   const SizedBox(width: 8),
                   _ActionChip(
@@ -187,6 +193,48 @@ class _FacturaRow extends ConsumerWidget {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Error al descargar XML')),
+        );
+      }
+    }
+  }
+
+  Future<void> _enviarEmail(
+      BuildContext context, String tenantId, Factura factura) async {
+    final emailCtrl = TextEditingController();
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Enviar factura por email'),
+        content: TextField(
+          controller: emailCtrl,
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            hintText: 'cliente@email.com',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.emailAddress,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, emailCtrl.text.trim()),
+            child: const Text('Enviar'),
+          ),
+        ],
+      ),
+    );
+    emailCtrl.dispose();
+
+    if (email != null && email.isNotEmpty && context.mounted) {
+      final ok = await WorkerService.enviarFacturaEmail(
+        tenantId: tenantId, uuid: factura.uuid, email: email,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ok ? 'Factura enviada a $email' : 'Error al enviar'),
+            backgroundColor: ok ? Colors.green : Colors.red,
+          ),
         );
       }
     }
