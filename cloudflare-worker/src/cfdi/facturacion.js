@@ -5,6 +5,39 @@
 import { FacturapiConnector } from './facturapi.js';
 
 /**
+ * Valida que el tenant y los datos minimos para facturar esten completos.
+ * Devuelve { ok: true } o { ok: false, errors: [...] }
+ */
+function validarFacturacion(tenant, concepto) {
+  const errors = [];
+  const s = tenant.settings ?? {};
+
+  if (!s.rfc || s.rfc.length < 12) {
+    errors.push({ campo: 'rfc', mensaje: 'El RFC del emisor es requerido (12-13 caracteres)' });
+  }
+  if (!s.razon_social && !tenant.name) {
+    errors.push({ campo: 'razon_social', mensaje: 'La razon social o nombre del emisor es requerido' });
+  }
+  if (!s.regimen_fiscal || s.regimen_fiscal.length !== 3) {
+    errors.push({ campo: 'regimen_fiscal', mensaje: 'El regimen fiscal es requerido (3 digitos, ej: 612)' });
+  }
+  if (!s.postal_code || !/^\d{5}$/.test(s.postal_code)) {
+    errors.push({ campo: 'postal_code', mensaje: 'El codigo postal del emisor es requerido (5 digitos)' });
+  }
+  if (concepto && concepto.valorUnitario != null && concepto.valorUnitario <= 0) {
+    errors.push({ campo: 'valorUnitario', mensaje: 'El precio debe ser mayor a 0' });
+  }
+  if (concepto && !concepto.descripcion) {
+    errors.push({ campo: 'descripcion', mensaje: 'La descripcion del concepto es requerida' });
+  }
+  if (concepto && !concepto.claveProdServ) {
+    errors.push({ campo: 'claveProdServ', mensaje: 'La clave de producto/servicio SAT es requerida' });
+  }
+
+  return { ok: errors.length === 0, errors };
+}
+
+/**
  * Timbra una factura via Facturapi.
  *
  * @param {{
@@ -20,6 +53,12 @@ async function timbrarFactura(params) {
   const { tenant, env, firestore, conceptos, receptor, paymentId } = params;
   const settings = tenant.settings;
   const now = new Date();
+
+  // Validar datos del emisor
+  const validacion = validarFacturacion(tenant, conceptos?.[0]);
+  if (!validacion.ok) {
+    return { ok: false, uuid: null, mensaje: 'Datos incompletos', errors: validacion.errors };
+  }
 
   const isGenerico = (receptor?.rfc || 'XAXX010101000') === 'XAXX010101000';
 
@@ -148,4 +187,4 @@ async function timbrarFactura(params) {
   };
 }
 
-export { timbrarFactura };
+export { timbrarFactura, validarFacturacion };
