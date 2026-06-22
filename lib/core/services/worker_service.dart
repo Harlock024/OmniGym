@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
 
@@ -325,6 +326,20 @@ class WorkerService {
 
   static String urlPdf({required String tenantId, required String uuid}) {
     return '$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=pdf';
+  }
+
+  static Future<Uint8List?> descargarPdf({
+    required String tenantId,
+    required String uuid,
+  }) async {
+    try {
+      final res = await http.get(
+        Uri.parse('$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=pdf'),
+        headers: _headers,
+      );
+      if (res.statusCode == 200) return res.bodyBytes;
+    } catch (_) {}
+    return null;
   }
 
   static Future<Map<String, dynamic>?> obtenerFactura({

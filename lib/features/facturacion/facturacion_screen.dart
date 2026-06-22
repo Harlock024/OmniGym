@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -177,9 +179,26 @@ class _FacturaRow extends ConsumerWidget {
     );
   }
 
-  void _abrirPdf(BuildContext context, String tenantId, String uuid) {
-    final url = WorkerService.urlPdf(tenantId: tenantId, uuid: uuid);
-    launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  Future<void> _abrirPdf(BuildContext context, String tenantId, String uuid) async {
+    final bytes = await WorkerService.descargarPdf(tenantId: tenantId, uuid: uuid);
+    if (bytes == null || !context.mounted) return;
+
+    final dir = Directory.systemTemp;
+    final file = File('${dir.path}/factura_$uuid.pdf');
+    await file.writeAsBytes(bytes);
+
+    if (context.mounted) {
+      final uri = Uri.file(file.path);
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('PDF guardado en ${file.path}')),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _descargarXml(
