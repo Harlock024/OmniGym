@@ -1,5 +1,6 @@
 import 'dart:io' show File, Directory, Platform;
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -180,14 +181,21 @@ class _FacturaRow extends ConsumerWidget {
   }
 
   Future<void> _abrirPdf(BuildContext context, String tenantId, String uuid) async {
+    // Web: abrir con URL autenticada (worker acepta ?token=)
+    if (kIsWeb) {
+      final url = WorkerService.urlPdf(tenantId: tenantId, uuid: uuid);
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    // Mobile/Desktop: descargar bytes y abrir archivo local
     try {
       final bytes = await WorkerService.descargarPdf(tenantId: tenantId, uuid: uuid);
       if (bytes == null || !context.mounted) return;
 
-      // Guardar en Downloads o temp
       final dir = Platform.isAndroid || Platform.isIOS
           ? Directory.systemTemp
-          : Directory('${_downloadsPath()}/');
+          : Directory(_downloadsPath());
       if (!await dir.exists()) await dir.create(recursive: true);
 
       final file = File('${dir.path}/factura_$uuid.pdf');
@@ -222,28 +230,36 @@ class _FacturaRow extends ConsumerWidget {
     final xml = await WorkerService.descargarXml(tenantId: tenantId, uuid: uuid);
     if (!context.mounted) return;
 
-    if (xml != null) {
-      try {
-        final dir = Platform.isAndroid || Platform.isIOS
-            ? Directory.systemTemp
-            : Directory(_downloadsPath());
-        if (!await dir.exists()) await dir.create(recursive: true);
-        final file = File('${dir.path}/factura_$uuid.xml');
-        await file.writeAsString(xml);
-        if (context.mounted) {
-          await launchUrl(Uri.file(file.path), mode: LaunchMode.externalApplication);
-        }
-      } catch (_) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('XML descargado'), duration: Duration(seconds: 2)),
-          );
-        }
-      }
-    } else {
+    if (xml == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Error al descargar XML')),
       );
+      return;
+    }
+
+    if (kIsWeb) {
+      // Web: usar URL autenticada
+      final url = '${WorkerService.urlPdf(tenantId: tenantId, uuid: uuid).replaceAll('format=pdf', 'format=xml')}';
+      await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+      return;
+    }
+
+    try {
+      final dir = Platform.isAndroid || Platform.isIOS
+          ? Directory.systemTemp
+          : Directory(_downloadsPath());
+      if (!await dir.exists()) await dir.create(recursive: true);
+      final file = File('${dir.path}/factura_$uuid.xml');
+      await file.writeAsString(xml);
+      if (context.mounted) {
+        await launchUrl(Uri.file(file.path), mode: LaunchMode.externalApplication);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('XML descargado'), duration: Duration(seconds: 2)),
+        );
+      }
     }
   }
 
