@@ -16,9 +16,9 @@ class ManagerDashboardScreen extends ConsumerWidget {
     final branchIdAsync = ref.watch(currentBranchIdProvider);
 
     return Scaffold(
-      backgroundColor: OmniGymColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: OmniGymColors.surface,
+        backgroundColor: Theme.of(context).colorScheme.surface,
         leading: context.isMobile ? const DrawerMenuButton() : null,
         automaticallyImplyLeading: false,
         title: const Text('Mi Sucursal'),
@@ -31,7 +31,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                 ),
                 PopupMenuButton<String>(
                   icon: const Icon(Icons.more_vert),
-                  color: OmniGymColors.card,
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
                   onSelected: (v) {
                     if (v == 'kiosk') context.push('/kiosk');
                     if (v == 'profile') context.push('/profile');
@@ -90,10 +90,10 @@ class ManagerDashboardScreen extends ConsumerWidget {
           error: (e, _) => Center(child: Text('Error: $e')),
           data: (branchId) {
             if (tenantId == null || branchId == null) {
-              return const Center(
+              return Center(
                 child: Text(
                   'Sin sucursal asignada. Contacta a tu administrador.',
-                  style: TextStyle(color: OmniGymColors.textSecondary),
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant),
                 ),
               );
             }
@@ -148,8 +148,8 @@ class _ManagerContent extends ConsumerWidget {
                 children: [
                   Text(
                     branchName,
-                    style: const TextStyle(
-                      color: OmniGymColors.textPrimary,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
                     ),
@@ -157,8 +157,8 @@ class _ManagerContent extends ConsumerWidget {
                   const SizedBox(height: 4),
                   Text(
                     dateStr,
-                    style: const TextStyle(
-                        color: OmniGymColors.textSecondary, fontSize: 13),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                   ),
                 ],
               ),
@@ -177,8 +177,8 @@ class _ManagerContent extends ConsumerWidget {
                 label: const Text('Kiosko'),
                 onPressed: () => context.push('/kiosk'),
                 style: OutlinedButton.styleFrom(
-                  foregroundColor: OmniGymColors.textSecondary,
-                  side: const BorderSide(color: OmniGymColors.border),
+                  foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
                 ),
               ),
             ],
@@ -203,7 +203,7 @@ class _ManagerContent extends ConsumerWidget {
                   label: 'Socios activos',
                   icon: Icons.people_rounded,
                   valueAsync: activeMembersAsync,
-                  color: OmniGymColors.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 _KpiCard(
                   width: cardWidth,
@@ -313,9 +313,9 @@ class _KpiCard extends StatelessWidget {
       width: width,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,8 +331,8 @@ class _KpiCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             displayValue,
-            style: const TextStyle(
-              color: OmniGymColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 28,
               fontWeight: FontWeight.bold,
               height: 1,
@@ -341,8 +341,8 @@ class _KpiCard extends StatelessWidget {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
-                color: OmniGymColors.textSecondary, fontSize: 12),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
           ),
         ],
       ),
@@ -362,19 +362,19 @@ class _LineChartCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Row(
+          Row(
             children: [
               Text(
                 'Check-ins',
                 style: TextStyle(
-                  color: OmniGymColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 15,
                   fontWeight: FontWeight.w600,
                 ),
@@ -383,7 +383,7 @@ class _LineChartCard extends StatelessWidget {
               Text(
                 'Últimos 7 días',
                 style: TextStyle(
-                    color: OmniGymColors.textSecondary, fontSize: 12),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
               ),
             ],
           ),
@@ -393,10 +393,10 @@ class _LineChartCard extends StatelessWidget {
             child: dailyAsync.when(
               loading: () =>
                   const Center(child: CircularProgressIndicator()),
-              error: (_, _) => const Center(
+              error: (_, _) => Center(
                 child: Text('Sin datos',
                     style:
-                        TextStyle(color: OmniGymColors.textSecondary)),
+                        TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ),
               data: (data) {
                 final maxY = data
@@ -417,8 +417,8 @@ class _LineChartCard extends StatelessWidget {
                     gridData: FlGridData(
                       show: true,
                       drawVerticalLine: false,
-                      getDrawingHorizontalLine: (_) => const FlLine(
-                        color: OmniGymColors.border,
+                      getDrawingHorizontalLine: (_) => FlLine(
+                        color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
                         strokeWidth: 1,
                       ),
                     ),
@@ -441,8 +441,8 @@ class _LineChartCard extends StatelessWidget {
                             final weekday = data[idx].day.weekday - 1;
                             return Text(
                               days[weekday % 7],
-                              style: const TextStyle(
-                                color: OmniGymColors.textSecondary,
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 11,
                               ),
                             );
@@ -456,14 +456,14 @@ class _LineChartCard extends StatelessWidget {
                         spots: spots,
                         isCurved: true,
                         curveSmoothness: 0.3,
-                        color: OmniGymColors.primary,
+                        color: Theme.of(context).colorScheme.primary,
                         barWidth: 2.5,
                         dotData: FlDotData(
                           show: true,
                           getDotPainter: (spot, _, _, _) =>
                               FlDotCirclePainter(
                             radius: 3,
-                            color: OmniGymColors.primary,
+                            color: Theme.of(context).colorScheme.primary,
                             strokeWidth: 0,
                           ),
                         ),
@@ -471,8 +471,8 @@ class _LineChartCard extends StatelessWidget {
                           show: true,
                           gradient: LinearGradient(
                             colors: [
-                              OmniGymColors.primary.withAlpha(60),
-                              OmniGymColors.primary.withAlpha(0),
+                              Theme.of(context).colorScheme.primary.withAlpha(60),
+                              Theme.of(context).colorScheme.primary.withAlpha(0),
                             ],
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
@@ -508,25 +508,25 @@ class _AforoCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Aforo hoy',
             style: TextStyle(
-              color: OmniGymColors.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
           ),
-          const Text(
+          Text(
             'Check-ins / socios activos',
             style:
-                TextStyle(color: OmniGymColors.textSecondary, fontSize: 11),
+                TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
           ),
           const SizedBox(height: 16),
           if (loading)
@@ -542,7 +542,7 @@ class _AforoCard extends StatelessWidget {
                 children: [
                   PieChart(
                     PieChartData(
-                      sections: _buildSections(today, active),
+                      sections: _buildSections(context, today, active),
                       centerSpaceRadius: 45,
                       sectionsSpace: 3,
                       startDegreeOffset: -90,
@@ -553,8 +553,8 @@ class _AforoCard extends StatelessWidget {
                     children: [
                       Text(
                         '$today',
-                        style: const TextStyle(
-                          color: OmniGymColors.textPrimary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurface,
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           height: 1,
@@ -562,8 +562,8 @@ class _AforoCard extends StatelessWidget {
                       ),
                       Text(
                         'de $active',
-                        style: const TextStyle(
-                          color: OmniGymColors.textSecondary,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                         ),
                       ),
@@ -574,10 +574,10 @@ class _AforoCard extends StatelessWidget {
             ),
           const SizedBox(height: 12),
           _Legend(
-              color: OmniGymColors.primary, label: 'Entraron hoy', value: today),
+              color: Theme.of(context).colorScheme.primary, label: 'Entraron hoy', value: today),
           const SizedBox(height: 4),
           _Legend(
-            color: OmniGymColors.border,
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
             label: 'No han entrado',
             value: active > today ? active - today : 0,
           ),
@@ -586,23 +586,23 @@ class _AforoCard extends StatelessWidget {
     );
   }
 
-  List<PieChartSectionData> _buildSections(int today, int active) {
+  List<PieChartSectionData> _buildSections(BuildContext context, int today, int active) {
     if (active == 0) {
       return [
         PieChartSectionData(
-            value: 1, color: OmniGymColors.border, radius: 18, title: ''),
+            value: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, radius: 18, title: ''),
       ];
     }
     final remaining = (active - today).clamp(0, active).toDouble();
     return [
       PieChartSectionData(
           value: today.toDouble(),
-          color: OmniGymColors.primary,
+          color: Theme.of(context).colorScheme.primary,
           radius: 18,
           title: ''),
       PieChartSectionData(
           value: remaining,
-          color: OmniGymColors.border,
+          color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
           radius: 18,
           title: ''),
     ];
@@ -628,12 +628,12 @@ class _Legend extends StatelessWidget {
         const SizedBox(width: 8),
         Expanded(
           child: Text(label,
-              style: const TextStyle(
-                  color: OmniGymColors.textSecondary, fontSize: 12)),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
         ),
         Text('$value',
-            style: const TextStyle(
-                color: OmniGymColors.textPrimary,
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 12,
                 fontWeight: FontWeight.w600)),
       ],
@@ -651,9 +651,9 @@ class _RecentActivityCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -662,10 +662,10 @@ class _RecentActivityCard extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Row(
               children: [
-                const Text(
+                Text(
                   'Accesos recientes',
                   style: TextStyle(
-                    color: OmniGymColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -676,15 +676,15 @@ class _RecentActivityCard extends StatelessWidget {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 3),
                         decoration: BoxDecoration(
-                          color: OmniGymColors.primary.withAlpha(30),
+                          color: Theme.of(context).colorScheme.primary.withAlpha(30),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
-                              color: OmniGymColors.primary.withAlpha(80)),
+                              color: Theme.of(context).colorScheme.primary.withAlpha(80)),
                         ),
                         child: Text(
                           '${list.length}',
-                          style: const TextStyle(
-                              color: OmniGymColors.primary,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
                               fontSize: 12,
                               fontWeight: FontWeight.bold),
                         ),
@@ -697,19 +697,19 @@ class _RecentActivityCard extends StatelessWidget {
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               border: Border(
-                top: BorderSide(color: OmniGymColors.border),
-                bottom: BorderSide(color: OmniGymColors.border),
+                top: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
+                bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 SizedBox(width: 44),
                 Expanded(
                   child: Text('Socio',
                       style: TextStyle(
-                          color: OmniGymColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                           fontWeight: FontWeight.w600)),
                 ),
@@ -718,7 +718,7 @@ class _RecentActivityCard extends StatelessWidget {
                   child: Text('Hora',
                       textAlign: TextAlign.end,
                       style: TextStyle(
-                          color: OmniGymColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12,
                           fontWeight: FontWeight.w600)),
                 ),
@@ -733,17 +733,17 @@ class _RecentActivityCard extends StatelessWidget {
             error: (e, _) => Padding(
               padding: const EdgeInsets.all(24),
               child: Text('Error: $e',
-                  style: const TextStyle(
-                      color: OmniGymColors.textSecondary)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant)),
             ),
             data: (checkIns) => checkIns.isEmpty
-                ? const Padding(
+                ? Padding(
                     padding: EdgeInsets.all(32),
                     child: Center(
                       child: Text(
                         'Sin accesos registrados hoy.',
                         style: TextStyle(
-                            color: OmniGymColors.textSecondary,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 13),
                       ),
                     ),
@@ -777,9 +777,9 @@ class _ActivityRow extends StatelessWidget {
     return Container(
       padding:
           const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-            bottom: BorderSide(color: OmniGymColors.border, width: 0.5)),
+            bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -797,8 +797,8 @@ class _ActivityRow extends StatelessWidget {
           Expanded(
             child: Text(
               name,
-              style: const TextStyle(
-                  color: OmniGymColors.textPrimary, fontSize: 13),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -807,8 +807,8 @@ class _ActivityRow extends StatelessWidget {
             child: Text(
               timeStr,
               textAlign: TextAlign.end,
-              style: const TextStyle(
-                color: OmniGymColors.textSecondary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 fontFamily: 'monospace',
               ),

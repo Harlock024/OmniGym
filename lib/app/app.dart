@@ -11,21 +11,21 @@ class OmniGymApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(routerProvider);
-    final tenantAsync = ref.watch(activeTenantProvider);
-
-    // El tema se adapta dinámicamente al tenant activo (white-labeling)
-    final theme = tenantAsync.whenOrNull(
-          data: (tenant) => tenant != null
-              ? ThemeService.fromSettings(tenant.settings)
-              : null,
-        ) ??
-        ThemeService.defaultTheme;
+    final tenant = ref.watch(currentTenantProvider).valueOrNull;
 
     return MaterialApp.router(
       title: 'OmniGym',
-      theme: theme,
-      routerConfig: router,
       debugShowCheckedModeBanner: false,
+      theme: ThemeService.buildTheme(
+        tenant: tenant,
+        brightness: Brightness.light,
+      ),
+      darkTheme: ThemeService.buildTheme(
+        tenant: tenant,
+        brightness: Brightness.dark,
+      ),
+      themeMode: ThemeService.resolveThemeMode(tenant?.settings.themeMode),
+      routerConfig: router,
     );
   }
 }

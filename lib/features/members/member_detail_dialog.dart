@@ -28,7 +28,7 @@ class MemberDetailDialog extends ConsumerWidget {
     final daysLeft = member.expirationDate.difference(DateTime.now()).inDays;
 
     return Dialog(
-      backgroundColor: OmniGymColors.card,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       child: SizedBox(
         width: 540,
@@ -44,8 +44,8 @@ class MemberDetailDialog extends ConsumerWidget {
                   CircleAvatar(
                     radius: 24,
                     backgroundColor: isActive
-                        ? OmniGymColors.primary.withAlpha(40)
-                        : OmniGymColors.border,
+                        ? Theme.of(context).colorScheme.primary.withAlpha(40)
+                        : Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
                     backgroundImage: member.photoUrl != null
                         ? NetworkImage(member.photoUrl!)
                         : null,
@@ -54,8 +54,8 @@ class MemberDetailDialog extends ConsumerWidget {
                             member.name[0].toUpperCase(),
                             style: TextStyle(
                               color: isActive
-                                  ? OmniGymColors.primary
-                                  : OmniGymColors.textSecondary,
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -69,16 +69,16 @@ class MemberDetailDialog extends ConsumerWidget {
                       children: [
                         Text(
                           member.name,
-                          style: const TextStyle(
-                            color: OmniGymColors.textPrimary,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 17,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         Text(
                           member.email,
-                          style: const TextStyle(
-                            color: OmniGymColors.textSecondary,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                           ),
                         ),
@@ -89,13 +89,13 @@ class MemberDetailDialog extends ConsumerWidget {
                   const SizedBox(width: 8),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close,
-                        color: OmniGymColors.textSecondary, size: 18),
+                    icon: Icon(Icons.close,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant, size: 18),
                   ),
                 ],
               ),
             ),
-            const Divider(height: 1, color: OmniGymColors.border),
+            Divider(height: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
 
             // ── Membresía actual ─────────────────────────────────────────
             Padding(
@@ -117,17 +117,17 @@ class MemberDetailDialog extends ConsumerWidget {
                 },
               ),
             ),
-            const Divider(height: 1, color: OmniGymColors.border),
+            Divider(height: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
 
             // ── Historial de pagos ───────────────────────────────────────
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 4),
               child: Row(
                 children: [
-                  const Text(
+                  Text(
                     'HISTORIAL DE PAGOS',
                     style: TextStyle(
-                      color: OmniGymColors.textSecondary,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 10,
                       fontWeight: FontWeight.w700,
                       letterSpacing: 0.8,
@@ -139,13 +139,13 @@ class MemberDetailDialog extends ConsumerWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 2),
                           decoration: BoxDecoration(
-                            color: OmniGymColors.primary.withAlpha(25),
+                            color: Theme.of(context).colorScheme.primary.withAlpha(25),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             '${list.length}',
-                            style: const TextStyle(
-                              color: OmniGymColors.primary,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
                               fontSize: 11,
                               fontWeight: FontWeight.w600,
                             ),
@@ -166,12 +166,12 @@ class MemberDetailDialog extends ConsumerWidget {
                 error: (e, _) => Padding(
                   padding: const EdgeInsets.all(24),
                   child: Text('Error: $e',
-                      style: const TextStyle(
-                          color: OmniGymColors.textSecondary,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 13)),
                 ),
                 data: (payments) => payments.isEmpty
-                    ? const Padding(
+                    ? Padding(
                         padding: EdgeInsets.all(32),
                         child: Center(
                           child: Column(
@@ -179,12 +179,12 @@ class MemberDetailDialog extends ConsumerWidget {
                             children: [
                               Icon(Icons.receipt_long,
                                   size: 32,
-                                  color: OmniGymColors.textSecondary),
+                                  color: Theme.of(context).colorScheme.onSurfaceVariant),
                               SizedBox(height: 8),
                               Text(
                                 'Sin pagos registrados',
                                 style: TextStyle(
-                                    color: OmniGymColors.textSecondary,
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontSize: 13),
                               ),
                             ],
@@ -228,7 +228,7 @@ class _MembershipCard extends StatelessWidget {
     final String statusText;
 
     if (isExpired) {
-      statusColor = OmniGymColors.errorRed;
+      statusColor = Theme.of(context).colorScheme.error;
       statusText = 'Vencida';
     } else if (daysLeft <= 7) {
       statusColor = Colors.orange;
@@ -241,9 +241,9 @@ class _MembershipCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: OmniGymColors.surface,
+        color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Row(
         children: [
@@ -265,8 +265,8 @@ class _MembershipCard extends StatelessWidget {
                   'Vence: ${_fmtDate(member.expirationDate)}',
                   style: TextStyle(
                     color: isExpired
-                        ? OmniGymColors.errorRed
-                        : OmniGymColors.textPrimary,
+                        ? Theme.of(context).colorScheme.error
+                        : Theme.of(context).colorScheme.onSurface,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -282,7 +282,7 @@ class _MembershipCard extends StatelessWidget {
             icon: const Icon(Icons.payment, size: 14),
             label: const Text('Registrar pago'),
             style: TextButton.styleFrom(
-              foregroundColor: OmniGymColors.primary,
+              foregroundColor: Theme.of(context).colorScheme.primary,
               textStyle: const TextStyle(fontSize: 12),
             ),
             onPressed: onRegisterPayment,
@@ -310,9 +310,9 @@ class _PaymentHistoryRow extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-            bottom: BorderSide(color: OmniGymColors.border, width: 0.5)),
+            bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -333,16 +333,16 @@ class _PaymentHistoryRow extends StatelessWidget {
               children: [
                 Text(
                   payment.planName ?? 'Plan',
-                  style: const TextStyle(
-                      color: OmniGymColors.textPrimary,
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 13,
                       fontWeight: FontWeight.w500),
                 ),
                 if (payment.reference != null)
                   Text(
                     'Ref: ${payment.reference}',
-                    style: const TextStyle(
-                        color: OmniGymColors.textSecondary, fontSize: 11),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
                   ),
               ],
             ),
@@ -361,8 +361,8 @@ class _PaymentHistoryRow extends StatelessWidget {
             child: Text(
               dateStr,
               textAlign: TextAlign.end,
-              style: const TextStyle(
-                  color: OmniGymColors.textSecondary, fontSize: 12),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
             ),
           ),
         ],
@@ -379,7 +379,7 @@ class _StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? OmniGymColors.success : OmniGymColors.errorRed;
+    final color = isActive ? OmniGymColors.success : Theme.of(context).colorScheme.error;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(

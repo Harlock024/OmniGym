@@ -115,15 +115,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     final userAsync = ref.watch(currentAppUserProvider);
 
     return Scaffold(
-      backgroundColor: OmniGymColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
-        backgroundColor: OmniGymColors.surface,
-        foregroundColor: OmniGymColors.textPrimary,
+        backgroundColor: Theme.of(context).colorScheme.surface,
+        foregroundColor: Theme.of(context).colorScheme.onSurface,
         elevation: 0,
         title: const Text('Mi perfil'),
-        bottom: const PreferredSize(
+        bottom: PreferredSize(
           preferredSize: Size.fromHeight(1),
-          child: Divider(height: 1, color: OmniGymColors.border),
+          child: Divider(height: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
         ),
       ),
       body: userAsync.when(
@@ -131,12 +131,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         error: (e, _) => Center(
             child: Text('Error: $e',
                 style:
-                    const TextStyle(color: OmniGymColors.textSecondary))),
+                    TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
         data: (user) {
           if (user == null) {
-            return const Center(
+            return Center(
                 child: Text('Usuario no encontrado.',
-                    style: TextStyle(color: OmniGymColors.textSecondary)));
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)));
           }
           _init(user);
           return SingleChildScrollView(
@@ -203,7 +203,7 @@ class _AvatarCard extends StatelessWidget {
               children: [
                 CircleAvatar(
                   radius: 36,
-                  backgroundColor: OmniGymColors.primary.withAlpha(40),
+                  backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(40),
                   backgroundImage: user.photoUrl != null
                       ? NetworkImage(user.photoUrl!)
                       : null,
@@ -212,8 +212,8 @@ class _AvatarCard extends StatelessWidget {
                           user.name.isNotEmpty
                               ? user.name[0].toUpperCase()
                               : '?',
-                          style: const TextStyle(
-                            color: OmniGymColors.primary,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.primary,
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
                           ),
@@ -227,19 +227,19 @@ class _AvatarCard extends StatelessWidget {
                     width: 22,
                     height: 22,
                     decoration: BoxDecoration(
-                      color: OmniGymColors.primary,
+                      color: Theme.of(context).colorScheme.primary,
                       shape: BoxShape.circle,
                       border: Border.all(
-                          color: OmniGymColors.card, width: 2),
+                          color: Theme.of(context).colorScheme.surfaceContainerHighest, width: 2),
                     ),
                     child: uploading
-                        ? const Padding(
-                            padding: EdgeInsets.all(3),
+                        ? Padding(
+                            padding: const EdgeInsets.all(3),
                             child: CircularProgressIndicator(
-                                strokeWidth: 1.5, color: Colors.white),
+                                strokeWidth: 1.5, color: Theme.of(context).colorScheme.onPrimary),
                           )
-                        : const Icon(Icons.camera_alt,
-                            size: 12, color: Colors.white),
+                        : Icon(Icons.camera_alt,
+                            size: 12, color: Theme.of(context).colorScheme.onPrimary),
                   ),
                 ),
               ],
@@ -252,8 +252,8 @@ class _AvatarCard extends StatelessWidget {
               children: [
                 Text(
                   user.name,
-                  style: const TextStyle(
-                    color: OmniGymColors.textPrimary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 17,
                     fontWeight: FontWeight.bold,
                   ),
@@ -261,8 +261,8 @@ class _AvatarCard extends StatelessWidget {
                 const SizedBox(height: 2),
                 Text(
                   user.email,
-                  style: const TextStyle(
-                      color: OmniGymColors.textSecondary, fontSize: 13),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
                 const SizedBox(height: 8),
                 _RoleBadge(role: user.role),
@@ -283,7 +283,7 @@ class _RoleBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     final (label, color) = switch (role) {
       UserRole.superuser => ('Superusuario', const Color(0xFF7C3AED)),
-      UserRole.owner => ('Owner', OmniGymColors.primary),
+      UserRole.owner => ('Owner', Theme.of(context).colorScheme.primary),
       UserRole.staff => ('Staff', const Color(0xFF0891B2)),
     };
     return Container(
@@ -344,11 +344,11 @@ class _EditCard extends StatelessWidget {
             child: FilledButton(
               onPressed: saving ? null : onSave,
               child: saving
-                  ? const SizedBox(
+                  ? SizedBox(
                       height: 18,
                       width: 18,
                       child: CircularProgressIndicator(
-                          strokeWidth: 2, color: Colors.white),
+                          strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary),
                     )
                   : const Text('Guardar cambios'),
             ),
@@ -379,24 +379,24 @@ class _SecurityCard extends StatelessWidget {
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: OmniGymColors.primary.withAlpha(25),
+                color: Theme.of(context).colorScheme.primary.withAlpha(25),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.lock_outline,
-                  color: OmniGymColors.primary, size: 18),
+              child: Icon(Icons.lock_outline,
+                  color: Theme.of(context).colorScheme.primary, size: 18),
             ),
-            title: const Text(
+            title: Text(
               'Cambiar contraseña',
               style: TextStyle(
-                  color: OmniGymColors.textPrimary, fontSize: 14),
+                  color: Theme.of(context).colorScheme.onSurface, fontSize: 14),
             ),
-            subtitle: const Text(
+            subtitle: Text(
               'Actualiza tu contraseña de acceso',
               style: TextStyle(
-                  color: OmniGymColors.textSecondary, fontSize: 12),
+                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
             ),
-            trailing: const Icon(Icons.chevron_right,
-                color: OmniGymColors.textSecondary),
+            trailing: Icon(Icons.chevron_right,
+                color: Theme.of(context).colorScheme.onSurfaceVariant),
             onTap: onChangePassword,
           ),
         ],
@@ -465,17 +465,17 @@ class _PrefTile extends StatelessWidget {
         children: [
           Expanded(
             child: Text(label,
-                style: const TextStyle(
-                    color: OmniGymColors.textPrimary, fontSize: 13)),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface, fontSize: 13)),
           ),
           Switch(
             value: value,
             onChanged: onChanged,
-            activeThumbColor: OmniGymColors.primary,
+            activeThumbColor: Theme.of(context).colorScheme.primary,
             trackColor: WidgetStateProperty.resolveWith((states) =>
                 states.contains(WidgetState.selected)
-                    ? OmniGymColors.primary.withAlpha(60)
-                    : OmniGymColors.border),
+                    ? Theme.of(context).colorScheme.primary.withAlpha(60)
+                    : Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
           ),
         ],
       ),
@@ -494,9 +494,9 @@ class _Card extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: child,
     );
@@ -511,8 +511,8 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Text(
       text,
-      style: const TextStyle(
-        color: OmniGymColors.textSecondary,
+      style: TextStyle(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontSize: 11,
         fontWeight: FontWeight.w700,
         letterSpacing: 0.6,
@@ -543,23 +543,23 @@ class _Field extends StatelessWidget {
       keyboardType: keyboardType,
       textCapitalization: textCapitalization,
       style:
-          const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+          TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(
-            color: OmniGymColors.textSecondary, fontSize: 13),
-        prefixIcon: Icon(icon, color: OmniGymColors.textSecondary, size: 18),
+        labelStyle: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+        prefixIcon: Icon(icon, color: Theme.of(context).colorScheme.onSurfaceVariant, size: 18),
         filled: true,
-        fillColor: OmniGymColors.surface,
+        fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: OmniGymColors.border)),
+            borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: OmniGymColors.border)),
+            borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: OmniGymColors.primary)),
+            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),

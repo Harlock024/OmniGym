@@ -38,7 +38,7 @@ class _MembershipsScreenState extends ConsumerState<MembershipsScreen>
     final tenantId = tenantAsync.valueOrNull ?? '';
 
     return Scaffold(
-      backgroundColor: OmniGymColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -64,8 +64,8 @@ class _MembershipsScreenState extends ConsumerState<MembershipsScreen>
     final isMobile = context.isMobile;
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: OmniGymColors.border)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -73,10 +73,10 @@ class _MembershipsScreenState extends ConsumerState<MembershipsScreen>
           Row(
             children: [
               if (isMobile) const DrawerMenuButton(),
-              const Text(
+              Text(
                 'Membresías',
                 style: TextStyle(
-                  color: OmniGymColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -107,13 +107,13 @@ class _MembershipsScreenState extends ConsumerState<MembershipsScreen>
 
   Widget _buildTabBar() {
     return Container(
-      color: OmniGymColors.surface,
+      color: Theme.of(context).colorScheme.surface,
       child: TabBar(
         controller: _tabs,
         onTap: (_) => setState(() {}),
-        indicatorColor: OmniGymColors.primary,
-        labelColor: OmniGymColors.primary,
-        unselectedLabelColor: OmniGymColors.textSecondary,
+        indicatorColor: Theme.of(context).colorScheme.primary,
+        labelColor: Theme.of(context).colorScheme.primary,
+        unselectedLabelColor: Theme.of(context).colorScheme.onSurfaceVariant,
         labelStyle:
             const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
         unselectedLabelStyle: const TextStyle(fontSize: 13),
@@ -157,28 +157,28 @@ class _PlanesTab extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
           child: Text('Error: $e',
-              style: const TextStyle(color: OmniGymColors.textSecondary))),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
       data: (plans) {
         if (plans.isEmpty) {
           return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.card_membership,
-                    size: 52, color: OmniGymColors.textSecondary),
+                Icon(Icons.card_membership,
+                    size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Sin planes de membresía',
                   style: TextStyle(
-                      color: OmniGymColors.textPrimary,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w600),
                 ),
                 const SizedBox(height: 6),
-                const Text(
+                Text(
                   'Crea el primer plan para tus socios.',
                   style: TextStyle(
-                      color: OmniGymColors.textSecondary, fontSize: 13),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
               ],
             ),
@@ -212,10 +212,10 @@ class _PlanCard extends ConsumerWidget {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isActive ? OmniGymColors.border : OmniGymColors.border.withAlpha(80),
+          color: isActive ? Theme.of(context).dividerTheme.color ?? OmniGymColors.border : Theme.of(context).dividerTheme.color ?? OmniGymColors.border.withAlpha(80),
         ),
       ),
       child: Column(
@@ -228,8 +228,8 @@ class _PlanCard extends ConsumerWidget {
                   plan.name,
                   style: TextStyle(
                     color: isActive
-                        ? OmniGymColors.textPrimary
-                        : OmniGymColors.textSecondary,
+                        ? Theme.of(context).colorScheme.onSurface
+                        : Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
                   ),
@@ -242,8 +242,8 @@ class _PlanCard extends ConsumerWidget {
           const SizedBox(height: 12),
           Text(
             '\$${plan.price.toStringAsFixed(plan.price % 1 == 0 ? 0 : 2)} MXN',
-            style: const TextStyle(
-              color: OmniGymColors.primary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.primary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -251,13 +251,13 @@ class _PlanCard extends ConsumerWidget {
           const Spacer(),
           Row(
             children: [
-              const Icon(Icons.schedule,
-                  size: 14, color: OmniGymColors.textSecondary),
+              Icon(Icons.schedule,
+                  size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
               const SizedBox(width: 4),
               Text(
                 _durationLabel(plan.durationDays),
-                style: const TextStyle(
-                    color: OmniGymColors.textSecondary, fontSize: 12),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
               ),
               const Spacer(),
               if (!isActive)
@@ -265,13 +265,13 @@ class _PlanCard extends ConsumerWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
-                    color: OmniGymColors.textSecondary.withAlpha(20),
+                    color: Theme.of(context).colorScheme.onSurfaceVariant.withAlpha(20),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Inactivo',
                     style: TextStyle(
-                        color: OmniGymColors.textSecondary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 11,
                         fontWeight: FontWeight.w600),
                   ),
@@ -302,9 +302,9 @@ class _PlanMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert,
-          size: 16, color: OmniGymColors.textSecondary),
-      color: OmniGymColors.card,
+      icon: Icon(Icons.more_vert,
+          size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       itemBuilder: (_) => [
         const PopupMenuItem(
           value: 'edit',
@@ -364,20 +364,20 @@ class _PagosTab extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
           child: Text('Error: $e',
-              style: const TextStyle(color: OmniGymColors.textSecondary))),
+              style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))),
       data: (payments) {
         if (payments.isEmpty) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.receipt_long,
-                    size: 52, color: OmniGymColors.textSecondary),
+                    size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant),
                 SizedBox(height: 12),
                 Text(
                   'Sin pagos registrados',
                   style: TextStyle(
-                      color: OmniGymColors.textPrimary,
+                      color: Theme.of(context).colorScheme.onSurface,
                       fontSize: 16,
                       fontWeight: FontWeight.w600),
                 ),
@@ -385,7 +385,7 @@ class _PagosTab extends ConsumerWidget {
                 Text(
                   'Registra el primer pago de membresía.',
                   style: TextStyle(
-                      color: OmniGymColors.textSecondary, fontSize: 13),
+                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
               ],
             ),
@@ -398,18 +398,18 @@ class _PagosTab extends ConsumerWidget {
             Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-              decoration: const BoxDecoration(
-                color: OmniGymColors.surface,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.surface,
                 border: Border(
-                    bottom: BorderSide(color: OmniGymColors.border)),
+                    bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   Expanded(
                     flex: 3,
                     child: Text('Socio',
                         style: TextStyle(
-                            color: OmniGymColors.textSecondary,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w600)),
                   ),
@@ -417,7 +417,7 @@ class _PagosTab extends ConsumerWidget {
                     flex: 3,
                     child: Text('Plan',
                         style: TextStyle(
-                            color: OmniGymColors.textSecondary,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w600)),
                   ),
@@ -426,7 +426,7 @@ class _PagosTab extends ConsumerWidget {
                     child: Text('Monto',
                         textAlign: TextAlign.end,
                         style: TextStyle(
-                            color: OmniGymColors.textSecondary,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w600)),
                   ),
@@ -435,7 +435,7 @@ class _PagosTab extends ConsumerWidget {
                     width: 110,
                     child: Text('Fecha',
                         style: TextStyle(
-                            color: OmniGymColors.textSecondary,
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 12,
                             fontWeight: FontWeight.w600)),
                   ),
@@ -467,9 +467,9 @@ class _PaymentRow extends StatelessWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         border: Border(
-            bottom: BorderSide(color: OmniGymColors.border, width: 0.5)),
+            bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, width: 0.5)),
       ),
       child: Row(
         children: [
@@ -482,14 +482,14 @@ class _PaymentRow extends StatelessWidget {
                   height: 30,
                   margin: const EdgeInsets.only(right: 10),
                   decoration: BoxDecoration(
-                    color: OmniGymColors.primary.withAlpha(30),
+                    color: Theme.of(context).colorScheme.primary.withAlpha(30),
                     shape: BoxShape.circle,
                   ),
                   child: Center(
                     child: Text(
                       (payment.memberName ?? '?')[0].toUpperCase(),
-                      style: const TextStyle(
-                          color: OmniGymColors.primary,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontSize: 12,
                           fontWeight: FontWeight.bold),
                     ),
@@ -498,8 +498,8 @@ class _PaymentRow extends StatelessWidget {
                 Expanded(
                   child: Text(
                     payment.memberName ?? '—',
-                    style: const TextStyle(
-                        color: OmniGymColors.textPrimary, fontSize: 13),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -510,8 +510,8 @@ class _PaymentRow extends StatelessWidget {
             flex: 3,
             child: Text(
               payment.planName ?? '—',
-              style: const TextStyle(
-                  color: OmniGymColors.textSecondary, fontSize: 13),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -533,8 +533,8 @@ class _PaymentRow extends StatelessWidget {
             width: 110,
             child: Text(
               dateStr,
-              style: const TextStyle(
-                  color: OmniGymColors.textSecondary, fontSize: 12),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
             ),
           ),
         ],
@@ -648,7 +648,7 @@ class _PlanFormDialogState extends ConsumerState<_PlanFormDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: OmniGymColors.card,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         width: 420,
@@ -662,16 +662,16 @@ class _PlanFormDialogState extends ConsumerState<_PlanFormDialog> {
                 children: [
                   Text(
                     _isEdit ? 'Editar plan' : 'Nuevo plan',
-                    style: const TextStyle(
-                        color: OmniGymColors.textPrimary,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close,
-                        color: OmniGymColors.textSecondary, size: 18),
+                    icon: Icon(Icons.close,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant, size: 18),
                   ),
                 ],
               ),
@@ -686,9 +686,9 @@ class _PlanFormDialogState extends ConsumerState<_PlanFormDialog> {
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))
                 ],
-                prefix: const Text('\$  ',
+                prefix: Text('\$  ',
                     style: TextStyle(
-                        color: OmniGymColors.textSecondary, fontSize: 13)),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
               ),
               const SizedBox(height: 14),
               // Presets de duración
@@ -706,12 +706,12 @@ class _PlanFormDialogState extends ConsumerState<_PlanFormDialog> {
                         _daysCtrl.text = p.days.toString();
                       });
                     },
-                    backgroundColor: OmniGymColors.surface,
-                    selectedColor: OmniGymColors.primary,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    selectedColor: Theme.of(context).colorScheme.primary,
                     labelStyle: TextStyle(
                       color: selected
-                          ? Colors.white
-                          : OmniGymColors.textSecondary,
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 12,
                     ),
                   );
@@ -728,8 +728,8 @@ class _PlanFormDialogState extends ConsumerState<_PlanFormDialog> {
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Text(_error!,
-                    style: const TextStyle(
-                        color: OmniGymColors.errorRed, fontSize: 12)),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error, fontSize: 12)),
               ],
               const SizedBox(height: 20),
               Row(
@@ -738,18 +738,18 @@ class _PlanFormDialogState extends ConsumerState<_PlanFormDialog> {
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     style: TextButton.styleFrom(
-                        foregroundColor: OmniGymColors.textSecondary),
+                        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
                     child: const Text('Cancelar'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton(
                     onPressed: _saving ? null : _save,
                     child: _saving
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
+                                strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary))
                         : Text(_isEdit ? 'Guardar' : 'Crear plan'),
                   ),
                 ],
@@ -891,7 +891,7 @@ class _RegisterPaymentDialogState
         .toList();
 
     return Dialog(
-      backgroundColor: OmniGymColors.card,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: SizedBox(
         width: 480,
@@ -903,18 +903,18 @@ class _RegisterPaymentDialogState
             children: [
               Row(
                 children: [
-                  const Text(
+                  Text(
                     'Registrar pago',
                     style: TextStyle(
-                        color: OmniGymColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.close,
-                        color: OmniGymColors.textSecondary, size: 18),
+                    icon: Icon(Icons.close,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant, size: 18),
                   ),
                 ],
               ),
@@ -925,17 +925,17 @@ class _RegisterPaymentDialogState
                 _Field(
                   controller: _searchCtrl,
                   label: 'Buscar socio',
-                  prefix: const Icon(Icons.search,
-                      size: 16, color: OmniGymColors.textSecondary),
+                  prefix: Icon(Icons.search,
+                      size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   onChanged: (v) => setState(() => _memberSearch = v),
                 ),
                 const SizedBox(height: 8),
                 Container(
                   constraints: const BoxConstraints(maxHeight: 200),
                   decoration: BoxDecoration(
-                    color: OmniGymColors.surface,
+                    color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: OmniGymColors.border),
+                    border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
                   ),
                   child: membersAsync.isLoading
                       ? const Center(
@@ -945,11 +945,11 @@ class _RegisterPaymentDialogState
                           ),
                         )
                       : filtered.isEmpty
-                          ? const Padding(
+                          ? Padding(
                               padding: EdgeInsets.all(16),
                               child: Text('Sin resultados',
                                   style: TextStyle(
-                                      color: OmniGymColors.textSecondary,
+                                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                                       fontSize: 13)),
                             )
                           : ListView.builder(
@@ -962,22 +962,22 @@ class _RegisterPaymentDialogState
                                   leading: CircleAvatar(
                                     radius: 14,
                                     backgroundColor:
-                                        OmniGymColors.primary.withAlpha(30),
+                                        Theme.of(context).colorScheme.primary.withAlpha(30),
                                     child: Text(
                                       m.name[0].toUpperCase(),
-                                      style: const TextStyle(
-                                          color: OmniGymColors.primary,
+                                      style: TextStyle(
+                                          color: Theme.of(context).colorScheme.primary,
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                   title: Text(m.name,
-                                      style: const TextStyle(
-                                          color: OmniGymColors.textPrimary,
+                                      style: TextStyle(
+                                          color: Theme.of(context).colorScheme.onSurface,
                                           fontSize: 13)),
                                   subtitle: Text(m.email,
-                                      style: const TextStyle(
-                                          color: OmniGymColors.textSecondary,
+                                      style: TextStyle(
+                                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                                           fontSize: 11)),
                                   onTap: () => setState(() {
                                     _selectedMember = m;
@@ -994,20 +994,20 @@ class _RegisterPaymentDialogState
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 12),
                   decoration: BoxDecoration(
-                    color: OmniGymColors.primary.withAlpha(15),
+                    color: Theme.of(context).colorScheme.primary.withAlpha(15),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                        color: OmniGymColors.primary.withAlpha(60)),
+                        color: Theme.of(context).colorScheme.primary.withAlpha(60)),
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
                         radius: 16,
-                        backgroundColor: OmniGymColors.primary.withAlpha(40),
+                        backgroundColor: Theme.of(context).colorScheme.primary.withAlpha(40),
                         child: Text(
                           _selectedMember!.name[0].toUpperCase(),
-                          style: const TextStyle(
-                              color: OmniGymColors.primary,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.primary,
                               fontSize: 13,
                               fontWeight: FontWeight.bold),
                         ),
@@ -1018,21 +1018,21 @@ class _RegisterPaymentDialogState
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(_selectedMember!.name,
-                                style: const TextStyle(
-                                    color: OmniGymColors.textPrimary,
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurface,
                                     fontSize: 13,
                                     fontWeight: FontWeight.w600)),
                             Text(_selectedMember!.email,
-                                style: const TextStyle(
-                                    color: OmniGymColors.textSecondary,
+                                style: TextStyle(
+                                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                                     fontSize: 11)),
                           ],
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close,
+                        icon: Icon(Icons.close,
                             size: 14,
-                            color: OmniGymColors.textSecondary),
+                            color: Theme.of(context).colorScheme.onSurfaceVariant),
                         onPressed: () =>
                             setState(() => _selectedMember = null),
                         constraints: const BoxConstraints(
@@ -1051,40 +1051,40 @@ class _RegisterPaymentDialogState
                 initialValue: _selectedPlan,
                 isExpanded: true,
                 menuMaxHeight: 280,
-                hint: const Text('Seleccionar plan',
+                hint: Text('Seleccionar plan',
                     style: TextStyle(
-                        color: OmniGymColors.textSecondary, fontSize: 13)),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
                 items: plans
                     .map((p) => DropdownMenuItem(
                           value: p,
                           child: Text(
                             '${p.name} — \$${p.price % 1 == 0 ? p.price.toInt() : p.price} · ${p.durationDays}d',
-                            style: const TextStyle(
-                                color: OmniGymColors.textPrimary,
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 13),
                           ),
                         ))
                     .toList(),
                 onChanged: _onPlanSelected,
-                dropdownColor: OmniGymColors.card,
+                dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
                 decoration: InputDecoration(
                   labelText: 'Plan',
-                  labelStyle: const TextStyle(
-                      color: OmniGymColors.textSecondary, fontSize: 13),
+                  labelStyle: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                   filled: true,
-                  fillColor: OmniGymColors.surface,
+                  fillColor: Theme.of(context).colorScheme.surface,
                   border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide:
-                          const BorderSide(color: OmniGymColors.border)),
+                          BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
                   enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide:
-                          const BorderSide(color: OmniGymColors.border)),
+                          BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
                   focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
                       borderSide:
-                          const BorderSide(color: OmniGymColors.primary)),
+                          BorderSide(color: Theme.of(context).colorScheme.primary)),
                   contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 12),
                 ),
@@ -1101,9 +1101,9 @@ class _RegisterPaymentDialogState
                   FilteringTextInputFormatter.allow(
                       RegExp(r'^\d+\.?\d{0,2}'))
                 ],
-                prefix: const Text('\$  ',
+                prefix: Text('\$  ',
                     style: TextStyle(
-                        color: OmniGymColors.textSecondary, fontSize: 13)),
+                        color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13)),
               ),
               const SizedBox(height: 14),
 
@@ -1115,8 +1115,8 @@ class _RegisterPaymentDialogState
               if (_error != null) ...[
                 const SizedBox(height: 8),
                 Text(_error!,
-                    style: const TextStyle(
-                        color: OmniGymColors.errorRed, fontSize: 12)),
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.error, fontSize: 12)),
               ],
               const SizedBox(height: 20),
               Row(
@@ -1125,18 +1125,18 @@ class _RegisterPaymentDialogState
                   TextButton(
                     onPressed: () => Navigator.pop(context),
                     style: TextButton.styleFrom(
-                        foregroundColor: OmniGymColors.textSecondary),
+                        foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
                     child: const Text('Cancelar'),
                   ),
                   const SizedBox(width: 12),
                   FilledButton.icon(
                     icon: const Icon(Icons.check, size: 16),
                     label: _saving
-                        ? const SizedBox(
+                        ? SizedBox(
                             width: 16,
                             height: 16,
                             child: CircularProgressIndicator(
-                                strokeWidth: 2, color: Colors.white))
+                                strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary))
                         : const Text('Confirmar pago'),
                     onPressed: _saving ? null : _save,
                   ),
@@ -1176,23 +1176,23 @@ class _Field extends StatelessWidget {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       onChanged: onChanged,
-      style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
         labelStyle:
-            const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+            TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
         prefix: prefix,
         filled: true,
-        fillColor: OmniGymColors.surface,
+        fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: OmniGymColors.border)),
+            borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
         enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: OmniGymColors.border)),
+            borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
         focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: OmniGymColors.primary)),
+            borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),

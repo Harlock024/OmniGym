@@ -103,6 +103,9 @@ final activeTenantProvider = StreamProvider<Tenant?>((ref) async* {
   yield* ref.watch(tenantRepositoryProvider).watch(tenantId);
 });
 
+/// Alias semántico usado por la capa de presentación (tema, branding, etc.).
+final currentTenantProvider = activeTenantProvider;
+
 // ─── Rol del usuario actual ───────────────────────────────────────────────────
 
 final currentUserRoleProvider = FutureProvider<String?>((ref) async {

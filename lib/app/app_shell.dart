@@ -37,7 +37,7 @@ class DrawerMenuButton extends StatelessWidget {
     final scope = ShellScope.maybeOf(context);
     if (scope == null) return const SizedBox.shrink();
     return IconButton(
-      icon: const Icon(Icons.menu_rounded, color: OmniGymColors.textSecondary),
+      icon: Icon(Icons.menu_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant),
       onPressed: scope.openDrawer,
       tooltip: 'Menú',
     );
@@ -182,9 +182,9 @@ class _AppShellState extends ConsumerState<AppShell> {
         openDrawer: _openDrawer,
         child: Scaffold(
           key: _drawerKey,
-          backgroundColor: OmniGymColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           drawer: Drawer(
-            backgroundColor: OmniGymColors.surface,
+            backgroundColor: Theme.of(context).colorScheme.surface,
             width: 280,
             child: sidebarContent,
           ),
@@ -198,7 +198,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       final items = _navItems(role);
       final selectedIdx = _selectedIndex(items, widget.location);
       return Scaffold(
-        backgroundColor: OmniGymColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Row(
           children: [
             _RailSidebar(
@@ -208,8 +208,8 @@ class _AppShellState extends ConsumerState<AppShell> {
               userName: user?.name ?? '',
               photoUrl: user?.photoUrl,
             ),
-            const VerticalDivider(
-                width: 1, thickness: 1, color: OmniGymColors.border),
+            VerticalDivider(
+                width: 1, thickness: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
             Expanded(child: _withBanner(role, widget.child)),
           ],
         ),
@@ -218,12 +218,12 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     // ── Desktop: full sidebar ─────────────────────────────────────────────────
     return Scaffold(
-      backgroundColor: OmniGymColors.background,
+      backgroundColor: Theme.of(context).colorScheme.surface,
       body: Row(
         children: [
           SizedBox(width: 200, child: sidebarContent),
-          const VerticalDivider(
-              width: 1, thickness: 1, color: OmniGymColors.border),
+          VerticalDivider(
+              width: 1, thickness: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
           Expanded(child: _withBanner(role, widget.child)),
         ],
       ),
@@ -258,12 +258,12 @@ class _SidebarContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
-      color: OmniGymColors.surface,
+      color: Theme.of(context).colorScheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _LogoHeader(),
-          const Divider(color: OmniGymColors.border, height: 1),
+          Divider(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, height: 1),
           const SizedBox(height: 8),
           Expanded(
             child: ListView(
@@ -281,7 +281,7 @@ class _SidebarContent extends ConsumerWidget {
                   .toList(),
             ),
           ),
-          const Divider(color: OmniGymColors.border, height: 1),
+          Divider(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, height: 1),
           _UserFooter(
             name: userName,
             email: userEmail,
@@ -315,7 +315,7 @@ class _RailSidebar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
       width: 72,
-      color: OmniGymColors.surface,
+      color: Theme.of(context).colorScheme.surface,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -326,14 +326,14 @@ class _RailSidebar extends ConsumerWidget {
               width: 32,
               height: 32,
               decoration: BoxDecoration(
-                color: OmniGymColors.primary,
+                color: Theme.of(context).colorScheme.primary,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: const Icon(Icons.fitness_center,
                   color: Colors.white, size: 18),
             ),
           ),
-          const Divider(color: OmniGymColors.border, height: 1),
+          Divider(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, height: 1),
           const SizedBox(height: 4),
           // Nav items
           Expanded(
@@ -345,7 +345,7 @@ class _RailSidebar extends ConsumerWidget {
               }).toList(),
             ),
           ),
-          const Divider(color: OmniGymColors.border, height: 1),
+          Divider(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, height: 1),
           // User avatar + signout
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -353,7 +353,7 @@ class _RailSidebar extends ConsumerWidget {
               children: [
                 CircleAvatar(
                   radius: 14,
-                  backgroundColor: OmniGymColors.primary,
+                  backgroundColor: Theme.of(context).colorScheme.primary,
                   backgroundImage:
                       photoUrl != null ? NetworkImage(photoUrl!) : null,
                   child: photoUrl == null
@@ -367,8 +367,8 @@ class _RailSidebar extends ConsumerWidget {
                       : null,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.logout,
-                      size: 16, color: OmniGymColors.textSecondary),
+                  icon: Icon(Icons.logout,
+                      size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   onPressed: () =>
                       ref.read(firebaseAuthProvider).signOut(),
                   tooltip: 'Cerrar sesión',
@@ -409,19 +409,19 @@ class _RailTile extends StatelessWidget {
               height: 44,
               decoration: BoxDecoration(
                 color: isActive
-                    ? OmniGymColors.primary.withAlpha(30)
+                    ? Theme.of(context).colorScheme.primary.withAlpha(30)
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
                 border: isActive
-                    ? Border.all(color: OmniGymColors.primary.withAlpha(70))
+                    ? Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(70))
                     : null,
               ),
               child: Icon(
                 item.icon,
                 size: 20,
                 color: isActive
-                    ? OmniGymColors.primary
-                    : OmniGymColors.textSecondary,
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
               ),
             ),
           ),
@@ -444,17 +444,17 @@ class _LogoHeader extends StatelessWidget {
             width: 32,
             height: 32,
             decoration: BoxDecoration(
-              color: OmniGymColors.primary,
+              color: Theme.of(context).colorScheme.primary,
               borderRadius: BorderRadius.circular(8),
             ),
             child: const Icon(Icons.fitness_center,
                 color: Colors.white, size: 18),
           ),
           const SizedBox(width: 10),
-          const Text(
+          Text(
             'OmniGym',
             style: TextStyle(
-              color: OmniGymColors.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 16,
               fontWeight: FontWeight.bold,
               letterSpacing: -0.3,
@@ -490,11 +490,11 @@ class _NavTile extends StatelessWidget {
                 const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isActive
-                  ? OmniGymColors.primary.withAlpha(30)
+                  ? Theme.of(context).colorScheme.primary.withAlpha(30)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: isActive
-                  ? Border.all(color: OmniGymColors.primary.withAlpha(70))
+                  ? Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(70))
                   : null,
             ),
             child: Row(
@@ -503,8 +503,8 @@ class _NavTile extends StatelessWidget {
                   item.icon,
                   size: 18,
                   color: isActive
-                      ? OmniGymColors.primary
-                      : OmniGymColors.textSecondary,
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
                 const SizedBox(width: 10),
                 Expanded(
@@ -512,8 +512,8 @@ class _NavTile extends StatelessWidget {
                     item.label,
                     style: TextStyle(
                       color: isActive
-                          ? OmniGymColors.primary
-                          : OmniGymColors.textSecondary,
+                          ? Theme.of(context).colorScheme.primary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                       fontWeight:
                           isActive ? FontWeight.w600 : FontWeight.normal,
@@ -542,8 +542,8 @@ class _NavSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 16, 12, 4),
       child: Text(
         label.toUpperCase(),
-        style: const TextStyle(
-          color: OmniGymColors.textSecondary,
+        style: TextStyle(
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
           fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 0.8,
@@ -576,7 +576,7 @@ class _UserFooter extends StatelessWidget {
         children: [
           CircleAvatar(
             radius: 16,
-            backgroundColor: OmniGymColors.primary,
+            backgroundColor: Theme.of(context).colorScheme.primary,
             backgroundImage:
                 photoUrl != null ? NetworkImage(photoUrl!) : null,
             child: photoUrl == null
@@ -595,8 +595,8 @@ class _UserFooter extends StatelessWidget {
               children: [
                 Text(
                   name,
-                  style: const TextStyle(
-                    color: OmniGymColors.textPrimary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -604,8 +604,8 @@ class _UserFooter extends StatelessWidget {
                 ),
                 Text(
                   email,
-                  style: const TextStyle(
-                    color: OmniGymColors.textSecondary,
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 10,
                   ),
                   overflow: TextOverflow.ellipsis,
@@ -614,10 +614,10 @@ class _UserFooter extends StatelessWidget {
             ),
           ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.logout,
               size: 16,
-              color: OmniGymColors.textSecondary,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
             onPressed: onSignOut,
             tooltip: 'Cerrar sesión',

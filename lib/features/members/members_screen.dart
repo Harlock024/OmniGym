@@ -65,7 +65,7 @@ class MembersScreen extends ConsumerWidget {
     final branches = ref.watch(_allBranchesForMembersProvider).valueOrNull ?? [];
 
     return Scaffold(
-      backgroundColor: OmniGymColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -86,7 +86,7 @@ class MembersScreen extends ConsumerWidget {
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
                 child: Text('Error: $e',
-                    style: const TextStyle(color: OmniGymColors.textSecondary)),
+                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
               ),
               data: (members) => members.isEmpty
                   ? const _EmptyState()
@@ -121,18 +121,18 @@ class _Header extends ConsumerWidget {
     final titleColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Socios',
           style: TextStyle(
-            color: OmniGymColors.textPrimary,
+            color: Theme.of(context).colorScheme.onSurface,
             fontSize: 22,
             fontWeight: FontWeight.bold,
           ),
         ),
         Text(
           '$total registrados',
-          style: const TextStyle(
-              color: OmniGymColors.textSecondary, fontSize: 12),
+          style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
         ),
       ],
     );
@@ -142,28 +142,28 @@ class _Header extends ConsumerWidget {
       child: TextField(
         onChanged: (v) =>
             ref.read(_memberSearchProvider.notifier).state = v,
-        style: const TextStyle(
-            color: OmniGymColors.textPrimary, fontSize: 13),
+        style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
         decoration: InputDecoration(
           hintText: 'Buscar socio...',
-          hintStyle: const TextStyle(
-              color: OmniGymColors.textSecondary, fontSize: 13),
-          prefixIcon: const Icon(Icons.search,
-              size: 16, color: OmniGymColors.textSecondary),
+          hintStyle: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+          prefixIcon: Icon(Icons.search,
+              size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
           filled: true,
-          fillColor: OmniGymColors.surface,
+          fillColor: Theme.of(context).colorScheme.surface,
           contentPadding:
               const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
           border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: OmniGymColors.border)),
+              borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
           enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: const BorderSide(color: OmniGymColors.border)),
+              borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
           focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
               borderSide:
-                  const BorderSide(color: OmniGymColors.primary)),
+                  BorderSide(color: Theme.of(context).colorScheme.primary)),
         ),
       ),
     );
@@ -176,8 +176,8 @@ class _Header extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: OmniGymColors.border)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
       ),
       child: isMobile
           ? Column(
@@ -225,8 +225,8 @@ class _Filters extends ConsumerWidget {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: OmniGymColors.border)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -267,16 +267,16 @@ class _Filters extends ConsumerWidget {
 class _ColumnHeaders extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    const style = TextStyle(
-      color: OmniGymColors.textSecondary,
+    final style = TextStyle(
+      color: Theme.of(context).colorScheme.onSurfaceVariant,
       fontSize: 11,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.5,
     );
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
-      color: OmniGymColors.surface,
-      child: const Row(
+      color: Theme.of(context).colorScheme.surface,
+      child: Row(
         children: [
           Expanded(flex: 3, child: Text('NOMBRE', style: style)),
           Expanded(flex: 3, child: Text('CORREO', style: style)),
@@ -301,7 +301,7 @@ class _MemberList extends ConsumerWidget {
     return ListView.separated(
       padding: EdgeInsets.zero,
       itemCount: members.length,
-      separatorBuilder: (_, _) => const Divider(height: 1, color: OmniGymColors.border),
+      separatorBuilder: (_, _) => Divider(height: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       itemBuilder: (context, i) => _MemberRow(
         member: members[i],
         branches: branches,
@@ -335,7 +335,7 @@ class _MemberRow extends ConsumerWidget {
     final avatar = CircleAvatar(
       radius: 16,
       backgroundColor:
-          isActive ? OmniGymColors.primary.withAlpha(40) : OmniGymColors.border,
+          isActive ? Theme.of(context).colorScheme.primary.withAlpha(40) : Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
       backgroundImage:
           member.photoUrl != null ? NetworkImage(member.photoUrl!) : null,
       child: member.photoUrl == null
@@ -343,8 +343,8 @@ class _MemberRow extends ConsumerWidget {
               member.name.isNotEmpty ? member.name[0].toUpperCase() : '?',
               style: TextStyle(
                 color: isActive
-                    ? OmniGymColors.primary
-                    : OmniGymColors.textSecondary,
+                    ? Theme.of(context).colorScheme.primary
+                    : Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 12,
                 fontWeight: FontWeight.bold,
               ),
@@ -371,8 +371,8 @@ class _MemberRow extends ConsumerWidget {
                         Expanded(
                           child: Text(
                             member.name,
-                            style: const TextStyle(
-                                color: OmniGymColors.textPrimary,
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurface,
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500),
                             overflow: TextOverflow.ellipsis,
@@ -384,8 +384,8 @@ class _MemberRow extends ConsumerWidget {
                     ),
                     Text(
                       member.email,
-                      style: const TextStyle(
-                          color: OmniGymColors.textSecondary, fontSize: 12),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
                       overflow: TextOverflow.ellipsis,
                     ),
                     Row(
@@ -394,8 +394,8 @@ class _MemberRow extends ConsumerWidget {
                           _formatDate(member.expirationDate),
                           style: TextStyle(
                             color: isExpired
-                                ? OmniGymColors.errorRed
-                                : OmniGymColors.textSecondary,
+                                ? Theme.of(context).colorScheme.error
+                                : Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 11,
                           ),
                         ),
@@ -408,10 +408,10 @@ class _MemberRow extends ConsumerWidget {
                           ),
                         ] else if (isExpired) ...[
                           const SizedBox(width: 4),
-                          const Text(
+                          Text(
                             '· vencida',
                             style: TextStyle(
-                                color: OmniGymColors.errorRed, fontSize: 11),
+                                color: Theme.of(context).colorScheme.error, fontSize: 11),
                           ),
                         ],
                       ],
@@ -445,8 +445,8 @@ class _MemberRow extends ConsumerWidget {
                       children: [
                         Text(
                           member.name,
-                          style: const TextStyle(
-                              color: OmniGymColors.textPrimary,
+                          style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurface,
                               fontSize: 13,
                               fontWeight: FontWeight.w500),
                           overflow: TextOverflow.ellipsis,
@@ -454,8 +454,8 @@ class _MemberRow extends ConsumerWidget {
                         if (member.phone != null)
                           Text(
                             member.phone!,
-                            style: const TextStyle(
-                                color: OmniGymColors.textSecondary,
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.onSurfaceVariant,
                                 fontSize: 11),
                           ),
                       ],
@@ -468,8 +468,8 @@ class _MemberRow extends ConsumerWidget {
               flex: 3,
               child: Text(
                 member.email,
-                style: const TextStyle(
-                    color: OmniGymColors.textSecondary, fontSize: 13),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -482,8 +482,8 @@ class _MemberRow extends ConsumerWidget {
                     _formatDate(member.expirationDate),
                     style: TextStyle(
                       color: isExpired
-                          ? OmniGymColors.errorRed
-                          : OmniGymColors.textPrimary,
+                          ? Theme.of(context).colorScheme.error
+                          : Theme.of(context).colorScheme.onSurface,
                       fontSize: 13,
                     ),
                   ),
@@ -494,10 +494,10 @@ class _MemberRow extends ConsumerWidget {
                           color: Colors.orange, fontSize: 11),
                     )
                   else if (isExpired)
-                    const Text(
+                    Text(
                       'Vencida',
                       style: TextStyle(
-                          color: OmniGymColors.errorRed, fontSize: 11),
+                          color: Theme.of(context).colorScheme.error, fontSize: 11),
                     ),
                 ],
               ),
@@ -527,7 +527,7 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isActive = status == AccessStatus.active;
-    final color = isActive ? OmniGymColors.success : OmniGymColors.errorRed;
+    final color = isActive ? OmniGymColors.success : Theme.of(context).colorScheme.error;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
       decoration: BoxDecoration(
@@ -552,8 +552,8 @@ class _MemberActions extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isActive = member.accessStatus == AccessStatus.active;
     return PopupMenuButton<String>(
-      icon: const Icon(Icons.more_vert, size: 16, color: OmniGymColors.textSecondary),
-      color: OmniGymColors.card,
+      icon: Icon(Icons.more_vert, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
       itemBuilder: (_) => [
         PopupMenuItem(
           value: 'edit',
@@ -632,9 +632,9 @@ class _MemberActions extends ConsumerWidget {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        backgroundColor: OmniGymColors.card,
+        backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
         title: Text('QR – ${member.name}',
-            style: const TextStyle(color: OmniGymColors.textPrimary)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurface)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -653,8 +653,8 @@ class _MemberActions extends ConsumerWidget {
             const SizedBox(height: 12),
             Text(
               member.name,
-              style: const TextStyle(
-                color: OmniGymColors.textPrimary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -662,8 +662,8 @@ class _MemberActions extends ConsumerWidget {
             const SizedBox(height: 2),
             Text(
               member.qrToken,
-              style: const TextStyle(
-                color: OmniGymColors.textSecondary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
                 fontSize: 10,
                 fontFamily: 'monospace',
               ),
@@ -686,23 +686,23 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Center(
+    return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.fitness_center, size: 52, color: OmniGymColors.textSecondary),
+          Icon(Icons.fitness_center, size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant),
           SizedBox(height: 12),
           Text(
             'Sin socios registrados',
             style: TextStyle(
-                color: OmniGymColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 16,
                 fontWeight: FontWeight.w600),
           ),
           SizedBox(height: 6),
           Text(
             'Usa el botón "Nuevo socio" para agregar el primero.',
-            style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
           ),
         ],
       ),
@@ -822,7 +822,7 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: OmniGymColors.card,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       insetPadding: const EdgeInsets.all(16),
       child: ConstrainedBox(
@@ -841,8 +841,8 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
                   children: [
                     Text(
                       _isEdit ? 'Editar socio' : 'Nuevo socio',
-                      style: const TextStyle(
-                        color: OmniGymColors.textPrimary,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
                       ),
@@ -850,8 +850,8 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
                     const Spacer(),
                     IconButton(
                       onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close,
-                          color: OmniGymColors.textSecondary, size: 18),
+                      icon: Icon(Icons.close,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, size: 18),
                     ),
                   ],
                 ),
@@ -876,9 +876,9 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
                   ),
                 ]),
                 const SizedBox(height: 16),
-                const Text('Sucursales permitidas',
+                Text('Sucursales permitidas',
                     style: TextStyle(
-                        color: OmniGymColors.textSecondary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 12,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 8),
@@ -903,8 +903,8 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
                 if (_error != null) ...[
                   const SizedBox(height: 8),
                   Text(_error!,
-                      style: const TextStyle(
-                          color: OmniGymColors.errorRed, fontSize: 12)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.error, fontSize: 12)),
                 ],
                 const SizedBox(height: 20),
                 Row(
@@ -913,18 +913,18 @@ class _MemberFormDialogState extends ConsumerState<_MemberFormDialog> {
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
-                          foregroundColor: OmniGymColors.textSecondary),
+                          foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 12),
                     FilledButton(
                       onPressed: _saving ? null : _save,
                       child: _saving
-                          ? const SizedBox(
+                          ? SizedBox(
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2, color: Colors.white))
+                                  strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary))
                           : Text(_isEdit ? 'Guardar' : 'Crear socio'),
                     ),
                   ],
@@ -973,15 +973,15 @@ class _MemberField extends StatelessWidget {
     return TextField(
       controller: controller,
       keyboardType: keyboardType,
-      style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+      style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+        labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
         filled: true,
-        fillColor: OmniGymColors.surface,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OmniGymColors.border)),
-        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OmniGymColors.border)),
-        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OmniGymColors.primary)),
+        fillColor: Theme.of(context).colorScheme.surface,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
+        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
+        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).colorScheme.primary)),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       ),
     );
@@ -1011,15 +1011,15 @@ class _ExpirationPicker extends StatelessWidget {
       child: AbsorbPointer(
         child: TextField(
           controller: TextEditingController(text: text),
-          style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+          style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
           decoration: InputDecoration(
             labelText: 'Fecha de vencimiento',
-            labelStyle: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
-            suffixIcon: const Icon(Icons.calendar_today, size: 16, color: OmniGymColors.textSecondary),
+            labelStyle: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+            suffixIcon: Icon(Icons.calendar_today, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
             filled: true,
-            fillColor: OmniGymColors.surface,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OmniGymColors.border)),
-            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: OmniGymColors.border)),
+            fillColor: Theme.of(context).colorScheme.surface,
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
+            enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
         ),
@@ -1044,7 +1044,7 @@ class _MemberCreatedDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: OmniGymColors.card,
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       insetPadding: const EdgeInsets.all(24),
       child: ConstrainedBox(
@@ -1067,8 +1067,8 @@ class _MemberCreatedDialog extends StatelessWidget {
               const SizedBox(height: 16),
               Text(
                 '¡Socio registrado!',
-                style: const TextStyle(
-                  color: OmniGymColors.textPrimary,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1076,25 +1076,25 @@ class _MemberCreatedDialog extends StatelessWidget {
               const SizedBox(height: 6),
               Text(
                 name,
-                style: const TextStyle(
-                    color: OmniGymColors.textSecondary, fontSize: 14),
+                style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 14),
               ),
               const SizedBox(height: 24),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: OmniGymColors.surface,
+                  color: Theme.of(context).colorScheme.surface,
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: OmniGymColors.border),
+                  border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
+                    Text(
                       'CREDENCIALES DEL SOCIO',
                       style: TextStyle(
-                        color: OmniGymColors.textSecondary,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 0.8,
@@ -1110,14 +1110,14 @@ class _MemberCreatedDialog extends StatelessWidget {
               const SizedBox(height: 14),
               Row(
                 children: [
-                  const Icon(Icons.email_outlined,
-                      size: 14, color: OmniGymColors.textSecondary),
+                  Icon(Icons.email_outlined,
+                      size: 14, color: Theme.of(context).colorScheme.onSurfaceVariant),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
                       'Se envió un correo a $email para configurar su contraseña.',
-                      style: const TextStyle(
-                          color: OmniGymColors.textSecondary, fontSize: 11),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
                     ),
                   ),
                 ],
@@ -1159,15 +1159,15 @@ class _CredRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label,
-                  style: const TextStyle(
-                      color: OmniGymColors.textSecondary, fontSize: 11)),
+                  style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11)),
               const SizedBox(height: 2),
               Text(
                 value,
                 style: TextStyle(
                   color: highlight
-                      ? OmniGymColors.primary
-                      : OmniGymColors.textPrimary,
+                      ? Theme.of(context).colorScheme.primary
+                      : Theme.of(context).colorScheme.onSurface,
                   fontSize: highlight ? 22 : 14,
                   fontWeight: FontWeight.bold,
                   fontFamily: highlight ? 'monospace' : null,
@@ -1178,8 +1178,8 @@ class _CredRow extends StatelessWidget {
           ),
         ),
         IconButton(
-          icon: const Icon(Icons.copy_rounded,
-              size: 16, color: OmniGymColors.textSecondary),
+          icon: Icon(Icons.copy_rounded,
+              size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
           tooltip: 'Copiar',
           onPressed: () async {
             await Clipboard.setData(ClipboardData(text: value));

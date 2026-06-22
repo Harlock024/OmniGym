@@ -70,7 +70,7 @@ class ReportsScreen extends ConsumerWidget {
     final tenantId = tenantAsync.valueOrNull ?? '';
 
     return Scaffold(
-      backgroundColor: OmniGymColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -88,8 +88,8 @@ class ReportsScreen extends ConsumerWidget {
   Widget _buildHeader(BuildContext context, WidgetRef ref, _Period current) {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: OmniGymColors.border)),
+      decoration: BoxDecoration(
+        border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -97,10 +97,10 @@ class ReportsScreen extends ConsumerWidget {
           Row(
             children: [
               if (context.isMobile) const DrawerMenuButton(),
-              const Text(
+              Text(
                 'Reportes',
                 style: TextStyle(
-                  color: OmniGymColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
                 ),
@@ -120,12 +120,12 @@ class ReportsScreen extends ConsumerWidget {
                     selected: selected,
                     onSelected: (_) =>
                         ref.read(_periodProvider.notifier).state = p,
-                    backgroundColor: OmniGymColors.surface,
-                    selectedColor: OmniGymColors.primary,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    selectedColor: Theme.of(context).colorScheme.primary,
                     labelStyle: TextStyle(
                       color: selected
-                          ? Colors.white
-                          : OmniGymColors.textSecondary,
+                          ? Theme.of(context).colorScheme.onPrimary
+                          : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
                     ),
                   ),
@@ -158,7 +158,7 @@ class _ReportBody extends ConsumerWidget {
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(
         child: Text('Error: $e',
-            style: const TextStyle(color: OmniGymColors.textSecondary)),
+            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
       ),
       data: (payments) {
         final r = period.range;
@@ -196,7 +196,7 @@ class _ReportBody extends ConsumerWidget {
                   label: 'Pagos',
                   value: '${payments.length}',
                   icon: Icons.receipt_long_rounded,
-                  color: OmniGymColors.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
                 _KpiCard(
                   label: 'Socios nuevos',
@@ -303,9 +303,9 @@ class _KpiCard extends StatelessWidget {
       width: 180,
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -321,8 +321,8 @@ class _KpiCard extends StatelessWidget {
           const SizedBox(height: 12),
           Text(
             value,
-            style: const TextStyle(
-              color: OmniGymColors.textPrimary,
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 26,
               fontWeight: FontWeight.bold,
               height: 1,
@@ -330,8 +330,8 @@ class _KpiCard extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(label,
-              style: const TextStyle(
-                  color: OmniGymColors.textSecondary, fontSize: 12)),
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
         ],
       ),
     );
@@ -352,17 +352,17 @@ class _RevenueChart extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Ingresos por período',
             style: TextStyle(
-              color: OmniGymColors.textPrimary,
+              color: Theme.of(context).colorScheme.onSurface,
               fontSize: 15,
               fontWeight: FontWeight.w600,
             ),
@@ -375,8 +375,8 @@ class _RevenueChart extends StatelessWidget {
                 maxY: maxY == 0 ? 100 : maxY * 1.25,
                 gridData: FlGridData(
                   drawVerticalLine: false,
-                  getDrawingHorizontalLine: (_) => const FlLine(
-                    color: OmniGymColors.border,
+                  getDrawingHorizontalLine: (_) => FlLine(
+                    color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
                     strokeWidth: 1,
                   ),
                 ),
@@ -401,8 +401,8 @@ class _RevenueChart extends StatelessWidget {
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
                             data[i].label,
-                            style: const TextStyle(
-                              color: OmniGymColors.textSecondary,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 10,
                             ),
                           ),
@@ -417,14 +417,14 @@ class _RevenueChart extends StatelessWidget {
                     barRods: [
                       BarChartRodData(
                         toY: e.value.amount,
-                        color: OmniGymColors.primary,
+                        color: Theme.of(context).colorScheme.primary,
                         width: data.length > 8 ? 12 : 20,
                         borderRadius: const BorderRadius.vertical(
                             top: Radius.circular(4)),
                         backDrawRodData: BackgroundBarChartRodData(
                           show: true,
                           toY: maxY == 0 ? 100 : maxY * 1.25,
-                          color: OmniGymColors.primary.withAlpha(15),
+                          color: Theme.of(context).colorScheme.primary.withAlpha(15),
                         ),
                       ),
                     ],
@@ -432,21 +432,21 @@ class _RevenueChart extends StatelessWidget {
                 }).toList(),
                 barTouchData: BarTouchData(
                   touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => OmniGymColors.surface,
+                    getTooltipColor: (_) => Theme.of(context).colorScheme.surface,
                     getTooltipItem: (group, _, rod, _) {
                       final d = data[group.x];
                       return BarTooltipItem(
                         '\$${rod.toY % 1 == 0 ? rod.toY.toInt() : rod.toY.toStringAsFixed(0)}\n',
-                        const TextStyle(
-                          color: OmniGymColors.primary,
+                        TextStyle(
+                          color: Theme.of(context).colorScheme.primary,
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                         ),
                         children: [
                           TextSpan(
                             text: '${d.count} pago${d.count != 1 ? 's' : ''}',
-                            style: const TextStyle(
-                              color: OmniGymColors.textSecondary,
+                            style: TextStyle(
+                              color: Theme.of(context).colorScheme.onSurfaceVariant,
                               fontSize: 11,
                               fontWeight: FontWeight.normal,
                             ),
@@ -477,19 +477,19 @@ class _PlanBreakdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Padding(
+          Padding(
             padding: EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Text(
               'Desglose por plan',
               style: TextStyle(
-                color: OmniGymColors.textPrimary,
+                color: Theme.of(context).colorScheme.onSurface,
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
               ),
@@ -498,20 +498,20 @@ class _PlanBreakdownCard extends StatelessWidget {
           Container(
             padding:
                 const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            decoration: const BoxDecoration(
-              color: OmniGymColors.surface,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
               border: Border(
-                top: BorderSide(color: OmniGymColors.border),
-                bottom: BorderSide(color: OmniGymColors.border),
+                top: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
+                bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
               ),
             ),
-            child: const Row(
+            child: Row(
               children: [
                 Expanded(
                   flex: 4,
                   child: Text('Plan',
                       style: TextStyle(
-                          color: OmniGymColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
                           fontWeight: FontWeight.w700)),
                 ),
@@ -520,7 +520,7 @@ class _PlanBreakdownCard extends StatelessWidget {
                   child: Text('Pagos',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                          color: OmniGymColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
                           fontWeight: FontWeight.w700)),
                 ),
@@ -529,7 +529,7 @@ class _PlanBreakdownCard extends StatelessWidget {
                   child: Text('Ingresos',
                       textAlign: TextAlign.end,
                       style: TextStyle(
-                          color: OmniGymColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
                           fontWeight: FontWeight.w700)),
                 ),
@@ -538,7 +538,7 @@ class _PlanBreakdownCard extends StatelessWidget {
                   child: Text('%',
                       textAlign: TextAlign.end,
                       style: TextStyle(
-                          color: OmniGymColors.textSecondary,
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 11,
                           fontWeight: FontWeight.w700)),
                 ),
@@ -550,18 +550,18 @@ class _PlanBreakdownCard extends StatelessWidget {
             return Container(
               padding:
                   const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
                     bottom: BorderSide(
-                        color: OmniGymColors.border, width: 0.5)),
+                        color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, width: 0.5)),
               ),
               child: Row(
                 children: [
                   Expanded(
                     flex: 4,
                     child: Text(row.plan,
-                        style: const TextStyle(
-                            color: OmniGymColors.textPrimary,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
                             fontSize: 13),
                         overflow: TextOverflow.ellipsis),
                   ),
@@ -569,8 +569,8 @@ class _PlanBreakdownCard extends StatelessWidget {
                     width: 70,
                     child: Text('${row.count}',
                         textAlign: TextAlign.center,
-                        style: const TextStyle(
-                            color: OmniGymColors.textSecondary,
+                        style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurfaceVariant,
                             fontSize: 13)),
                   ),
                   SizedBox(
@@ -589,8 +589,8 @@ class _PlanBreakdownCard extends StatelessWidget {
                     child: Text(
                       '${pct.toStringAsFixed(1)}%',
                       textAlign: TextAlign.end,
-                      style: const TextStyle(
-                          color: OmniGymColors.textSecondary,
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
                           fontSize: 12),
                     ),
                   ),

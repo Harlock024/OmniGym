@@ -58,7 +58,7 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final packagesAsync = ref.watch(subscriptionPackagesProvider);
 
     return Scaffold(
-      backgroundColor: OmniGymColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       appBar: AppBar(
         leading: context.isMobile ? const DrawerMenuButton() : null,
         automaticallyImplyLeading: false,
@@ -102,9 +102,9 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
               ),
               if (showPlans) ...[
                 const SizedBox(height: 24),
-                const Text('Planes disponibles',
+                Text('Planes disponibles',
                     style: TextStyle(
-                        color: OmniGymColors.textPrimary,
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 12),
@@ -113,8 +113,8 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                       padding: EdgeInsets.all(24),
                       child: CircularProgressIndicator()))
                 else if (packages.isEmpty)
-                  const Text('No hay planes disponibles por el momento.',
-                      style: TextStyle(color: OmniGymColors.textSecondary))
+                  Text('No hay planes disponibles por el momento.',
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant))
                 else
                   ...packages.map((p) => Padding(
                         padding: const EdgeInsets.only(bottom: 10),
@@ -158,7 +158,7 @@ class _StatusCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: c.color.withAlpha(80)),
       ),
@@ -182,8 +182,8 @@ class _StatusCard extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             subtitle,
-            style: const TextStyle(
-                color: OmniGymColors.textSecondary, fontSize: 13),
+            style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
           ),
           if (onManage != null) ...[
             const SizedBox(height: 16),
@@ -217,9 +217,9 @@ class _PackageOption extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: OmniGymColors.card,
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: OmniGymColors.border),
+        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
       ),
       child: Row(
         children: [
@@ -228,20 +228,20 @@ class _PackageOption extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(pkg.name,
-                    style: const TextStyle(
-                        color: OmniGymColors.textPrimary,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
                         fontSize: 15,
                         fontWeight: FontWeight.w600)),
                 const SizedBox(height: 4),
                 Text('\$${pkg.price.toStringAsFixed(2)} ${pkg.currency.toUpperCase()} / mes',
-                    style: const TextStyle(
-                        color: OmniGymColors.primary,
+                    style: TextStyle(
+                        color: Theme.of(context).colorScheme.primary,
                         fontWeight: FontWeight.w600)),
                 if (limits.isNotEmpty) ...[
                   const SizedBox(height: 4),
                   Text(limits,
-                      style: const TextStyle(
-                          color: OmniGymColors.textSecondary, fontSize: 12)),
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
                 ],
               ],
             ),

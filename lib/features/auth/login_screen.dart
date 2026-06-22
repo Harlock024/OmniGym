@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/app_theme.dart';
 import '../../core/providers/providers.dart';
 import 'auth_widgets.dart';
 
@@ -66,10 +65,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
             children: [
               const AuthLogo(),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'OmniGym',
                 style: TextStyle(
-                  color: OmniGymColors.textPrimary,
+                  color: Theme.of(context).colorScheme.onSurface,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   letterSpacing: -0.5,
@@ -77,10 +76,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Portal de administración',
                 style: TextStyle(
-                  color: OmniGymColors.textSecondary,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
                   fontSize: 13,
                 ),
                 textAlign: TextAlign.center,
@@ -104,7 +103,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                 suffixIcon: IconButton(
                   icon: Icon(
                     _obscurePass ? Icons.visibility_off : Icons.visibility,
-                    color: OmniGymColors.textSecondary,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 20,
                   ),
                   onPressed: () =>
@@ -141,7 +140,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               TextButton(
                 onPressed: () => context.go('/forgot-password'),
                 style: TextButton.styleFrom(
-                  foregroundColor: OmniGymColors.textSecondary,
+                  foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
                   textStyle: const TextStyle(fontSize: 13),
                 ),
                 child: const Text('¿Olvidaste tu contraseña?'),
@@ -150,7 +149,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               TextButton(
                 onPressed: () => context.go('/register'),
                 style: TextButton.styleFrom(
-                  foregroundColor: OmniGymColors.primary,
+                  foregroundColor: Theme.of(context).colorScheme.primary,
                   textStyle: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,

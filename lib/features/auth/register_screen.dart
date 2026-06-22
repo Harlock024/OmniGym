@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/app_theme.dart';
 import '../../core/models/app_user.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
@@ -137,10 +136,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               children: [
                 const AuthLogo(),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
                   'OmniGym',
                   style: TextStyle(
-                    color: OmniGymColors.textPrimary,
+                    color: Theme.of(context).colorScheme.onSurface,
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.5,
@@ -148,10 +147,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 4),
-                const Text(
+                Text(
                   'Registra tu gimnasio',
                   style: TextStyle(
-                    color: OmniGymColors.textSecondary,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
                     fontSize: 13,
                   ),
                   textAlign: TextAlign.center,
@@ -191,7 +190,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       _obscurePass
                           ? Icons.visibility_off
                           : Icons.visibility,
-                      color: OmniGymColors.textSecondary,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
                       size: 20,
                     ),
                     onPressed: () =>
@@ -223,7 +222,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 TextButton(
                   onPressed: () => context.go('/login'),
                   style: TextButton.styleFrom(
-                    foregroundColor: OmniGymColors.textSecondary,
+                    foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
                     textStyle: const TextStyle(fontSize: 13),
                   ),
                   child: const Text('¿Ya tienes cuenta? Inicia sesión'),
@@ -242,21 +241,21 @@ class _LoadingState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Column(
+    return Column(
       children: [
         SizedBox(
           height: 36,
           width: 36,
           child: CircularProgressIndicator(
             strokeWidth: 2.5,
-            color: OmniGymColors.primary,
+            color: Theme.of(context).colorScheme.primary,
           ),
         ),
-        SizedBox(height: 12),
+        const SizedBox(height: 12),
         Text(
           'Configurando tu gimnasio…',
           style: TextStyle(
-            color: OmniGymColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontSize: 13,
           ),
           textAlign: TextAlign.center,

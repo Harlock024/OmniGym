@@ -45,6 +45,8 @@ class TenantSettings with _$TenantSettings {
     // ── Branding ──────────────────────────────────────────────────────────────
     @JsonKey(name: 'logo_url') String? logoUrl,
     @JsonKey(name: 'primary_color') @Default('#2563EB') String primaryColor,
+    @JsonKey(name: 'secondary_color') @Default('#03DAC6') String secondaryColor,
+    @JsonKey(name: 'theme_mode') @Default('system') String themeMode,
 
     // ── Datos generales ───────────────────────────────────────────────────────
     String? address,
