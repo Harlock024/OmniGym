@@ -325,7 +325,7 @@ class WorkerService {
   }
 
   static String urlPdf({required String tenantId, required String uuid}) {
-    return '$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=pdf';
+    return '$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=pdf&token=$_secret';
   }
 
   static Future<Uint8List?> descargarPdf({

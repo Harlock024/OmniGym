@@ -1490,10 +1490,17 @@ export default {
       const uuid = url.searchParams.get('uuid');
       const tenantId = url.searchParams.get('tenantId');
       const format = url.searchParams.get('format') || 'json';
+      // Permitir auth via query param ?token=xxx (para PDF en navegador)
+      const qToken = url.searchParams.get('token') || '';
 
       if (!uuid || !tenantId) {
         return jsonRes({ error: 'Faltan uuid y tenantId' }, 400);
       }
+
+      // Verificar auth: Bearer header o query param token
+      const isAuthed = checkAuth(request, env) ||
+        (qToken && qToken === env.UPLOAD_SECRET);
+      if (!isAuthed) return jsonRes({ error: 'Unauthorized' }, 401);
 
       const token = await getAdminToken(env);
       const projectId = JSON.parse(env.SA_JSON).project_id;
