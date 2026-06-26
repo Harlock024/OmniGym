@@ -53,6 +53,9 @@ ios/GoogleService-Info.plist
 **/*.freezed.dart
 **/*.g.dart
 
+# Firebase
+.firebase/
+
 # Cloudflare Wrangler
 .wrangler/
 cloudflare-worker/d1/seed.sql
