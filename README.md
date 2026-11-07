@@ -69,7 +69,7 @@ test/            Tests unitarios y de widget
 
 ## Requisitos previos
 
-- **Flutter SDK** `^3.11.5`
+- **Flutter SDK** con **Dart** `^3.13.0` (verificado con Flutter `3.47.9`)
 - **Node.js** `^20` (para Functions y Wrangler)
 - **Firebase CLI** (`npm i -g firebase-tools`)
 - **Cloudflare Wrangler** (`npx wrangler`)
@@ -201,16 +201,30 @@ npx wrangler deploy
 # Instalar dependencias
 flutter pub get
 
-# Regenerar modelos Freezed (solo si modificaste los .dart fuente)
-dart run build_runner build --delete-conflicting-outputs
+# Generar modelos Freezed/JSON al clonar y al modificar los modelos
+dart run build_runner build
 
-# Correr en modo debug
-flutter run --dart-define=R2_UPLOAD_SECRET=tu-secret-local
+# Iniciar la web y abrir la URL que imprime Flutter
+flutter run -d web-server --web-port=8085 --dart-define=R2_UPLOAD_SECRET=tu-secret-local
+
+# Iniciar directamente en Chrome/Chromium
+flutter run -d chrome --dart-define=R2_UPLOAD_SECRET=tu-secret-local
 
 # Build release
 flutter build apk --dart-define=R2_UPLOAD_SECRET=tu-secret-prod
 flutter build web --dart-define=R2_UPLOAD_SECRET=tu-secret-prod
 ```
+
+`lib/firebase_options.dart` y los archivos `*.freezed.dart`/`*.g.dart` estan
+excluidos de Git. En un clon nuevo, ejecuta primero
+`flutterfire configure --project=omnigym-567a8 --platforms=web,android,ios`
+(seccion Firebase) y despues
+`dart run build_runner build`. Si faltan estos archivos, la app no compila.
+
+En Linux, si Flutter no detecta Chromium, establece
+`CHROME_EXECUTABLE=/usr/bin/chromium` antes de `flutter run -d chrome`, o usa
+`-d web-server` y abre la URL manualmente. Sin `-d`, Flutter puede elegir el
+escritorio Linux en vez de la web.
 
 El `--dart-define=R2_UPLOAD_SECRET=...` es requerido: el worker exige un
 Bearer token compartido en cada request. Para desarrollo local usa
@@ -254,7 +268,7 @@ flutter test
 cd functions && npm test
 
 # Regenerar modelos Freezed/JSON
-dart run build_runner build --delete-conflicting-outputs
+dart run build_runner build
 
 # Desplegar Firestore (reglas + indices)
 firebase deploy --only firestore

@@ -8,7 +8,7 @@ part 'tenant.g.dart';
 enum SubscriptionStatus { active, suspended, cancelled }
 
 @freezed
-class Tenant with _$Tenant {
+abstract class Tenant with _$Tenant {
   const factory Tenant({
     required String id,
     required String slug,
@@ -40,7 +40,7 @@ class Tenant with _$Tenant {
 }
 
 @freezed
-class TenantSettings with _$TenantSettings {
+abstract class TenantSettings with _$TenantSettings {
   const factory TenantSettings({
     // ── Branding ──────────────────────────────────────────────────────────────
     @JsonKey(name: 'logo_url') String? logoUrl,

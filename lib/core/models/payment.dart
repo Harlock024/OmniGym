@@ -8,7 +8,7 @@ part 'payment.g.dart';
 enum PaymentStatus { pending, completed, refunded, failed }
 
 @freezed
-class Payment with _$Payment {
+abstract class Payment with _$Payment {
   const factory Payment({
     required String id,
     @JsonKey(name: 'tenant_id') required String tenantId,

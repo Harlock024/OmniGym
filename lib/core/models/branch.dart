@@ -6,7 +6,7 @@ part 'branch.freezed.dart';
 part 'branch.g.dart';
 
 @freezed
-class Branch with _$Branch {
+abstract class Branch with _$Branch {
   const factory Branch({
     required String id,
     @JsonKey(name: 'tenant_id') required String tenantId,
@@ -28,7 +28,7 @@ class Branch with _$Branch {
 }
 
 @freezed
-class BranchAddress with _$BranchAddress {
+abstract class BranchAddress with _$BranchAddress {
   const factory BranchAddress({
     required String street,
     required String city,
@@ -44,7 +44,7 @@ class BranchAddress with _$BranchAddress {
 }
 
 @freezed
-class BranchLocation with _$BranchLocation {
+abstract class BranchLocation with _$BranchLocation {
   const factory BranchLocation({
     required double latitude,
     required double longitude,

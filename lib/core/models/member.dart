@@ -8,7 +8,7 @@ part 'member.g.dart';
 enum AccessStatus { active, suspended }
 
 @freezed
-class Member with _$Member {
+abstract class Member with _$Member {
   const factory Member({
     required String id,
     @JsonKey(name: 'tenant_id') required String tenantId,

@@ -5,7 +5,7 @@ part 'factura.freezed.dart';
 part 'factura.g.dart';
 
 @freezed
-class Factura with _$Factura {
+abstract class Factura with _$Factura {
   const factory Factura({
     required String id,
     @JsonKey(name: 'tenant_id') required String tenantId,

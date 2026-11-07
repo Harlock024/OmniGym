@@ -6,7 +6,7 @@ part 'membership_plan.freezed.dart';
 part 'membership_plan.g.dart';
 
 @freezed
-class MembershipPlan with _$MembershipPlan {
+abstract class MembershipPlan with _$MembershipPlan {
   const factory MembershipPlan({
     required String id,
     @JsonKey(name: 'tenant_id') required String tenantId,

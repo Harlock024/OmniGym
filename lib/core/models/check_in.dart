@@ -10,7 +10,7 @@ enum CheckInMethod { qr, gps, manual }
 enum CheckInResult { granted, denied }
 
 @freezed
-class CheckIn with _$CheckIn {
+abstract class CheckIn with _$CheckIn {
   const factory CheckIn({
     required String id,
     @JsonKey(name: 'tenant_id') required String tenantId,

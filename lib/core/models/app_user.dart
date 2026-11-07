@@ -10,7 +10,7 @@ enum UserRole { superuser, owner, staff }
 enum UserStatus { active, suspended }
 
 @freezed
-class NotificationPrefs with _$NotificationPrefs {
+abstract class NotificationPrefs with _$NotificationPrefs {
   const factory NotificationPrefs({
     @Default(true) @JsonKey(name: 'check_ins') bool checkIns,
     @Default(true) @JsonKey(name: 'payments') bool payments,
@@ -23,7 +23,7 @@ class NotificationPrefs with _$NotificationPrefs {
 }
 
 @freezed
-class AppUser with _$AppUser {
+abstract class AppUser with _$AppUser {
   const factory AppUser({
     required String id,
     @JsonKey(name: 'tenant_id') String? tenantId,
