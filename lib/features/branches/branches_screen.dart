@@ -17,7 +17,10 @@ import '../superadmin/mexico_data.dart';
 
 final _branchesProvider = StreamProvider<List<Branch>>((ref) async* {
   final tenantId = await ref.watch(activeTenantIdFutureProvider.future);
-  if (tenantId == null) { yield []; return; }
+  if (tenantId == null) {
+    yield [];
+    return;
+  }
   yield* ref.watch(branchRepositoryProvider).watchAll(tenantId);
 });
 
@@ -40,8 +43,12 @@ class BranchesScreen extends ConsumerWidget {
             child: branchesAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
-                child: Text('Error: $e',
-                    style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant)),
+                child: Text(
+                  'Error: $e',
+                  style: TextStyle(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                ),
               ),
               data: (branches) => branches.isEmpty
                   ? _EmptyState(onAdd: () => _openForm(context, ref, null))
@@ -73,7 +80,11 @@ class _Header extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border)),
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -144,7 +155,9 @@ class _BranchCard extends ConsumerWidget {
       decoration: BoxDecoration(
         color: Theme.of(context).colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
+        border: Border.all(
+          color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -152,7 +165,9 @@ class _BranchCard extends ConsumerWidget {
           // Mini-mapa o placeholder
           Expanded(
             child: ClipRRect(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
+              ),
               child: branch.location != null
                   ? _MiniMap(location: branch.location!)
                   : _MapPlaceholder(name: branch.name),
@@ -220,7 +235,11 @@ class _BranchCard extends ConsumerWidget {
 }
 
 class _StatChip extends StatelessWidget {
-  const _StatChip({required this.icon, required this.value, required this.label});
+  const _StatChip({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
   final IconData icon;
   final String value;
   final String label;
@@ -230,11 +249,18 @@ class _StatChip extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 13, color: Theme.of(context).colorScheme.onSurfaceVariant),
+        Icon(
+          icon,
+          size: 13,
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+        ),
         const SizedBox(width: 4),
         Text(
           '$value $label',
-          style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 12,
+          ),
         ),
       ],
     );
@@ -247,7 +273,9 @@ class _ActiveBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = isActive ? OmniGymColors.success : Theme.of(context).colorScheme.onSurfaceVariant;
+    final color = isActive
+        ? OmniGymColors.success
+        : Theme.of(context).colorScheme.onSurfaceVariant;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
@@ -257,7 +285,11 @@ class _ActiveBadge extends StatelessWidget {
       ),
       child: Text(
         isActive ? 'Activa' : 'Inactiva',
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -270,24 +302,37 @@ class _CardActions extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return PopupMenuButton<String>(
-      icon: Icon(Icons.more_vert, size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      icon: Icon(
+        Icons.more_vert,
+        size: 16,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
       itemBuilder: (_) => [
         PopupMenuItem(
           value: 'edit',
-          child: const Row(children: [
-            Icon(Icons.edit_outlined, size: 16),
-            SizedBox(width: 8),
-            Text('Editar'),
-          ]),
+          child: const Row(
+            children: [
+              Icon(Icons.edit_outlined, size: 16),
+              SizedBox(width: 8),
+              Text('Editar'),
+            ],
+          ),
         ),
         PopupMenuItem(
           value: 'toggle',
-          child: Row(children: [
-            Icon(branch.isActive ? Icons.pause_circle_outline : Icons.play_circle_outline, size: 16),
-            const SizedBox(width: 8),
-            Text(branch.isActive ? 'Desactivar' : 'Activar'),
-          ]),
+          child: Row(
+            children: [
+              Icon(
+                branch.isActive
+                    ? Icons.pause_circle_outline
+                    : Icons.play_circle_outline,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Text(branch.isActive ? 'Desactivar' : 'Activar'),
+            ],
+          ),
         ),
       ],
       onSelected: (action) async {
@@ -300,14 +345,13 @@ class _CardActions extends ConsumerWidget {
             );
           }
         } else if (action == 'toggle') {
-          final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull
-              ?? await ref.read(activeTenantIdFutureProvider.future);
+          final tenantId =
+              ref.read(activeTenantIdFutureProvider).valueOrNull ??
+              await ref.read(activeTenantIdFutureProvider.future);
           if (tenantId != null) {
-            await ref.read(branchRepositoryProvider).setActive(
-                  tenantId,
-                  branch.id,
-                  isActive: !branch.isActive,
-                );
+            await ref
+                .read(branchRepositoryProvider)
+                .setActive(tenantId, branch.id, isActive: !branch.isActive);
           }
         }
       },
@@ -328,7 +372,9 @@ class _MiniMap extends StatelessWidget {
       options: MapOptions(
         initialCenter: point,
         initialZoom: 15,
-        interactionOptions: const InteractionOptions(flags: InteractiveFlag.none),
+        interactionOptions: const InteractionOptions(
+          flags: InteractiveFlag.none,
+        ),
       ),
       children: [
         TileLayer(
@@ -342,7 +388,11 @@ class _MiniMap extends StatelessWidget {
               point: point,
               width: 30,
               height: 30,
-              child: Icon(Icons.location_pin, color: Theme.of(context).colorScheme.primary, size: 30),
+              child: Icon(
+                Icons.location_pin,
+                color: Theme.of(context).colorScheme.primary,
+                size: 30,
+              ),
             ),
           ],
         ),
@@ -362,12 +412,18 @@ class _MapPlaceholder extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.location_on_outlined,
-              color: Theme.of(context).colorScheme.onSurfaceVariant, size: 28),
+          Icon(
+            Icons.location_on_outlined,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            size: 28,
+          ),
           const SizedBox(height: 4),
           Text(
             'Sin ubicación',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 11,
+            ),
           ),
         ],
       ),
@@ -387,20 +443,27 @@ class _EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.store_outlined,
-              size: 52, color: Theme.of(context).colorScheme.onSurfaceVariant),
+          Icon(
+            Icons.store_outlined,
+            size: 52,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
           const SizedBox(height: 12),
           Text(
             'Aún no hay sucursales',
             style: TextStyle(
-                color: Theme.of(context).colorScheme.onSurface,
-                fontSize: 16,
-                fontWeight: FontWeight.w600),
+              color: Theme.of(context).colorScheme.onSurface,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
           const SizedBox(height: 6),
           Text(
             'Crea la primera sucursal de tu gimnasio.',
-            style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
+            style: TextStyle(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 13,
+            ),
           ),
           const SizedBox(height: 20),
           FilledButton.icon(
@@ -462,12 +525,14 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
       _postalCtrl.text = b.address?.postalCode ?? '';
       _coloniaCtrl.text = b.address?.colonia ?? '';
       _selectedLocation = b.location;
-      _isManualMode = b.address != null &&
+      _isManualMode =
+          b.address != null &&
           (b.address!.state.isNotEmpty || b.address!.municipality != null) &&
           b.address!.postalCode.isEmpty;
       if (_postalCtrl.text.length == 5) {
-        WidgetsBinding.instance
-            .addPostFrameCallback((_) => _lookupCp(_postalCtrl.text));
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => _lookupCp(_postalCtrl.text),
+        );
       }
     }
   }
@@ -534,10 +599,7 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
     _searchCtrl.text = r.displayName;
     setState(() {
       _searchResults = [];
-      _selectedLocation = BranchLocation(
-        latitude: r.lat,
-        longitude: r.lng,
-      );
+      _selectedLocation = BranchLocation(latitude: r.lat, longitude: r.lng);
     });
   }
 
@@ -565,7 +627,8 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
       _error = null;
     });
     try {
-      final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull ??
+      final tenantId =
+          ref.read(activeTenantIdFutureProvider).valueOrNull ??
           await ref.read(activeTenantIdFutureProvider.future);
       if (tenantId == null) throw Exception('Tenant no encontrado.');
 
@@ -634,8 +697,9 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                 _buildHeader(),
                 const SizedBox(height: 20),
                 _FormField(
-                    controller: _nameCtrl,
-                    label: 'Nombre de la sucursal'),
+                  controller: _nameCtrl,
+                  label: 'Nombre de la sucursal',
+                ),
                 const SizedBox(height: 14),
                 _buildPostalField(),
                 if (_postalLookup != null) ...[
@@ -648,8 +712,7 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                   _buildManualAddressFields(),
                 ],
                 const SizedBox(height: 14),
-                _FormField(
-                    controller: _streetCtrl, label: 'Dirección / Calle'),
+                _FormField(controller: _streetCtrl, label: 'Dirección / Calle'),
                 const SizedBox(height: 14),
                 _buildSearchField(),
                 if (_searchResults.isNotEmpty) _buildSearchResults(),
@@ -658,26 +721,30 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                 const SizedBox(height: 14),
                 Row(
                   children: [
-                    Text('Activa',
-                        style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurface,
-                            fontSize: 13)),
+                    Text(
+                      'Activa',
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        fontSize: 13,
+                      ),
+                    ),
                     const Spacer(),
                     Switch(
                       value: _isActive,
                       onChanged: (v) => setState(() => _isActive = v),
-                      activeThumbColor:
-                          Theme.of(context).colorScheme.primary,
+                      activeThumbColor: Theme.of(context).colorScheme.primary,
                     ),
                   ],
                 ),
                 if (_error != null) ...[
                   const SizedBox(height: 8),
-                  Text(_error!,
-                      style: TextStyle(
-                          color: Theme.of(context).colorScheme.error,
-                          fontSize: 12)),
+                  Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
                 const SizedBox(height: 20),
                 Row(
@@ -686,9 +753,10 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                     TextButton(
                       onPressed: () => Navigator.pop(context),
                       style: TextButton.styleFrom(
-                          foregroundColor: Theme.of(context)
-                              .colorScheme
-                              .onSurfaceVariant),
+                        foregroundColor: Theme.of(context)
+                            .colorScheme
+                            .onSurfaceVariant,
+                      ),
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 12),
@@ -699,14 +767,13 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                               width: 16,
                               height: 16,
                               child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onPrimary),
+                                strokeWidth: 2,
+                                color: Theme.of(context).colorScheme.onPrimary,
+                              ),
                             )
-                          : Text(_isEdit
-                              ? 'Guardar cambios'
-                              : 'Crear sucursal'),
+                          : Text(
+                              _isEdit ? 'Guardar cambios' : 'Crear sucursal',
+                            ),
                     ),
                   ],
                 ),
@@ -732,9 +799,11 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
         const Spacer(),
         IconButton(
           onPressed: () => Navigator.pop(context),
-          icon: Icon(Icons.close,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              size: 18),
+          icon: Icon(
+            Icons.close,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            size: 18,
+          ),
         ),
       ],
     );
@@ -754,8 +823,9 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  strokeWidth: 2,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             )
           : null,
@@ -772,17 +842,23 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
       ),
       child: Row(
         children: [
-          Icon(Icons.check_circle_outline,
-              size: 16, color: Theme.of(context).colorScheme.primary),
+          Icon(
+            Icons.check_circle_outline,
+            size: 16,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              [p.municipio, p.estado, p.ciudad]
-                  .where((e) => e != null && e.isNotEmpty)
-                  .join(' · '),
+              [
+                p.municipio,
+                p.estado,
+                p.ciudad,
+              ].where((e) => e != null && e.isNotEmpty).join(' · '),
               style: TextStyle(
-                  color: Theme.of(context).colorScheme.primary,
-                  fontSize: 12),
+                color: Theme.of(context).colorScheme.primary,
+                fontSize: 12,
+              ),
             ),
           ),
         ],
@@ -803,11 +879,9 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
       label: 'Colonia',
       value: current.isEmpty ? null : current,
       items: options
-          .map((c) =>
-              DropdownMenuItem(value: c, child: Text(c)))
+          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
           .toList(),
-      onChanged: (v) =>
-          setState(() => _coloniaCtrl.text = v ?? ''),
+      onChanged: (v) => setState(() => _coloniaCtrl.text = v ?? ''),
     );
   }
 
@@ -818,16 +892,16 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
         Text(
           'CP no encontrado en catálogo. Completa manualmente:',
           style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 11),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 11,
+          ),
         ),
         const SizedBox(height: 8),
         _FormDropdown<String>(
           label: 'Estado',
           value: _state,
           items: MexicoData.states
-              .map((s) => DropdownMenuItem(
-                  value: s, child: Text(s)))
+              .map((s) => DropdownMenuItem(value: s, child: Text(s)))
               .toList(),
           onChanged: (v) => setState(() {
             _state = v;
@@ -836,9 +910,10 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
         ),
         const SizedBox(height: 12),
         _FormField(
-            controller: TextEditingController(text: _municipality ?? ''),
-            label: 'Municipio',
-            onChanged: (v) => setState(() => _municipality = v)),
+          controller: TextEditingController(text: _municipality ?? ''),
+          label: 'Municipio',
+          onChanged: (v) => setState(() => _municipality = v),
+        ),
         const SizedBox(height: 12),
         _FormField(controller: _coloniaCtrl, label: 'Colonia'),
       ],
@@ -856,19 +931,20 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                  strokeWidth: 2,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
             )
           : (_searchCtrl.text.isNotEmpty
-              ? IconButton(
-                  icon: const Icon(Icons.clear, size: 16),
-                  onPressed: () {
-                    _searchCtrl.clear();
-                    setState(() => _searchResults = []);
-                  },
-                )
-              : null),
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 16),
+                    onPressed: () {
+                      _searchCtrl.clear();
+                      setState(() => _searchResults = []);
+                    },
+                  )
+                : null),
       onChanged: _onSearchChanged,
     );
   }
@@ -880,41 +956,44 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
         color: Theme.of(context).colorScheme.surface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-            color: Theme.of(context).dividerTheme.color ??
-                OmniGymColors.border),
+          color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+        ),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: _searchResults
-            .map((r) => InkWell(
-                  onTap: () => _selectSearchResult(r),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 10),
-                    child: Row(
-                      children: [
-                        Icon(Icons.location_on_outlined,
-                            size: 16,
-                            color: Theme.of(context)
-                                .colorScheme
-                                .onSurfaceVariant),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            r.displayName,
-                            style: TextStyle(
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onSurface,
-                                fontSize: 12),
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ),
-                      ],
-                    ),
+            .map(
+              (r) => InkWell(
+                onTap: () => _selectSearchResult(r),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
                   ),
-                ))
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 16,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          r.displayName,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.onSurface,
+                            fontSize: 12,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -922,8 +1001,7 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
 
   Widget _buildLocationMap() {
     final center = _selectedLocation != null
-        ? LatLng(
-            _selectedLocation!.latitude, _selectedLocation!.longitude)
+        ? LatLng(_selectedLocation!.latitude, _selectedLocation!.longitude)
         : const LatLng(23.6345, -102.5528); // centro México
     final zoom = _selectedLocation != null ? 16.0 : 5.0;
 
@@ -935,8 +1013,9 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
               ? 'Toca el mapa para reubicar'
               : 'Toca el mapa para agregar ubicación',
           style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              fontSize: 11),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 11,
+          ),
         ),
         const SizedBox(height: 6),
         ClipRRect(
@@ -951,8 +1030,7 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
               ),
               children: [
                 TileLayer(
-                  urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.omnigym.app',
                   tileProvider: CancellableNetworkTileProvider(),
                 ),
@@ -961,20 +1039,25 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
                     markers: [
                       Marker(
                         point: LatLng(
-                            _selectedLocation!.latitude,
-                            _selectedLocation!.longitude),
+                          _selectedLocation!.latitude,
+                          _selectedLocation!.longitude,
+                        ),
                         width: 30,
                         height: 30,
-                        child: Icon(Icons.location_pin,
-                            color: Theme.of(context).colorScheme.primary,
-                            size: 30),
+                        child: Icon(
+                          Icons.location_pin,
+                          color: Theme.of(context).colorScheme.primary,
+                          size: 30,
+                        ),
                       ),
                     ],
                   ),
                 RichAttributionWidget(
                   attributions: [
-                    TextSourceAttribution('OpenStreetMap contributors',
-                        onTap: () {}),
+                    TextSourceAttribution(
+                      'OpenStreetMap contributors',
+                      onTap: () {},
+                    ),
                   ],
                 ),
               ],
@@ -986,9 +1069,9 @@ class _BranchFormDialogState extends ConsumerState<_BranchFormDialog> {
           Text(
             '${_selectedLocation!.latitude.toStringAsFixed(5)}, ${_selectedLocation!.longitude.toStringAsFixed(5)}',
             style: TextStyle(
-                color:
-                    Theme.of(context).colorScheme.onSurfaceVariant,
-                fontSize: 10),
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 10,
+            ),
           ),
         ],
       ],
@@ -1006,9 +1089,8 @@ class _FormField extends StatelessWidget {
     this.onChanged,
     this.suffixIcon,
     this.maxLength,
-    this.errorText,
-    this.textCapitalization,
-  });
+  }) : errorText = null,
+       textCapitalization = null;
   final TextEditingController controller;
   final String label;
   final TextInputType? keyboardType;
@@ -1027,30 +1109,37 @@ class _FormField extends StatelessWidget {
       maxLength: maxLength,
       onChanged: onChanged,
       style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
+        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: 13,
+      ),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 13),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 13,
+        ),
         filled: true,
         fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-                color: Theme.of(context).dividerTheme.color ??
-                    OmniGymColors.border)),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+          ),
+        ),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-                color: Theme.of(context).dividerTheme.color ??
-                    OmniGymColors.border)),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+          ),
+        ),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
         errorText: errorText,
         suffixIcon: suffixIcon,
         counterText: '',
@@ -1060,11 +1149,12 @@ class _FormField extends StatelessWidget {
 }
 
 class _FormDropdown<T> extends StatelessWidget {
-  const _FormDropdown(
-      {required this.label,
-      required this.value,
-      required this.items,
-      required this.onChanged});
+  const _FormDropdown({
+    required this.label,
+    required this.value,
+    required this.items,
+    required this.onChanged,
+  });
   final String label;
   final T? value;
   final List<DropdownMenuItem<T>> items;
@@ -1078,33 +1168,39 @@ class _FormDropdown<T> extends StatelessWidget {
       onChanged: onChanged,
       isExpanded: true,
       menuMaxHeight: 320,
-      dropdownColor:
-          Theme.of(context).colorScheme.surfaceContainerHighest,
+      dropdownColor: Theme.of(context).colorScheme.surfaceContainerHighest,
       style: TextStyle(
-          color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
+        color: Theme.of(context).colorScheme.onSurface,
+        fontSize: 13,
+      ),
       decoration: InputDecoration(
         labelText: label,
         labelStyle: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-            fontSize: 13),
+          color: Theme.of(context).colorScheme.onSurfaceVariant,
+          fontSize: 13,
+        ),
         filled: true,
         fillColor: Theme.of(context).colorScheme.surface,
         border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-                color: Theme.of(context).dividerTheme.color ??
-                    OmniGymColors.border)),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+          ),
+        ),
         enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-                color: Theme.of(context).dividerTheme.color ??
-                    OmniGymColors.border)),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+          ),
+        ),
         focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(
-                color: Theme.of(context).colorScheme.primary)),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 12,
+        ),
       ),
     );
   }

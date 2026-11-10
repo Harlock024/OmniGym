@@ -4,6 +4,14 @@ SaaS B2B para gestion integral de cadenas de gimnasios con cumplimiento SAT
 (Mexico). Multi-tenant, white-label, facturacion recurrente con Stripe y
 check-ins por QR.
 
+## Documentación detallada en Obsidian
+
+El vault está en la carpeta hermana `omni_gym_docs`. Ábrela como bóveda en
+Obsidian y empieza por [Inicio](../omni_gym_docs/Inicio.md). Incluye arquitectura,
+modelo de datos, flujos, API, guías de desarrollo y hallazgos basados en el código.
+Consulta [Estado de la documentación](../omni_gym_docs/07%20Analisis/Estado%20de%20la%20documentacion.md)
+para conocer el corte de revisión y sus límites.
+
 ## Arquitectura
 
 ```

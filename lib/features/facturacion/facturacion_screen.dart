@@ -1,11 +1,8 @@
 import 'dart:convert';
-import 'dart:io' show File, Directory, Platform;
 
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 import '../../core/models/factura.dart';
 import '../../core/providers/providers.dart';
@@ -42,9 +39,16 @@ class FacturacionScreen extends ConsumerWidget {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.receipt_long, size: 64, color: colors.onSurface.withValues(alpha: 0.3)),
+                      Icon(
+                        Icons.receipt_long,
+                        size: 64,
+                        color: colors.onSurface.withValues(alpha: 0.3),
+                      ),
                       const SizedBox(height: 16),
-                      Text('Sin facturas emitidas', style: Theme.of(context).textTheme.bodyLarge),
+                      Text(
+                        'Sin facturas emitidas',
+                        style: Theme.of(context).textTheme.bodyLarge,
+                      ),
                     ],
                   ),
                 );
@@ -71,7 +75,11 @@ class FacturacionScreen extends ConsumerWidget {
 }
 
 class _FacturaRow extends ConsumerWidget {
-  const _FacturaRow({required this.factura, required this.fmt, required this.tenantId});
+  const _FacturaRow({
+    required this.factura,
+    required this.fmt,
+    required this.tenantId,
+  });
 
   final Factura factura;
   final NumberFormat fmt;
@@ -94,48 +102,89 @@ class _FacturaRow extends ConsumerWidget {
           children: [
             Row(
               children: [
-                Icon(vigente ? Icons.check_circle : Icons.cancel,
-                    size: 16, color: vigente ? Colors.green : Colors.red),
+                Icon(
+                  vigente ? Icons.check_circle : Icons.cancel,
+                  size: 16,
+                  color: vigente ? Colors.green : Colors.red,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(factura.uuid.substring(0, 8),
-                      style: const TextStyle(fontFamily: 'monospace', fontSize: 13)),
+                  child: Text(
+                    factura.uuid.substring(0, 8),
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontSize: 13,
+                    ),
+                  ),
                 ),
-                Text(fmt.format(factura.total ?? 0),
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          color: colors.primary, fontWeight: FontWeight.bold)),
+                Text(
+                  fmt.format(factura.total ?? 0),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 6),
             Row(
               children: [
-                _Tag('${factura.serie ?? ''}${factura.folio ?? ''}', color: colors.primary),
+                _Tag(
+                  '${factura.serie ?? ''}${factura.folio ?? ''}',
+                  color: colors.primary,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
-                  child: Text(factura.receptorNombre ?? factura.receptorRfc ?? '',
-                      style: Theme.of(context).textTheme.bodySmall, overflow: TextOverflow.ellipsis),
+                  child: Text(
+                    factura.receptorNombre ?? factura.receptorRfc ?? '',
+                    style: Theme.of(context).textTheme.bodySmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                Text(date,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: colors.onSurface.withValues(alpha: 0.5))),
+                Text(
+                  date,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
               children: [
-                _ActionChip(icon: Icons.picture_as_pdf, label: 'PDF',
-                    onTap: () => _descargarArchivo(context, tenantId, factura.uuid, 'pdf')),
+                _ActionChip(
+                  icon: Icons.picture_as_pdf,
+                  label: 'PDF',
+                  onTap: () =>
+                      _descargarArchivo(context, tenantId, factura.uuid, 'pdf'),
+                ),
                 const SizedBox(width: 8),
-                _ActionChip(icon: Icons.code, label: 'XML',
-                    onTap: () => _descargarArchivo(context, tenantId, factura.uuid, 'xml')),
+                _ActionChip(
+                  icon: Icons.code,
+                  label: 'XML',
+                  onTap: () =>
+                      _descargarArchivo(context, tenantId, factura.uuid, 'xml'),
+                ),
                 const SizedBox(width: 8),
-                _ActionChip(icon: Icons.email_outlined, label: 'Email',
-                    onTap: () => _enviarEmail(context, tenantId, factura)),
+                _ActionChip(
+                  icon: Icons.email_outlined,
+                  label: 'Email',
+                  onTap: () => _enviarEmail(context, tenantId, factura),
+                ),
                 if (vigente) ...[
                   const SizedBox(width: 8),
-                  _ActionChip(icon: Icons.cancel_outlined, label: 'Cancelar', color: Colors.red,
-                      onTap: () => _confirmarCancelar(context, ref, tenantId, factura.uuid)),
+                  _ActionChip(
+                    icon: Icons.cancel_outlined,
+                    label: 'Cancelar',
+                    color: Colors.red,
+                    onTap: () => _confirmarCancelar(
+                      context,
+                      ref,
+                      tenantId,
+                      factura.uuid,
+                    ),
+                  ),
                 ],
               ],
             ),
@@ -146,15 +195,25 @@ class _FacturaRow extends ConsumerWidget {
   }
 
   Future<void> _descargarArchivo(
-      BuildContext context, String tenantId, String uuid, String format) async {
+    BuildContext context,
+    String tenantId,
+    String uuid,
+    String format,
+  ) async {
     try {
       if (format == 'pdf') {
-        final bytes = await WorkerService.descargarPdf(tenantId: tenantId, uuid: uuid);
+        final bytes = await WorkerService.descargarPdf(
+          tenantId: tenantId,
+          uuid: uuid,
+        );
         if (bytes != null) {
           downloadFile('factura_$uuid.pdf', bytes);
         }
       } else {
-        final xml = await WorkerService.descargarXml(tenantId: tenantId, uuid: uuid);
+        final xml = await WorkerService.descargarXml(
+          tenantId: tenantId,
+          uuid: uuid,
+        );
         if (xml != null) {
           downloadFile('factura_$uuid.xml', utf8.encode(xml));
         }
@@ -168,7 +227,11 @@ class _FacturaRow extends ConsumerWidget {
     }
   }
 
-  Future<void> _enviarEmail(BuildContext context, String tenantId, Factura factura) async {
+  Future<void> _enviarEmail(
+    BuildContext context,
+    String tenantId,
+    Factura factura,
+  ) async {
     final emailCtrl = TextEditingController();
     final email = await showDialog<String>(
       context: context,
@@ -177,12 +240,21 @@ class _FacturaRow extends ConsumerWidget {
         content: TextField(
           controller: emailCtrl,
           decoration: const InputDecoration(
-            labelText: 'Email', hintText: 'cliente@email.com', border: OutlineInputBorder()),
+            labelText: 'Email',
+            hintText: 'cliente@email.com',
+            border: OutlineInputBorder(),
+          ),
           keyboardType: TextInputType.emailAddress,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, emailCtrl.text.trim()), child: const Text('Enviar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, emailCtrl.text.trim()),
+            child: const Text('Enviar'),
+          ),
         ],
       ),
     );
@@ -190,36 +262,59 @@ class _FacturaRow extends ConsumerWidget {
 
     if (email != null && email.isNotEmpty && context.mounted) {
       final ok = await WorkerService.enviarFacturaEmail(
-        tenantId: tenantId, uuid: factura.uuid, email: email);
+        tenantId: tenantId,
+        uuid: factura.uuid,
+        email: email,
+      );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(ok ? 'Factura enviada a $email' : 'Error al enviar'),
-          backgroundColor: ok ? Colors.green : Colors.red,
-        ));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(ok ? 'Factura enviada a $email' : 'Error al enviar'),
+            backgroundColor: ok ? Colors.green : Colors.red,
+          ),
+        );
       }
     }
   }
 
-  Future<void> _confirmarCancelar(BuildContext context, WidgetRef ref, String tenantId, String uuid) async {
+  Future<void> _confirmarCancelar(
+    BuildContext context,
+    WidgetRef ref,
+    String tenantId,
+    String uuid,
+  ) async {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Cancelar factura'),
         content: Text('¿Cancelar $uuid? Esta acción no se puede deshacer.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('No')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true),
-              style: FilledButton.styleFrom(backgroundColor: Colors.red),
-              child: const Text('Sí, cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('No'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Sí, cancelar'),
+          ),
         ],
       ),
     );
 
     if (ok == true && context.mounted) {
-      final result = await WorkerService.cancelarFactura(tenantId: tenantId, uuid: uuid);
+      final result = await WorkerService.cancelarFactura(
+        tenantId: tenantId,
+        uuid: uuid,
+      );
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text(result.ok ? 'Factura cancelada' : result.mensaje ?? 'Error')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              result.ok ? 'Factura cancelada' : result.mensaje ?? 'Error',
+            ),
+          ),
+        );
       }
     }
   }
@@ -235,14 +330,27 @@ class _Tag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: (color ?? Colors.grey).withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(4)),
-      child: Text(text, style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          fontSize: 12,
+          color: color,
+          fontWeight: FontWeight.w500,
+        ),
+      ),
     );
   }
 }
 
 class _ActionChip extends StatelessWidget {
-  const _ActionChip({required this.icon, required this.label, required this.onTap, this.color});
+  const _ActionChip({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+    this.color,
+  });
   final IconData icon;
   final String label;
   final VoidCallback onTap;
@@ -256,11 +364,14 @@ class _ActionChip extends StatelessWidget {
       borderRadius: BorderRadius.circular(6),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(icon, size: 14, color: c),
-          const SizedBox(width: 4),
-          Text(label, style: TextStyle(fontSize: 12, color: c)),
-        ]),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 14, color: c),
+            const SizedBox(width: 4),
+            Text(label, style: TextStyle(fontSize: 12, color: c)),
+          ],
+        ),
       ),
     );
   }
