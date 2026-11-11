@@ -1,230 +1,113 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ─── Helpers ────────────────────────────────────────────────────────────
-
-    function claims() { return request.auth.token; }
     function isAuth() { return request.auth != null; }
-
-    // Devuelve el doc /users/{uid} del usuario autenticado (cacheado por Firestore).
-    function userDoc() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    function userDoc() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    // The profile is authoritative, so old custom claims cannot retain revoked access.
+    function activeOperator() { return isAuth() && userDoc().get('status', '') == 'active'; }
+    function isSuperUser() { return activeOperator() && userDoc().role == 'superuser'; }
+    function belongsToTenant(tenantId) { return activeOperator() && userDoc().get('tenant_id', '') == tenantId; }
+    function isOwner(tenantId) { return belongsToTenant(tenantId) && userDoc().role == 'owner'; }
+    function isManager(tenantId) { return belongsToTenant(tenantId) && userDoc().role in ['owner', 'staff']; }
+    function hasModule(tenantId, module) {
+      let profile = userDoc();
+      let permissions = profile.get('permissions', {});
+      return isSuperUser() || (belongsToTenant(tenantId) && (profile.role == 'owner'
+        || permissions.get(module, false) == true
+        || (profile.role == 'staff' && permissions.size() == 0 && module in ['dashboard', 'scanner'])));
     }
-
-    // True cuando onUserWritten ya corrió y puso custom claims.
-    function hasClaims() {
-      return 'role' in request.auth.token;
-    }
-
-    // Funciones de rol con fallback a Firestore cuando no hay claims.
-    function isSuperUser() {
-      return isAuth() && (
-        claims().role == 'superuser' ||
-        (!hasClaims() && userDoc().role == 'superuser')
-      );
-    }
-
-    function isOwner(tenantId) {
-      return isAuth() && (
-        (claims().role == 'owner' && claims().tenant_id == tenantId) ||
-        (!hasClaims() &&
-          userDoc().role == 'owner' &&
-          userDoc().tenant_id == tenantId)
-      );
-    }
-
-    function isStaff(tenantId, branchId) {
-      return isAuth() && (
-        (claims().role == 'staff' &&
-          claims().tenant_id == tenantId &&
-          claims().branch_id == branchId) ||
-        (!hasClaims() &&
-          userDoc().role == 'staff' &&
-          userDoc().tenant_id == tenantId &&
-          userDoc().branch_id == branchId)
-      );
-    }
-
-    function belongsToTenant(tenantId) {
-      return isAuth() && (
-        claims().tenant_id == tenantId ||
-        (!hasClaims() && userDoc().tenant_id == tenantId)
-      );
-    }
-
-    function canManageBranch(tenantId, branchId) {
-      return isSuperUser()
-          || isOwner(tenantId)
-          || isStaff(tenantId, branchId);
-    }
-
-    // True si el usuario autenticado es un socio de este tenant: tiene doc en
-    // tenants/{tenantId}/members/{uid} (el ID del doc == su uid de Auth).
-    // No depende de custom claims, así que funciona en el primer login.
     function isMemberOf(tenantId) {
-      return isAuth() &&
-        exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
+      return isAuth() && exists(/databases/$(database)/documents/tenants/$(tenantId)/members/$(request.auth.uid));
     }
-
-    // True si el socio dueño del doc solo está cambiando campos de su perfil
-    // (nombre, teléfono, foto). Nunca su acceso, vencimiento, plan ni sucursales.
+    function validPermissions(p) {
+      return p is map && p.keys().hasOnly(['dashboard', 'branches', 'members', 'scanner', 'memberships', 'billing', 'reports'])
+        && p.values().hasOnly([true, false]);
+    }
+    function mayChangeModule(previous, next, grants, module) {
+      return previous.get(module, false) == next.get(module, false)
+        || grants.get(module, grants.size() == 0 && module in ['dashboard', 'scanner']) == true;
+    }
+    function staffMayEditPermissions(tenantId) {
+      let previous = resource.data.get('permissions', {});
+      let next = request.resource.data.get('permissions', {});
+      let grants = userDoc().get('permissions', {});
+      return mayChangeModule(previous, next, grants, 'dashboard') && mayChangeModule(previous, next, grants, 'branches')
+        && mayChangeModule(previous, next, grants, 'members') && mayChangeModule(previous, next, grants, 'scanner')
+        && mayChangeModule(previous, next, grants, 'memberships') && mayChangeModule(previous, next, grants, 'billing')
+        && mayChangeModule(previous, next, grants, 'reports');
+    }
+    function mayManageUser(userId) {
+      let tenantId = resource.data.tenant_id;
+      return isAuth() && request.auth.uid != userId && request.resource.data.tenant_id == tenantId
+        && resource.data.role in ['staff', 'receptionist'] && request.resource.data.role in ['staff', 'receptionist']
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['permissions'])
+          || validPermissions(request.resource.data.get('permissions', {})))
+        && ((isOwner(tenantId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'permissions', 'status', 'branch_id']))
+          || (isManager(tenantId) && userDoc().role == 'staff' && resource.data.role == 'receptionist'
+            && request.resource.data.role == 'receptionist'
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['permissions', 'status', 'branch_id'])
+            && staffMayEditPermissions(tenantId)));
+    }
+    function selfProfileEdit(userId) {
+      return isAuth() && request.auth.uid == userId && request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['name', 'phone', 'photo_url', 'notification_prefs']);
+    }
     function memberSelfEdit() {
-      return isAuth()
-        && resource.data.uid == request.auth.uid
-        && request.resource.data.uid == resource.data.uid
-        && request.resource.data.diff(resource.data).affectedKeys()
-            .hasOnly(['name', 'phone', 'photo_url']);
+      return isAuth() && resource.data.get('uid', '') == request.auth.uid && request.resource.data.uid == resource.data.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'phone', 'photo_url']);
     }
-
-    // ─── Members: collection group (portal del socio) ───────────────────────
-    // Permite que un socio encuentre/lea su propio doc sin conocer el tenantId,
-    // vía collectionGroup('members').where('uid', isEqualTo: auth.uid).
-    // Filtra por el campo `uid` (no por el ID del doc) para que la query de
-    // collection group sea válida, y no depende de custom claims, así que
-    // funciona en el primer login (antes de que el token refresque los claims).
-    match /{path=**}/members/{memberId} {
-      allow read: if isAuth() && resource.data.uid == request.auth.uid;
+    function memberDataAccess(tenantId) {
+      return hasModule(tenantId, 'members') || hasModule(tenantId, 'scanner') || hasModule(tenantId, 'memberships')
+        || hasModule(tenantId, 'dashboard') || hasModule(tenantId, 'reports');
     }
-
-    // ─── Check-ins: collection group (historial del socio) ──────────────────
-    // Permite que el socio lea su propio historial a través de todas las
-    // sucursales, vía collectionGroup('check_ins').where('member_id', ==, uid).
-    // El personal sigue leyendo por la regla anidada; create/update/delete se
-    // gobiernan allí (log inmutable). Esta regla solo añade lectura propia.
-    match /{path=**}/check_ins/{checkInId} {
-      allow read: if isAuth() && resource.data.member_id == request.auth.uid;
-    }
-
-    // ─── Users (operadores del sistema) ─────────────────────────────────────
-
+    function branchDataAccess(tenantId) { return hasModule(tenantId, 'branches') || memberDataAccess(tenantId) || isManager(tenantId); }
     match /users/{userId} {
-      allow read: if isSuperUser()
-          || (isAuth() && request.auth.uid == userId)
-          || (isAuth() && claims().role == 'owner'
-              && claims().tenant_id == resource.data.tenant_id)
-          || (isAuth() && !hasClaims()
-              && userDoc().role == 'owner'
-              && userDoc().tenant_id == resource.data.tenant_id);
-
-      // Bootstrap: el usuario puede crear su propio doc sin claims (registro de owner)
-      allow create: if isSuperUser()
-          || (isAuth() && request.auth.uid == userId
-              && request.resource.data.role == 'owner')
-          || (isAuth() && claims().role == 'owner'
-              && claims().tenant_id == request.resource.data.tenant_id);
-
-      allow update: if isSuperUser()
-          || (isAuth() && claims().role == 'owner'
-              && claims().tenant_id == resource.data.tenant_id)
-          || (isAuth() && !hasClaims()
-              && userDoc().role == 'owner'
-              && userDoc().tenant_id == resource.data.tenant_id);
-
+      allow read: if isSuperUser() || (isAuth() && request.auth.uid == userId) || isManager(resource.data.tenant_id);
+      allow create: if isSuperUser() || (isAuth() && request.auth.uid == userId && request.resource.data.role == 'owner'
+        && request.resource.data.status == 'active'
+        && get(/databases/$(database)/documents/tenants/$(request.resource.data.tenant_id)).data.owner_uid == userId);
+      allow update: if isSuperUser() || selfProfileEdit(userId) || mayManageUser(userId);
       allow delete: if isSuperUser();
     }
-
-    // ─── Subscription packages (catálogo de cobro SaaS B2B) ─────────────────
-    // Lectura para cualquier autenticado (SuperAdmin gestiona, Owner elige).
-    // La escritura es exclusiva del worker (Admin SDK), nunca desde el cliente.
-    match /subscription_packages/{packageId} {
-      allow read:  if isAuth();
-      allow write: if false;
-    }
-
-    // ─── Tenant invoices (facturas del cobro SaaS B2B) ──────────────────────
-    // Las escribe el worker (Admin SDK) desde el webhook de Stripe. Lectura:
-    // SuperAdmin (consola) y el Owner de su propio tenant ("Mi suscripción").
-    match /tenant_invoices/{invoiceId} {
-      allow read:  if isSuperUser() || belongsToTenant(resource.data.tenant_id);
-      allow write: if false;
-    }
-
-    // ─── Tenants ────────────────────────────────────────────────────────────
-
+    match /subscription_packages/{packageId} { allow read: if isAuth(); allow write: if false; }
+    match /tenant_invoices/{invoiceId} { allow read: if isSuperUser() || isOwner(resource.data.tenant_id); allow write: if false; }
+    match /{path=**}/members/{memberId} { allow read: if isAuth() && resource.data.get('uid', '') == request.auth.uid; }
+    match /{path=**}/check_ins/{checkInId} { allow read: if isAuth() && resource.data.member_id == request.auth.uid; }
     match /tenants/{tenantId} {
-      // El socio lee su gym (logo/nombre) vía isMemberOf.
-      allow read:   if isSuperUser() || belongsToTenant(tenantId) || isMemberOf(tenantId);
-      // Bootstrap: usuario autenticado sin tenant_id puede crear su tenant
-      allow create: if isSuperUser()
-          || (isAuth() && !('tenant_id' in request.auth.token));
-      allow update: if isSuperUser() || isOwner(tenantId);
+      allow read: if isSuperUser() || belongsToTenant(tenantId) || isMemberOf(tenantId);
+      allow create: if isSuperUser() || (isAuth() && request.resource.data.owner_uid == request.auth.uid
+        && !exists(/databases/$(database)/documents/users/$(request.auth.uid)));
+      allow update: if isSuperUser() || (isOwner(tenantId)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'settings']));
       allow delete: if isSuperUser();
-
-      // ─── Branches ───────────────────────────────────────────────────────
-
       match /branches/{branchId} {
-        // El socio lee las sucursales de su gym (QR / check-in GPS) vía isMemberOf.
-        allow read:           if isSuperUser() || belongsToTenant(tenantId) || isMemberOf(tenantId);
-        allow create, update: if isSuperUser() || isOwner(tenantId);
-        allow delete:         if isSuperUser() || isOwner(tenantId);
-
-        // Check-ins: log inmutable — solo append.
-        // Personal operativo lee todos; el socio lee y crea solo los suyos.
+        allow read: if branchDataAccess(tenantId) || isMemberOf(tenantId);
+        allow write: if hasModule(tenantId, 'branches');
         match /check_ins/{checkInId} {
-          allow read:           if canManageBranch(tenantId, branchId)
-              || (isAuth() && resource.data.member_id == request.auth.uid);
-          allow create:         if (isAuth() && belongsToTenant(tenantId))
-              || (isAuth() && request.resource.data.member_id == request.auth.uid);
+          allow read: if hasModule(tenantId, 'scanner') || hasModule(tenantId, 'dashboard') || hasModule(tenantId, 'reports')
+            || (isAuth() && resource.data.member_id == request.auth.uid);
+          allow create: if hasModule(tenantId, 'scanner') || (isAuth() && request.resource.data.member_id == request.auth.uid && isMemberOf(tenantId));
           allow update, delete: if false;
         }
       }
-
-      // ─── Members ────────────────────────────────────────────────────────
-
       match /members/{memberId} {
-        allow read: if isSuperUser()
-            || isOwner(tenantId)
-            || (isAuth() && claims().tenant_id == tenantId
-                && claims().branch_id in resource.data.allowed_branches)
-            || (isAuth() && !hasClaims()
-                && userDoc().tenant_id == tenantId
-                && userDoc().role == 'staff'
-                && userDoc().branch_id in resource.data.allowed_branches)
-            || (isAuth() && request.auth.uid == memberId);
-
-        allow create: if isSuperUser()
-            || isOwner(tenantId)
-            || isStaff(tenantId, request.resource.data.allowed_branches[0]);
-
-        allow update: if isSuperUser()
-            || isOwner(tenantId)
-            || isStaff(tenantId, resource.data.allowed_branches[0])
-            || memberSelfEdit();
-
-        allow delete: if isSuperUser() || isOwner(tenantId);
+        allow read: if memberDataAccess(tenantId) || (isAuth() && request.auth.uid == memberId);
+        allow create, delete: if hasModule(tenantId, 'members');
+        allow update: if hasModule(tenantId, 'members') || memberSelfEdit() || (hasModule(tenantId, 'memberships')
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['plan_id', 'expiration_date', 'access_status']));
       }
-
-      // ─── Membership Plans ───────────────────────────────────────────────
-
       match /membership_plans/{planId} {
-        // El socio lee los planes de su gym vía isMemberOf.
-        allow read:  if (isAuth() && belongsToTenant(tenantId)) || isMemberOf(tenantId);
-        allow write: if isSuperUser() || isOwner(tenantId);
+        allow read: if hasModule(tenantId, 'memberships') || hasModule(tenantId, 'reports') || isMemberOf(tenantId);
+        allow write: if hasModule(tenantId, 'memberships');
       }
-
-      // ─── Payments ───────────────────────────────────────────────────────
-
       match /payments/{paymentId} {
-        allow read: if isSuperUser()
-            || isOwner(tenantId)
-            || isStaff(tenantId, resource.data.branch_id)
-            || (isAuth() && request.auth.uid == resource.data.member_id);
-
-        allow create: if isAuth() && belongsToTenant(tenantId);
-        allow update: if isSuperUser()
-            || isOwner(tenantId)
-            || isStaff(tenantId, resource.data.branch_id);
+        allow read: if hasModule(tenantId, 'memberships') || hasModule(tenantId, 'reports') || (isAuth() && request.auth.uid == resource.data.member_id);
+        allow create, update: if hasModule(tenantId, 'memberships');
         allow delete: if isSuperUser();
       }
-
-      // ─── Facturas (CFDI) ────────────────────────────────────────────────
-
       match /facturas/{facturaId} {
-        allow read: if isSuperUser()
-            || belongsToTenant(tenantId)
-            || isMemberOf(tenantId);
-        allow write: if false; // Solo el worker (Admin SDK) escribe
+        allow read: if hasModule(tenantId, 'billing') || isMemberOf(tenantId);
+        allow write: if false;
       }
     }
   }

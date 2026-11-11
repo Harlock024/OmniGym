@@ -72,13 +72,57 @@ test/            Tests unitarios y de widget
 |-------------|------------------------------------------------------|
 | superuser   | Consola multi-tenant, paquetes de suscripcion, SAT   |
 | owner       | Su gimnasio: dashboard, sucursales, socios, staff    |
-| staff       | Su sucursal: escaner QR, check-ins del dia           |
+| staff       | Encargado: modulos autorizados y gestion de recepcionistas |
+| receptionist | Sin modulos inicialmente; accesos asignados por Owner/Staff |
 | member      | Socio: historial de check-ins (coleccion propia)     |
+
+
+### Accesos del equipo
+
+En **Equipo**, el boton de permisos de cada operador abre un popover con modulos
+completos: Dashboard, Sucursales, Socios, Escaner QR, Membresias y pagos,
+Facturacion y Reportes. Los cambios se aplican al pulsar Guardar; Cancelar o
+cerrar el popover descarta la seleccion.
+
+- Owner gestiona Staff y Recepcionistas de su gimnasio.
+- Staff gestiona solamente Recepcionistas del mismo gimnasio y modifica
+  exclusivamente los modulos que tiene autorizados.
+- Recepcionista comienza con todos los modulos deshabilitados. Puede iniciar
+  sesion, consultar su perfil y cerrar sesion mientras recibe accesos.
+- Equipo esta reservado a Owner/Staff; Configuracion y Mi suscripcion al Owner.
+- Invitar operadores ofrece Staff y Recepcionista. No crea otro Owner.
+- Cambiar un operador a Recepcionista reinicia sus permisos en deshabilitado.
+- Los Staff existentes con un mapa de permisos vacio conservan Dashboard y
+  Escaner QR. Al guardar su primer mapa explicito, cada checkbox controla su acceso.
+
+Las rutas y las reglas de Firestore usan el perfil actual; un token antiguo no
+conserva permisos revocados. Algunos modulos necesitan lecturas auxiliares de
+otros datos (por ejemplo, el escaner consulta socios y Membresias consulta planes).
+Las escrituras y los endpoints del Worker se autorizan por el modulo correspondiente.
+
+La version Flutter, las reglas y el Worker deben publicarse de forma coordinada:
+el Worker nuevo requiere identidad Firebase y rechaza el antiguo secreto incluido
+en la app. Antes de publicar, verificar `FIREBASE_API_KEY` del mismo proyecto.
+La aceptacion/rechazo de invitaciones y los otros issues siguen pendientes.
+
+Validacion local (sin datos de produccion):
+
+```bash
+flutter test
+node --test cloudflare-worker/test/authorization.test.mjs
+npm --prefix functions test -- --runInBand
+
+# Terminal 1: dejar el emulador de Firestore iniciado
+firebase emulators:start --only firestore --project demo-omnigym-roles
+
+# Terminal 2: comprobar reglas y delegacion contra el emulador local
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix functions run test:rules
+```
 
 ## Requisitos previos
 
 - **Flutter SDK** con **Dart** `^3.13.0` (verificado con Flutter `3.47.9`)
-- **Node.js** `^20` (para Functions y Wrangler)
+- **Node.js** `>=24.12` para herramientas y pruebas locales (Functions mantiene runtime `nodejs20`)
 - **Firebase CLI** (`npm i -g firebase-tools`)
 - **Cloudflare Wrangler** (`npx wrangler`)
 - **Cuenta Stripe** (empezar en modo test)
@@ -176,8 +220,7 @@ npx wrangler secret put STRIPE_SECRET_KEY        # sk_test_...
 npx wrangler secret put STRIPE_WEBHOOK_SECRET    # whsec_...
 npx wrangler secret put SA_JSON                   # JSON de la service account de Firebase
 npx wrangler secret put RESEND_API_KEY            # re_...
-npx wrangler secret put FIREBASE_API_KEY          # Web API key de Firebase (para envio de emails)
-npx wrangler secret put UPLOAD_SECRET             # Token Bearer compartido con la app
+npx wrangler secret put FIREBASE_API_KEY          # Web API key de Firebase (sesiones y correos)
 npx wrangler secret put EMAIL_FROM                # "OmniGym <noreply@omni-gym.com>"
 npx wrangler secret put TRIAL_DAYS               # Dias de prueba gratis (default 14)
 ```
@@ -213,14 +256,14 @@ flutter pub get
 dart run build_runner build
 
 # Iniciar la web y abrir la URL que imprime Flutter
-flutter run -d web-server --web-port=8085 --dart-define=R2_UPLOAD_SECRET=tu-secret-local
+flutter run -d web-server --web-port=8085
 
 # Iniciar directamente en Chrome/Chromium
-flutter run -d chrome --dart-define=R2_UPLOAD_SECRET=tu-secret-local
+flutter run -d chrome
 
 # Build release
-flutter build apk --dart-define=R2_UPLOAD_SECRET=tu-secret-prod
-flutter build web --dart-define=R2_UPLOAD_SECRET=tu-secret-prod
+flutter build apk
+flutter build web
 ```
 
 `lib/firebase_options.dart` y los archivos `*.freezed.dart`/`*.g.dart` estan
@@ -234,9 +277,10 @@ En Linux, si Flutter no detecta Chromium, establece
 `-d web-server` y abre la URL manualmente. Sin `-d`, Flutter puede elegir el
 escritorio Linux en vez de la web.
 
-El `--dart-define=R2_UPLOAD_SECRET=...` es requerido: el worker exige un
-Bearer token compartido en cada request. Para desarrollo local usa
-`omni-r2-2025-dev` (valor por defecto en `WorkerService` y `R2StorageService`).
+La app envia el ID token de Firebase del usuario autenticado. El Worker valida
+la identidad con Firebase Auth y consulta el perfil actual para autorizar
+modulos y gimnasio. `FIREBASE_API_KEY` y `SA_JSON` deben estar configurados
+en el Worker. El secreto compartido `R2_UPLOAD_SECRET` ya no se utiliza.
 
 ---
 
@@ -250,8 +294,7 @@ Bearer token compartido en cada request. Para desarrollo local usa
 | `STRIPE_WEBHOOK_SECRET`| Firma del webhook de Stripe (`whsec_...`)       |
 | `SA_JSON`             | JSON de la service account de Firebase Admin     |
 | `RESEND_API_KEY`      | API key de Resend para emails con marca          |
-| `FIREBASE_API_KEY`    | Web API key de Firebase para envio de emails     |
-| `UPLOAD_SECRET`       | Token Bearer compartido con la app               |
+| `FIREBASE_API_KEY`    | Web API key del mismo proyecto: valida sesiones y envia emails |
 | `EMAIL_FROM`          | Direccion remitente de emails                    |
 | `TRIAL_DAYS`          | Dias de prueba gratis (default `14`)             |
 
@@ -259,7 +302,7 @@ Bearer token compartido en cada request. Para desarrollo local usa
 
 | Variable            | Descripcion                     | Default              |
 |---------------------|---------------------------------|----------------------|
-| `R2_UPLOAD_SECRET`  | Token Bearer para el worker     | `omni-r2-2025-dev`   |
+| `WORKER_BASE_URL` | URL del Worker | `https://omni-gym.hadith024.workers.dev` |
 
 ---
 

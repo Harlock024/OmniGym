@@ -13,6 +13,7 @@ import '../../core/models/branch.dart';
 import '../../core/models/member.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
+import '../../core/models/module_access.dart';
 
 /// Mensaje de bloqueo suave por cobro SaaS B2B, o null si el gym puede operar.
 String? _tenantBillingError(Tenant tenant) {
@@ -121,6 +122,7 @@ class _KioskScreenState extends ConsumerState<KioskScreen>
     context.go(switch (role) {
       'superuser' => '/superadmin',
       'staff'     => '/dashboard/manager',
+      'receptionist' => ModuleAccess.home(ref.read(currentAppUserProvider).requireValue!),
       _           => '/dashboard/owner',
     });
   }

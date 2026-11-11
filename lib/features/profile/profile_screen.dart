@@ -285,6 +285,7 @@ class _RoleBadge extends StatelessWidget {
       UserRole.superuser => ('Superusuario', const Color(0xFF7C3AED)),
       UserRole.owner => ('Owner', Theme.of(context).colorScheme.primary),
       UserRole.staff => ('Staff', const Color(0xFF0891B2)),
+      UserRole.receptionist => ('Recepcionista', const Color(0xFF059669)),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),

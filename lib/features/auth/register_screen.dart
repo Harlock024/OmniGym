@@ -62,6 +62,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
       final tenantId = tenantRef.id;
       await tenantRef.set({
         'name': gymName,
+        'owner_uid': uid,
         'slug': _slugify(gymName),
         'subscription_status': SubscriptionStatus.active.name,
         'billing_cycle_end': Timestamp.fromDate(

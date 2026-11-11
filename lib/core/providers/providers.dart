@@ -80,6 +80,11 @@ final activeTenantIdProvider = Provider<String?>((ref) {
 final activeTenantIdFutureProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
+  final profileState = ref.watch(currentAppUserProvider);
+  final profile =
+      profileState.valueOrNull ??
+      await ref.watch(currentAppUserProvider.future);
+  if (profile != null) return profile.tenantId;
   final result = await user.getIdTokenResult();
   final tenantId = result.claims?['tenant_id'] as String?;
 
@@ -113,6 +118,11 @@ final currentTenantProvider = activeTenantProvider;
 final currentUserRoleProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
+  final profileState = ref.watch(currentAppUserProvider);
+  final profile =
+      profileState.valueOrNull ??
+      await ref.watch(currentAppUserProvider.future);
+  if (profile != null) return profile.role.name;
   final result = await user.getIdTokenResult();
   final role = result.claims?['role'] as String?;
 
@@ -131,6 +141,11 @@ final currentUserRoleProvider = FutureProvider<String?>((ref) async {
 final currentBranchIdProvider = FutureProvider<String?>((ref) async {
   final user = ref.watch(currentUserProvider);
   if (user == null) return null;
+  final profileState = ref.watch(currentAppUserProvider);
+  final profile =
+      profileState.valueOrNull ??
+      await ref.watch(currentAppUserProvider.future);
+  if (profile != null) return profile.branchId;
   final result = await user.getIdTokenResult();
   final branchId = result.claims?['branch_id'] as String?;
 
@@ -151,52 +166,56 @@ final currentBranchIdProvider = FutureProvider<String?>((ref) async {
 
 final activeMemberCountProvider =
     StreamProvider.family<int, ({String tenantId, String branchId})>(
-  (ref, args) => ref
-      .watch(memberRepositoryProvider)
-      .watchActiveCount(args.tenantId, args.branchId),
-);
+      (ref, args) => ref
+          .watch(memberRepositoryProvider)
+          .watchActiveCount(args.tenantId, args.branchId),
+    );
 
 final todayCheckInCountProvider =
     StreamProvider.family<int, ({String tenantId, String branchId})>(
-  (ref, args) => ref
-      .watch(branchRepositoryProvider)
-      .watchTodayCheckInCount(args.tenantId, args.branchId),
-);
+      (ref, args) => ref
+          .watch(branchRepositoryProvider)
+          .watchTodayCheckInCount(args.tenantId, args.branchId),
+    );
 
 // ─── Dashboard — métricas tenant-wide ────────────────────────────────────────
 
-final activeTenantMemberCountProvider =
-    StreamProvider.family<int, String>((ref, tenantId) => ref
-        .watch(memberRepositoryProvider)
-        .watchActiveTenantCount(tenantId));
+final activeTenantMemberCountProvider = StreamProvider.family<int, String>(
+  (ref, tenantId) =>
+      ref.watch(memberRepositoryProvider).watchActiveTenantCount(tenantId),
+);
 
-final expiringMemberCountProvider =
-    StreamProvider.family<int, String>((ref, tenantId) => ref
-        .watch(memberRepositoryProvider)
-        .watchExpiringCount(tenantId));
+final expiringMemberCountProvider = StreamProvider.family<int, String>(
+  (ref, tenantId) =>
+      ref.watch(memberRepositoryProvider).watchExpiringCount(tenantId),
+);
 
-final newMembersThisMonthProvider =
-    StreamProvider.family<int, String>((ref, tenantId) => ref
-        .watch(memberRepositoryProvider)
-        .watchNewThisMonth(tenantId));
+final newMembersThisMonthProvider = StreamProvider.family<int, String>(
+  (ref, tenantId) =>
+      ref.watch(memberRepositoryProvider).watchNewThisMonth(tenantId),
+);
 
 // ─── Dashboard — métricas por sucursal ───────────────────────────────────────
 
-final dailyCheckInsProvider = StreamProvider.family<
-    List<({DateTime day, int count})>,
-    ({String tenantId, String branchId})>(
-  (ref, args) => ref
-      .watch(branchRepositoryProvider)
-      .watchDailyCheckIns(args.tenantId, args.branchId),
-);
+final dailyCheckInsProvider =
+    StreamProvider.family<
+      List<({DateTime day, int count})>,
+      ({String tenantId, String branchId})
+    >(
+      (ref, args) => ref
+          .watch(branchRepositoryProvider)
+          .watchDailyCheckIns(args.tenantId, args.branchId),
+    );
 
-final recentCheckInsProvider = StreamProvider.family<
-    List<Map<String, dynamic>>,
-    ({String tenantId, String branchId})>(
-  (ref, args) => ref
-      .watch(branchRepositoryProvider)
-      .watchRecentCheckIns(args.tenantId, args.branchId),
-);
+final recentCheckInsProvider =
+    StreamProvider.family<
+      List<Map<String, dynamic>>,
+      ({String tenantId, String branchId})
+    >(
+      (ref, args) => ref
+          .watch(branchRepositoryProvider)
+          .watchRecentCheckIns(args.tenantId, args.branchId),
+    );
 
 // ─── AppUser del operador autenticado ────────────────────────────────────────
 
@@ -209,8 +228,7 @@ final currentAppUserProvider = StreamProvider<AppUser?>((ref) {
 // ─── Socios ───────────────────────────────────────────────────────────────────
 
 final membersProvider = StreamProvider.family<List<Member>, String>(
-  (ref, tenantId) =>
-      ref.watch(memberRepositoryProvider).watchAll(tenantId),
+  (ref, tenantId) => ref.watch(memberRepositoryProvider).watchAll(tenantId),
 );
 
 // ─── Socio autenticado (portal del socio) ────────────────────────────────────
@@ -226,23 +244,23 @@ final currentMemberProvider = StreamProvider<Member?>((ref) {
 // Historial de check-ins del socio autenticado (todas las sucursales).
 final currentMemberCheckInsProvider =
     StreamProvider<List<Map<String, dynamic>>>((ref) {
-  final user = ref.watch(currentUserProvider);
-  if (user == null) return Stream.value(const []);
-  return ref.watch(memberRepositoryProvider).watchCheckInHistory(user.uid);
-});
+      final user = ref.watch(currentUserProvider);
+      if (user == null) return Stream.value(const []);
+      return ref.watch(memberRepositoryProvider).watchCheckInHistory(user.uid);
+    });
 
 // ─── Sucursales ───────────────────────────────────────────────────────────────
 
 final branchesProvider = StreamProvider.family<List<Branch>, String>(
-  (ref, tenantId) =>
-      ref.watch(branchRepositoryProvider).watchAll(tenantId),
+  (ref, tenantId) => ref.watch(branchRepositoryProvider).watchAll(tenantId),
 );
 
 final branchProvider =
     StreamProvider.family<Branch?, ({String tenantId, String branchId})>(
-  (ref, args) =>
-      ref.watch(branchRepositoryProvider).watch(args.tenantId, args.branchId),
-);
+      (ref, args) => ref
+          .watch(branchRepositoryProvider)
+          .watch(args.tenantId, args.branchId),
+    );
 
 // ─── Planes de membresía ──────────────────────────────────────────────────────
 
@@ -255,13 +273,11 @@ final facturaRepositoryProvider = Provider<FacturaRepository>(
 );
 
 final activePlansProvider = StreamProvider.family<List<MembershipPlan>, String>(
-  (ref, tenantId) =>
-      ref.watch(planRepositoryProvider).watchActive(tenantId),
+  (ref, tenantId) => ref.watch(planRepositoryProvider).watchActive(tenantId),
 );
 
 final allPlansProvider = StreamProvider.family<List<MembershipPlan>, String>(
-  (ref, tenantId) =>
-      ref.watch(planRepositoryProvider).watchAll(tenantId),
+  (ref, tenantId) => ref.watch(planRepositoryProvider).watchAll(tenantId),
 );
 
 // ─── Pagos ────────────────────────────────────────────────────────────────────
@@ -277,17 +293,17 @@ final tenantPaymentsProvider = StreamProvider.family<List<Payment>, String>(
 
 final branchPaymentsProvider =
     StreamProvider.family<List<Payment>, ({String tenantId, String branchId})>(
-  (ref, args) => ref
-      .watch(paymentRepositoryProvider)
-      .watchByBranch(args.tenantId, args.branchId),
-);
+      (ref, args) => ref
+          .watch(paymentRepositoryProvider)
+          .watchByBranch(args.tenantId, args.branchId),
+    );
 
-final memberPaymentsProvider = StreamProvider.family<List<Payment>,
-    ({String tenantId, String memberId})>(
-  (ref, args) => ref
-      .watch(paymentRepositoryProvider)
-      .watchByMember(args.tenantId, args.memberId),
-);
+final memberPaymentsProvider =
+    StreamProvider.family<List<Payment>, ({String tenantId, String memberId})>(
+      (ref, args) => ref
+          .watch(paymentRepositoryProvider)
+          .watchByMember(args.tenantId, args.memberId),
+    );
 
 // ─── Facturación ──────────────────────────────────────────────────────────────
 
@@ -296,9 +312,9 @@ final tenantFacturasProvider = StreamProvider.family<List<Factura>, String>(
       ref.watch(facturaRepositoryProvider).watchByTenant(tenantId),
 );
 
-final facturasByReceptorProvider = StreamProvider.family<
-    List<Factura>, ({String tenantId, String rfc})>(
-  (ref, args) => ref
-      .watch(facturaRepositoryProvider)
-      .watchByReceptor(args.tenantId, args.rfc),
-);
+final facturasByReceptorProvider =
+    StreamProvider.family<List<Factura>, ({String tenantId, String rfc})>(
+      (ref, args) => ref
+          .watch(facturaRepositoryProvider)
+          .watchByReceptor(args.tenantId, args.rfc),
+    );

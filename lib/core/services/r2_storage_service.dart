@@ -2,18 +2,15 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:http/http.dart' as http;
+
+import 'worker_auth.dart';
+
 import 'package:http_parser/http_parser.dart';
 
 class R2StorageService {
   static const _workerBase = String.fromEnvironment(
     'WORKER_BASE_URL',
     defaultValue: 'https://omni-gym.hadith024.workers.dev',
-  );
-
-  // Configura via --dart-define=R2_UPLOAD_SECRET=xxx al correr/buildear
-  static const _secret = String.fromEnvironment(
-    'R2_UPLOAD_SECRET',
-    defaultValue: 'omni-r2-2025-dev',
   );
 
   /// Sube [bytes] al bucket R2 bajo la ruta [key].
@@ -25,7 +22,7 @@ class R2StorageService {
   }) async {
     final uri = Uri.parse('$_workerBase/upload');
     final request = http.MultipartRequest('POST', uri)
-      ..headers['Authorization'] = 'Bearer $_secret'
+      ..headers.addAll(await workerHeaders())
       ..files.add(
         http.MultipartFile.fromBytes(
           'file',
@@ -36,6 +33,7 @@ class R2StorageService {
       )
       ..fields['key'] = key;
 
+    request.headers.remove('Content-Type');
     final streamed = await request.send();
     final body = await streamed.stream.bytesToString();
 
@@ -52,10 +50,7 @@ class R2StorageService {
     final uri = Uri.parse('$_workerBase/delete');
     final response = await http.delete(
       uri,
-      headers: {
-        'Authorization': 'Bearer $_secret',
-        'Content-Type': 'application/json',
-      },
+      headers: await workerHeaders(),
       body: jsonEncode({'key': key}),
     );
     if (response.statusCode != 200) {

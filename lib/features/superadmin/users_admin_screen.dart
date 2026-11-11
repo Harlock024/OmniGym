@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/app_user.dart';
+import '../../core/models/module_access.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
 import 'superadmin_providers.dart';
@@ -29,8 +30,10 @@ class UsersAdminScreen extends ConsumerWidget {
             child: usersAsync.when(
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (e, _) => Center(
-                child: Text('Error: $e',
-                    style: const TextStyle(color: OmniGymColors.textSecondary)),
+                child: Text(
+                  'Error: $e',
+                  style: const TextStyle(color: OmniGymColors.textSecondary),
+                ),
               ),
               data: (users) => users.isEmpty
                   ? _EmptyState(hasSearch: search.isNotEmpty)
@@ -64,7 +67,8 @@ class _Header extends ConsumerWidget {
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 16),
       decoration: const BoxDecoration(
         border: Border(
-            bottom: BorderSide(color: OmniGymColors.border, width: 1)),
+          bottom: BorderSide(color: OmniGymColors.border, width: 1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -81,13 +85,19 @@ class _Header extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              Consumer(builder: (_, ref, _) {
-                final count = ref.watch(allUsersProvider).valueOrNull?.length ?? 0;
-                return Text(
-                  '$count usuarios',
-                  style: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
-                );
-              }),
+              Consumer(
+                builder: (_, ref, _) {
+                  final count =
+                      ref.watch(allUsersProvider).valueOrNull?.length ?? 0;
+                  return Text(
+                    '$count usuarios',
+                    style: const TextStyle(
+                      color: OmniGymColors.textSecondary,
+                      fontSize: 13,
+                    ),
+                  );
+                },
+              ),
             ],
           ),
           const SizedBox(height: 4),
@@ -99,15 +109,22 @@ class _Header extends ConsumerWidget {
           SizedBox(
             height: 40,
             child: TextField(
-              onChanged: (v) =>
-                  ref.read(userSearchProvider.notifier).state = v,
-              style: const TextStyle(color: OmniGymColors.textPrimary, fontSize: 13),
+              onChanged: (v) => ref.read(userSearchProvider.notifier).state = v,
+              style: const TextStyle(
+                color: OmniGymColors.textPrimary,
+                fontSize: 13,
+              ),
               decoration: InputDecoration(
                 hintText: 'Buscar por nombre, correo o empresa...',
                 hintStyle: const TextStyle(
-                    color: OmniGymColors.textSecondary, fontSize: 13),
-                prefixIcon: const Icon(Icons.search,
-                    color: OmniGymColors.textSecondary, size: 18),
+                  color: OmniGymColors.textSecondary,
+                  fontSize: 13,
+                ),
+                prefixIcon: const Icon(
+                  Icons.search,
+                  color: OmniGymColors.textSecondary,
+                  size: 18,
+                ),
                 filled: true,
                 fillColor: OmniGymColors.surface,
                 contentPadding: const EdgeInsets.symmetric(vertical: 8),
@@ -183,9 +200,10 @@ class _UserRow extends ConsumerWidget {
                   child: Text(
                     user.name.isNotEmpty ? user.name[0].toUpperCase() : '?',
                     style: const TextStyle(
-                        color: OmniGymColors.primary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold),
+                      color: OmniGymColors.primary,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -193,7 +211,9 @@ class _UserRow extends ConsumerWidget {
                   child: Text(
                     user.name,
                     style: const TextStyle(
-                        color: OmniGymColors.textPrimary, fontSize: 13),
+                      color: OmniGymColors.textPrimary,
+                      fontSize: 13,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -206,7 +226,9 @@ class _UserRow extends ConsumerWidget {
             child: Text(
               user.email,
               style: const TextStyle(
-                  color: OmniGymColors.textSecondary, fontSize: 13),
+                color: OmniGymColors.textSecondary,
+                fontSize: 13,
+              ),
               overflow: TextOverflow.ellipsis,
             ),
           ),
@@ -218,26 +240,26 @@ class _UserRow extends ConsumerWidget {
                 : const Text(
                     'Sin empresa',
                     style: TextStyle(
-                        color: OmniGymColors.textSecondary,
-                        fontSize: 12,
-                        fontStyle: FontStyle.italic),
+                      color: OmniGymColors.textSecondary,
+                      fontSize: 12,
+                      fontStyle: FontStyle.italic,
+                    ),
                   ),
           ),
           // Rol
-          SizedBox(
-            width: 90,
-            child: _RoleChip(role: user.role),
-          ),
+          SizedBox(width: 90, child: _RoleChip(role: user.role)),
           // Acciones
           SizedBox(
             width: 100,
             child: Row(
               children: [
-                _ActionIcon(
-                  icon: Icons.table_chart_outlined,
-                  tooltip: 'Permisos',
-                  onTap: () => _showPermissionsDialog(context, ref),
-                ),
+                if (user.role == UserRole.staff ||
+                    user.role == UserRole.receptionist)
+                  _ActionIcon(
+                    icon: Icons.table_chart_outlined,
+                    tooltip: 'Permisos',
+                    onTap: () => _showPermissionsDialog(context, ref),
+                  ),
                 _ActionIcon(
                   icon: Icons.lock_outline,
                   tooltip: 'Asignar rol',
@@ -276,11 +298,16 @@ class _UserRow extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: OmniGymColors.card,
-        title: const Text('¿Eliminar usuario?',
-            style: TextStyle(color: OmniGymColors.textPrimary)),
+        title: const Text(
+          '¿Eliminar usuario?',
+          style: TextStyle(color: OmniGymColors.textPrimary),
+        ),
         content: Text(
           'Se eliminará el registro de ${user.name} (${user.email}). Esta acción no se puede deshacer.',
-          style: const TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
+          style: const TextStyle(
+            color: OmniGymColors.textSecondary,
+            fontSize: 13,
+          ),
         ),
         actions: [
           TextButton(
@@ -288,7 +315,9 @@ class _UserRow extends ConsumerWidget {
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: OmniGymColors.errorRed),
+            style: FilledButton.styleFrom(
+              backgroundColor: OmniGymColors.errorRed,
+            ),
             onPressed: () async {
               Navigator.pop(context);
               await ref.read(userRepositoryProvider).delete(user.id);
@@ -337,6 +366,7 @@ class _RoleChip extends StatelessWidget {
       UserRole.superuser => ('superuser', Colors.amber),
       UserRole.owner => ('owner', OmniGymColors.primary),
       UserRole.staff => ('staff', OmniGymColors.success),
+      UserRole.receptionist => ('Recepcionista', OmniGymColors.success),
     };
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
@@ -348,7 +378,10 @@ class _RoleChip extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-            color: color, fontSize: 11, fontWeight: FontWeight.w600),
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+        ),
       ),
     );
   }
@@ -404,7 +437,7 @@ class _RoleDialogState extends State<_RoleDialog> {
   void initState() {
     super.initState();
     _selected = widget.user.role == UserRole.superuser
-        ? UserRole.owner
+        ? UserRole.staff
         : widget.user.role;
   }
 
@@ -419,20 +452,29 @@ class _RoleDialogState extends State<_RoleDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _RoleOption(
-            role: UserRole.owner,
-            label: 'owner (admin)',
-            description: 'Puede ver y administrar usuarios de su empresa',
-            selected: _selected == UserRole.owner,
-            onTap: () => setState(() => _selected = UserRole.owner),
-          ),
+          if (widget.user.role == UserRole.owner)
+            _RoleOption(
+              role: UserRole.owner,
+              label: 'owner (admin)',
+              description: 'Puede ver y administrar usuarios de su empresa',
+              selected: _selected == UserRole.owner,
+              onTap: () => setState(() => _selected = UserRole.owner),
+            ),
           const SizedBox(height: 12),
           _RoleOption(
             role: UserRole.staff,
             label: 'staff',
-            description: 'Usuario regular sin acceso al panel de administración',
+            description: 'Encargado con acceso a módulos autorizados y gestión de recepcionistas',
             selected: _selected == UserRole.staff,
             onTap: () => setState(() => _selected = UserRole.staff),
+          ),
+          const SizedBox(height: 12),
+          _RoleOption(
+            role: UserRole.receptionist,
+            label: 'Recepcionista',
+            description: 'Sin módulos por defecto; requiere accesos asignados',
+            selected: _selected == UserRole.receptionist,
+            onTap: () => setState(() => _selected = UserRole.receptionist),
           ),
         ],
       ),
@@ -455,7 +497,10 @@ class _RoleDialogState extends State<_RoleDialog> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Text('Guardar'),
         ),
@@ -487,8 +532,12 @@ class _RoleOption extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
-            selected ? Icons.radio_button_checked : Icons.radio_button_unchecked,
-            color: selected ? OmniGymColors.primary : OmniGymColors.textSecondary,
+            selected
+                ? Icons.radio_button_checked
+                : Icons.radio_button_unchecked,
+            color: selected
+                ? OmniGymColors.primary
+                : OmniGymColors.textSecondary,
           ),
           const SizedBox(width: 8),
           Expanded(
@@ -498,14 +547,17 @@ class _RoleOption extends StatelessWidget {
                 Text(
                   label,
                   style: const TextStyle(
-                      color: OmniGymColors.textPrimary,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600),
+                    color: OmniGymColors.textPrimary,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 Text(
                   description,
                   style: const TextStyle(
-                      color: OmniGymColors.textSecondary, fontSize: 12),
+                    color: OmniGymColors.textSecondary,
+                    fontSize: 12,
+                  ),
                 ),
               ],
             ),
@@ -534,10 +586,10 @@ class _PermissionsDialogState extends State<_PermissionsDialog> {
   @override
   void initState() {
     super.initState();
-    // Start with existing permissions; missing keys default to true
+    // Use the same defaults as navigation and backend authorization.
     _perms = {
       for (final m in kOmniGymModules)
-        m.key: widget.user.permissions[m.key] ?? true,
+        m.key: ModuleAccess.has(widget.user, m.key),
     };
   }
 
@@ -556,12 +608,13 @@ class _PermissionsDialogState extends State<_PermissionsDialog> {
           children: kOmniGymModules.map((m) {
             return CheckboxListTile(
               value: _perms[m.key] ?? true,
-              onChanged: (v) =>
-                  setState(() => _perms[m.key] = v ?? false),
+              onChanged: (v) => setState(() => _perms[m.key] = v ?? false),
               title: Text(
                 m.label,
                 style: const TextStyle(
-                    color: OmniGymColors.textPrimary, fontSize: 13),
+                  color: OmniGymColors.textPrimary,
+                  fontSize: 13,
+                ),
               ),
               activeColor: OmniGymColors.primary,
               controlAffinity: ListTileControlAffinity.trailing,
@@ -589,7 +642,10 @@ class _PermissionsDialogState extends State<_PermissionsDialog> {
               ? const SizedBox(
                   width: 16,
                   height: 16,
-                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    color: Colors.white,
+                  ),
                 )
               : const Text('Guardar'),
         ),
@@ -621,7 +677,9 @@ class _EmptyState extends StatelessWidget {
                 ? 'Sin resultados para esa búsqueda'
                 : 'No hay usuarios registrados',
             style: const TextStyle(
-                color: OmniGymColors.textSecondary, fontSize: 14),
+              color: OmniGymColors.textSecondary,
+              fontSize: 14,
+            ),
           ),
         ],
       ),

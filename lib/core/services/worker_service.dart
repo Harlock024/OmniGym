@@ -2,20 +2,13 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'worker_auth.dart';
+
 class WorkerService {
   static const _base = String.fromEnvironment(
     'WORKER_BASE_URL',
     defaultValue: 'https://omni-gym.hadith024.workers.dev',
   );
-  static const _secret = String.fromEnvironment(
-    'R2_UPLOAD_SECRET',
-    defaultValue: 'omni-r2-2025-dev',
-  );
-
-  static Map<String, String> get _headers => {
-        'Authorization': 'Bearer $_secret',
-        'Content-Type': 'application/json',
-      };
 
   /// Asigna custom claims a un usuario existente de Firebase Auth.
   static Future<void> setClaims({
@@ -33,7 +26,7 @@ class WorkerService {
 
     final res = await http.post(
       Uri.parse('$_base/set-claims'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode(body),
     );
 
@@ -65,14 +58,15 @@ class WorkerService {
 
     final res = await http.post(
       Uri.parse('$_base/create-staff'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode(body),
     );
 
     if (res.statusCode == 409) {
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       throw StaffAlreadyExistsException(
-          data['error'] as String? ?? 'El correo ya está registrado.');
+        data['error'] as String? ?? 'El correo ya está registrado.',
+      );
     }
 
     if (res.statusCode != 200) {
@@ -95,7 +89,7 @@ class WorkerService {
     if (cancelUrl != null) body['cancelUrl'] = cancelUrl;
     final res = await http.post(
       Uri.parse('$_base/billing/checkout'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode(body),
     );
     if (res.statusCode != 200) {
@@ -113,7 +107,7 @@ class WorkerService {
     if (returnUrl != null) body['returnUrl'] = returnUrl;
     final res = await http.post(
       Uri.parse('$_base/billing/portal'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode(body),
     );
     if (res.statusCode != 200) {
@@ -132,7 +126,7 @@ class WorkerService {
   }) async {
     final res = await http.post(
       Uri.parse('$_base/billing/packages'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode({
         'name': name,
         'price': price,
@@ -167,7 +161,7 @@ class WorkerService {
 
     final res = await http.post(
       Uri.parse('$_base/billing/packages/update'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode(body),
     );
     if (res.statusCode != 200) {
@@ -182,7 +176,7 @@ class WorkerService {
     try {
       final res = await http.get(
         Uri.parse('$_base/catalogs/postal?cp=$cp'),
-        headers: _headers,
+        headers: await workerHeaders(),
       );
       if (res.statusCode != 200) return null;
       final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -204,7 +198,7 @@ class WorkerService {
   static Future<void> deleteStaff(String uid) async {
     final res = await http.post(
       Uri.parse('$_base/delete-staff'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode({'uid': uid}),
     );
     if (res.statusCode != 200) {
@@ -218,17 +212,18 @@ class WorkerService {
     try {
       final res = await http.get(
         Uri.parse('$_base/geocode/search?q=${Uri.encodeComponent(query)}'),
-        headers: _headers,
+        headers: await workerHeaders(),
       );
       if (res.statusCode != 200) return [];
       final data = jsonDecode(res.body) as Map<String, dynamic>;
       return (data['results'] as List<dynamic>? ?? [])
-          .map((r) => GeocodeResult(
-                displayName:
-                    (r as Map<String, dynamic>)['displayName'] as String,
-                lat: (r['lat'] as num).toDouble(),
-                lng: (r['lng'] as num).toDouble(),
-              ))
+          .map(
+            (r) => GeocodeResult(
+              displayName: (r as Map<String, dynamic>)['displayName'] as String,
+              lat: (r['lat'] as num).toDouble(),
+              lng: (r['lng'] as num).toDouble(),
+            ),
+          )
           .toList();
     } catch (_) {
       return [];
@@ -237,19 +232,24 @@ class WorkerService {
 
   // ── Facturación CFDI ──────────────────────────────────────────────────────
 
-  static Future<FacturacionValidacion> validarFacturacion(String tenantId) async {
+  static Future<FacturacionValidacion> validarFacturacion(
+    String tenantId,
+  ) async {
     final res = await http.get(
       Uri.parse('$_base/facturacion/validate?tenantId=$tenantId'),
-      headers: _headers,
+      headers: await workerHeaders(),
     );
     final data = jsonDecode(res.body) as Map<String, dynamic>;
     return FacturacionValidacion(
       ok: data['ok'] as bool,
-      errors: (data['errors'] as List<dynamic>?)
-              ?.map((e) => ValidacionError(
-                    campo: (e as Map<String, dynamic>)['campo'] as String,
-                    mensaje: e['mensaje'] as String,
-                  ))
+      errors:
+          (data['errors'] as List<dynamic>?)
+              ?.map(
+                (e) => ValidacionError(
+                  campo: (e as Map<String, dynamic>)['campo'] as String,
+                  mensaje: e['mensaje'] as String,
+                ),
+              )
               .toList() ??
           [],
     );
@@ -265,7 +265,10 @@ class WorkerService {
     String? usoCFDI,
     String? paymentId,
   }) async {
-    final body = <String, dynamic>{'tenantId': tenantId, 'conceptos': conceptos};
+    final body = <String, dynamic>{
+      'tenantId': tenantId,
+      'conceptos': conceptos,
+    };
     if (rfc != null) body['rfc'] = rfc;
     if (nombre != null) body['nombre'] = nombre;
     if (codigoPostal != null) body['codigo_postal'] = codigoPostal;
@@ -275,7 +278,7 @@ class WorkerService {
 
     final res = await http.post(
       Uri.parse('$_base/facturacion/timbrar'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode(body),
     );
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -284,11 +287,13 @@ class WorkerService {
       uuid: data['uuid'] as String?,
       mensaje: data['mensaje'] as String?,
       errors: (data['errors'] as List<dynamic>?)
-              ?.map((e) => ValidacionError(
-                    campo: (e as Map<String, dynamic>)['campo'] as String,
-                    mensaje: e['mensaje'] as String,
-                  ))
-              .toList(),
+          ?.map(
+            (e) => ValidacionError(
+              campo: (e as Map<String, dynamic>)['campo'] as String,
+              mensaje: e['mensaje'] as String,
+            ),
+          )
+          .toList(),
     );
   }
 
@@ -298,7 +303,7 @@ class WorkerService {
   }) async {
     final res = await http.post(
       Uri.parse('$_base/facturacion/cancelar'),
-      headers: _headers,
+      headers: await workerHeaders(),
       body: jsonEncode({'tenantId': tenantId, 'uuid': uuid}),
     );
     final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -315,8 +320,10 @@ class WorkerService {
   }) async {
     try {
       final res = await http.get(
-        Uri.parse('$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=xml'),
-        headers: _headers,
+        Uri.parse(
+          '$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=xml',
+        ),
+        headers: await workerHeaders(),
       );
       if (res.statusCode == 200) return res.body;
     } catch (_) {}
@@ -329,8 +336,10 @@ class WorkerService {
   }) async {
     try {
       final res = await http.get(
-        Uri.parse('$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=pdf'),
-        headers: _headers,
+        Uri.parse(
+          '$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId&format=pdf',
+        ),
+        headers: await workerHeaders(),
       );
       if (res.statusCode == 200) return res.bodyBytes;
     } catch (_) {}
@@ -344,7 +353,7 @@ class WorkerService {
     try {
       final res = await http.get(
         Uri.parse('$_base/facturacion/invoice?uuid=$uuid&tenantId=$tenantId'),
-        headers: _headers,
+        headers: await workerHeaders(),
       );
       if (res.statusCode == 200) {
         return jsonDecode(res.body) as Map<String, dynamic>;
@@ -361,12 +370,8 @@ class WorkerService {
     try {
       final res = await http.post(
         Uri.parse('$_base/facturacion/enviar-email'),
-        headers: _headers,
-        body: jsonEncode({
-          'tenantId': tenantId,
-          'uuid': uuid,
-          'email': email,
-        }),
+        headers: await workerHeaders(),
+        body: jsonEncode({'tenantId': tenantId, 'uuid': uuid, 'email': email}),
       );
       if (res.statusCode == 200) {
         final data = jsonDecode(res.body) as Map<String, dynamic>;

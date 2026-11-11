@@ -4,11 +4,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/app_user.dart';
+import '../../core/models/module_access.dart';
 import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/worker_service.dart';
 import 'invite_staff_dialog.dart';
 import 'staff_providers.dart';
+import 'module_permissions_popover.dart';
 
 class StaffScreen extends ConsumerWidget {
   const StaffScreen({super.key});
@@ -42,10 +44,7 @@ class StaffScreen extends ConsumerWidget {
   }
 
   void _openInviteDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (_) => const InviteStaffDialog(),
-    );
+    showDialog(context: context, builder: (_) => const InviteStaffDialog());
   }
 }
 
@@ -68,29 +67,43 @@ class _StaffFilters extends ConsumerWidget {
           FilterChip(
             label: const Text('Owner'),
             selected: roleFilter == UserRole.owner,
-            onSelected: (v) => ref.read(staffRoleFilterProvider.notifier).state =
-                v ? UserRole.owner : null,
+            onSelected: (v) =>
+                ref.read(staffRoleFilterProvider.notifier).state = v
+                ? UserRole.owner
+                : null,
           ),
           FilterChip(
             label: const Text('Staff'),
             selected: roleFilter == UserRole.staff,
-            onSelected: (v) => ref.read(staffRoleFilterProvider.notifier).state =
-                v ? UserRole.staff : null,
+            onSelected: (v) =>
+                ref.read(staffRoleFilterProvider.notifier).state = v
+                ? UserRole.staff
+                : null,
+          ),
+          FilterChip(
+            label: const Text('Recepcionistas'),
+            selected: roleFilter == UserRole.receptionist,
+            onSelected: (v) =>
+                ref.read(staffRoleFilterProvider.notifier).state = v
+                ? UserRole.receptionist
+                : null,
           ),
           const VerticalDivider(width: 16),
           FilterChip(
             label: const Text('Activos'),
             selected: statusFilter == UserStatus.active,
             onSelected: (v) =>
-                ref.read(staffStatusFilterProvider.notifier).state =
-                    v ? UserStatus.active : null,
+                ref.read(staffStatusFilterProvider.notifier).state = v
+                ? UserStatus.active
+                : null,
           ),
           FilterChip(
             label: const Text('Suspendidos'),
             selected: statusFilter == UserStatus.suspended,
             onSelected: (v) =>
-                ref.read(staffStatusFilterProvider.notifier).state =
-                    v ? UserStatus.suspended : null,
+                ref.read(staffStatusFilterProvider.notifier).state = v
+                ? UserStatus.suspended
+                : null,
           ),
         ],
       ),
@@ -114,8 +127,9 @@ class _StaffTable extends ConsumerWidget {
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (staff) {
         // Ocultar al superuser de la lista para owners
-        final visible =
-            staff.where((u) => u.role != UserRole.superuser).toList();
+        final visible = staff
+            .where((u) => u.role != UserRole.superuser)
+            .toList();
 
         if (visible.isEmpty) {
           return const Center(child: Text('No hay operadores registrados.'));
@@ -164,8 +178,8 @@ class _StaffTable extends ConsumerWidget {
     final branchLabel = user.role == UserRole.owner
         ? '—'
         : (user.branchId != null
-            ? (branchNames[user.branchId] ?? 'Sucursal eliminada')
-            : 'Sin asignar');
+              ? (branchNames[user.branchId] ?? 'Sucursal eliminada')
+              : 'Sin asignar');
 
     return DataRow(
       cells: [
@@ -174,8 +188,10 @@ class _StaffTable extends ConsumerWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(user.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600)),
+              Text(
+                user.name,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
               Text(
                 user.email,
                 style: TextStyle(
@@ -186,18 +202,32 @@ class _StaffTable extends ConsumerWidget {
             ],
           ),
         ),
-        DataCell(Row(
-          mainAxisSize: MainAxisSize.min,
-          spacing: 6,
-          children: [
-            _RoleChip(role: user.role),
-            _StatusChip(isActive: user.status == UserStatus.active),
-          ],
-        )),
+        DataCell(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            spacing: 6,
+            children: [
+              _RoleChip(role: user.role),
+              _StatusChip(isActive: user.status == UserStatus.active),
+            ],
+          ),
+        ),
         DataCell(Text(branchLabel)),
-        DataCell(isSelf
-            ? const Text('—')
-            : _ActionMenu(user: user)),
+        DataCell(
+          isSelf ||
+                  !ModuleAccess.canManage(
+                    ref.watch(currentAppUserProvider).valueOrNull,
+                    user,
+                  )
+              ? const Text('—')
+              : Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    ModulePermissionsButton(user: user),
+                    _ActionMenu(user: user),
+                  ],
+                ),
+        ),
       ],
     );
   }
@@ -213,6 +243,7 @@ class _RoleChip extends StatelessWidget {
     final label = switch (role) {
       UserRole.owner => 'Owner',
       UserRole.staff => 'Staff',
+      UserRole.receptionist => 'Recepcionista',
       UserRole.superuser => 'Super',
     };
     return Chip(
@@ -262,6 +293,16 @@ class _ActionMenu extends ConsumerWidget {
     return PopupMenuButton<_Action>(
       onSelected: (action) => _handleAction(context, ref, action),
       itemBuilder: (_) => [
+        if (ref.read(currentAppUserProvider).valueOrNull?.role !=
+            UserRole.staff)
+          const PopupMenuItem(
+            value: _Action.changeRole,
+            child: ListTile(
+              leading: Icon(Icons.badge_outlined),
+              title: Text('Cambiar rol'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         PopupMenuItem(
           value: isActive ? _Action.suspend : _Action.activate,
           child: ListTile(
@@ -270,7 +311,7 @@ class _ActionMenu extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
           ),
         ),
-        if (user.role == UserRole.staff)
+        if (user.role == UserRole.staff || user.role == UserRole.receptionist)
           const PopupMenuItem(
             value: _Action.changeBranch,
             child: ListTile(
@@ -299,6 +340,8 @@ class _ActionMenu extends ConsumerWidget {
     final repo = ref.read(userRepositoryProvider);
 
     switch (action) {
+      case _Action.changeRole:
+        if (context.mounted) await _changeRole(context, ref);
       case _Action.suspend:
         await repo.updateStatus(user.id, UserStatus.suspended);
       case _Action.activate:
@@ -310,13 +353,43 @@ class _ActionMenu extends ConsumerWidget {
     }
   }
 
+  Future<void> _changeRole(BuildContext context, WidgetRef ref) async {
+    final role = await showDialog<UserRole>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('Rol de ${user.name}'),
+        children: [
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, UserRole.staff),
+            child: const Text('Staff (encargado)'),
+          ),
+          SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, UserRole.receptionist),
+            child: const Text('Recepcionista — comienza sin módulos'),
+          ),
+        ],
+      ),
+    );
+    if (role == null || role == user.role) return;
+    try {
+      await ref.read(userRepositoryProvider).updateRole(user.id, role);
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No se pudo cambiar el rol.')),
+        );
+      }
+    }
+  }
+
   Future<void> _confirmAndDelete(BuildContext context) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Eliminar operador'),
         content: Text(
-            '¿Eliminar a ${user.name}? Se borrará su cuenta de acceso de forma permanente.'),
+          '¿Eliminar a ${user.name}? Se borrará su cuenta de acceso de forma permanente.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -350,8 +423,9 @@ class _ActionMenu extends ConsumerWidget {
     tenantIdAsync.whenData((tenantId) {
       if (tenantId == null || !context.mounted) return;
       final branchesAsync = ref.read(
-        StreamProvider((r) =>
-            r.read(branchRepositoryProvider).watchAll(tenantId)).future,
+        StreamProvider(
+          (r) => r.read(branchRepositoryProvider).watchAll(tenantId),
+        ).future,
       );
       branchesAsync.then((branches) {
         if (!context.mounted) return;
@@ -364,7 +438,7 @@ class _ActionMenu extends ConsumerWidget {
   }
 }
 
-enum _Action { suspend, activate, changeBranch, delete }
+enum _Action { changeRole, suspend, activate, changeBranch, delete }
 
 class _ChangeBranchDialog extends ConsumerWidget {
   const _ChangeBranchDialog({required this.user, required this.branches});

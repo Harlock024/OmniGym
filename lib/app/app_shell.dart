@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/models/billing_access.dart';
+import '../core/models/app_user.dart';
+import '../core/models/module_access.dart';
 import '../core/providers/providers.dart';
 import '../features/billing/subscription_gate.dart';
 import '../features/billing/subscription_screen.dart';
@@ -12,11 +14,7 @@ import 'app_theme.dart';
 // Exposes the outer Scaffold's openDrawer callback to descendant widgets.
 
 class ShellScope extends InheritedWidget {
-  const ShellScope({
-    super.key,
-    required this.openDrawer,
-    required super.child,
-  });
+  const ShellScope({super.key, required this.openDrawer, required super.child});
 
   final VoidCallback openDrawer;
 
@@ -37,7 +35,10 @@ class DrawerMenuButton extends StatelessWidget {
     final scope = ShellScope.maybeOf(context);
     if (scope == null) return const SizedBox.shrink();
     return IconButton(
-      icon: Icon(Icons.menu_rounded, color: Theme.of(context).colorScheme.onSurfaceVariant),
+      icon: Icon(
+        Icons.menu_rounded,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
       onPressed: scope.openDrawer,
       tooltip: 'Menú',
     );
@@ -68,36 +69,91 @@ class _NavSection extends _NavEntry {
 }
 
 const _superuserItems = <_NavEntry>[
-  _NavItem(icon: Icons.business_rounded, label: 'Empresas', route: '/superadmin'),
-  _NavItem(icon: Icons.manage_accounts_rounded, label: 'Administrar usuarios', route: '/superadmin/users'),
-  _NavItem(icon: Icons.inventory_2_rounded, label: 'Paquetes', route: '/superadmin/packages'),
+  _NavItem(
+    icon: Icons.business_rounded,
+    label: 'Empresas',
+    route: '/superadmin',
+  ),
+  _NavItem(
+    icon: Icons.manage_accounts_rounded,
+    label: 'Administrar usuarios',
+    route: '/superadmin/users',
+  ),
+  _NavItem(
+    icon: Icons.inventory_2_rounded,
+    label: 'Paquetes',
+    route: '/superadmin/packages',
+  ),
 ];
 
 const _ownerItems = <_NavEntry>[
-  _NavItem(icon: Icons.dashboard_rounded, label: 'Dashboard', route: '/dashboard/owner'),
-  _NavItem(icon: Icons.location_city_rounded, label: 'Sucursales', route: '/branches'),
+  _NavItem(
+    icon: Icons.dashboard_rounded,
+    label: 'Dashboard',
+    route: '/dashboard/owner',
+  ),
+  _NavItem(
+    icon: Icons.location_city_rounded,
+    label: 'Sucursales',
+    route: '/branches',
+  ),
   _NavItem(icon: Icons.fitness_center, label: 'Socios', route: '/members'),
-  _NavItem(icon: Icons.card_membership_rounded, label: 'Membresías', route: '/memberships'),
-  _NavItem(icon: Icons.receipt_long_rounded, label: 'Facturación', route: '/facturacion'),
+  _NavItem(icon: Icons.qr_code_scanner, label: 'Escáner QR', route: '/scanner'),
+  _NavItem(
+    icon: Icons.card_membership_rounded,
+    label: 'Membresías',
+    route: '/memberships',
+  ),
+  _NavItem(
+    icon: Icons.receipt_long_rounded,
+    label: 'Facturación',
+    route: '/facturacion',
+  ),
   _NavItem(icon: Icons.bar_chart_rounded, label: 'Reportes', route: '/reports'),
   _NavItem(icon: Icons.badge_rounded, label: 'Staff', route: '/staff'),
-  _NavItem(icon: Icons.workspace_premium_rounded, label: 'Mi suscripción', route: '/subscription'),
-  _NavItem(icon: Icons.settings_rounded, label: 'Configuración', route: '/settings'),
+  _NavItem(
+    icon: Icons.workspace_premium_rounded,
+    label: 'Mi suscripción',
+    route: '/subscription',
+  ),
+  _NavItem(
+    icon: Icons.settings_rounded,
+    label: 'Configuración',
+    route: '/settings',
+  ),
 ];
 
-const _staffItems = <_NavEntry>[
-  _NavItem(icon: Icons.dashboard_rounded, label: 'Mi Sucursal', route: '/dashboard/manager'),
-  _NavItem(icon: Icons.qr_code_scanner, label: 'Escáner QR', route: '/scanner'),
-];
-
-// ─── AppShell ─────────────────────────────────────────────────────────────────
+List<_NavEntry> _entriesForUser(String? role, AppUser? user) {
+  if (role == 'superuser') return _superuserItems;
+  if (role == 'owner') return _ownerItems;
+  if (user == null || user.status != UserStatus.active) return const [];
+  return [
+    for (final module in appModules)
+      if (ModuleAccess.has(user, module.key))
+        _NavItem(
+          icon: switch (module.key) {
+            'dashboard' => Icons.dashboard_rounded,
+            'branches' => Icons.location_city_rounded,
+            'members' => Icons.fitness_center,
+            'scanner' => Icons.qr_code_scanner,
+            'memberships' => Icons.card_membership_rounded,
+            'billing' => Icons.receipt_long_rounded,
+            _ => Icons.bar_chart_rounded,
+          },
+          label: module.label,
+          route: module.route,
+        ),
+    if (role == 'staff')
+      const _NavItem(
+        icon: Icons.badge_rounded,
+        label: 'Equipo',
+        route: '/staff',
+      ),
+  ];
+}
 
 class AppShell extends ConsumerStatefulWidget {
-  const AppShell({
-    super.key,
-    required this.child,
-    required this.location,
-  });
+  const AppShell({super.key, required this.child, required this.location});
 
   final Widget child;
   final String location;
@@ -117,7 +173,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   /// null cuando el gym sí puede operar (o el rol no aplica) para seguir con la
   /// navegación normal con sidebar.
   Widget? _blockedWall(String? role) {
-    if (role != 'owner' && role != 'staff') return null;
+    if (!const {'owner', 'staff', 'receptionist'}.contains(role)) return null;
     final tenant = ref.watch(activeTenantProvider).valueOrNull;
     if (tenant == null || tenant.canOperate) return null;
     return role == 'owner'
@@ -140,12 +196,8 @@ class _AppShellState extends ConsumerState<AppShell> {
     );
   }
 
-  static List<_NavItem> _navItems(String? role) => switch (role) {
-        'superuser' => _superuserItems.whereType<_NavItem>().toList(),
-        'owner' => _ownerItems.whereType<_NavItem>().toList(),
-        'staff' => _staffItems.whereType<_NavItem>().toList(),
-        _ => const [],
-      };
+  static List<_NavItem> _navItems(String? role, AppUser? user) =>
+      _entriesForUser(role, user).whereType<_NavItem>().toList();
 
   static int _selectedIndex(List<_NavItem> items, String location) {
     for (int i = 0; i < items.length; i++) {
@@ -166,8 +218,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     final width = MediaQuery.sizeOf(context).width;
     final isMobile = width < Breakpoints.mobile;
-    final isTablet =
-        width >= Breakpoints.mobile && width < Breakpoints.tablet;
+    final isTablet = width >= Breakpoints.mobile && width < Breakpoints.tablet;
 
     final sidebarContent = _SidebarContent(
       role: role,
@@ -196,7 +247,7 @@ class _AppShellState extends ConsumerState<AppShell> {
 
     // ── Tablet: icon-only rail sidebar ────────────────────────────────────────
     if (isTablet) {
-      final items = _navItems(role);
+      final items = _navItems(role, user);
       final selectedIdx = _selectedIndex(items, widget.location);
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -210,7 +261,11 @@ class _AppShellState extends ConsumerState<AppShell> {
               photoUrl: user?.photoUrl,
             ),
             VerticalDivider(
-                width: 1, thickness: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
+              width: 1,
+              thickness: 1,
+              color:
+                  Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+            ),
             Expanded(child: _withBanner(role, widget.child)),
           ],
         ),
@@ -224,7 +279,10 @@ class _AppShellState extends ConsumerState<AppShell> {
         children: [
           SizedBox(width: 200, child: sidebarContent),
           VerticalDivider(
-              width: 1, thickness: 1, color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
+            width: 1,
+            thickness: 1,
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+          ),
           Expanded(child: _withBanner(role, widget.child)),
         ],
       ),
@@ -249,13 +307,6 @@ class _SidebarContent extends ConsumerWidget {
   final String userEmail;
   final String? photoUrl;
 
-  List<_NavEntry> get _items => switch (role) {
-        'superuser' => _superuserItems,
-        'owner' => _ownerItems,
-        'staff' => _staffItems,
-        _ => const [],
-      };
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Container(
@@ -264,25 +315,39 @@ class _SidebarContent extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _LogoHeader(),
-          Divider(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, height: 1),
+          Divider(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+            height: 1,
+          ),
           const SizedBox(height: 8),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              children: _items
-                  .map((entry) => switch (entry) {
-                        _NavItem item => _NavTile(
+              children:
+                  _entriesForUser(
+                        role,
+                        ref.watch(currentAppUserProvider).valueOrNull,
+                      )
+                      .map(
+                        (entry) => switch (entry) {
+                          _NavItem item => _NavTile(
                             item: item,
-                            isActive: location == item.route ||
+                            isActive:
+                                location == item.route ||
                                 location.startsWith('${item.route}/'),
                           ),
-                        _NavSection section =>
-                          _NavSectionHeader(label: section.label),
-                      })
-                  .toList(),
+                          _NavSection section => _NavSectionHeader(
+                            label: section.label,
+                          ),
+                        },
+                      )
+                      .toList(),
             ),
           ),
-          Divider(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, height: 1),
+          Divider(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+            height: 1,
+          ),
           _UserFooter(
             name: userName,
             email: userEmail,
@@ -330,11 +395,17 @@ class _RailSidebar extends ConsumerWidget {
                 color: Theme.of(context).colorScheme.primary,
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.fitness_center,
-                  color: Colors.white, size: 18),
+              child: const Icon(
+                Icons.fitness_center,
+                color: Colors.white,
+                size: 18,
+              ),
             ),
           ),
-          Divider(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, height: 1),
+          Divider(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+            height: 1,
+          ),
           const SizedBox(height: 4),
           // Nav items
           Expanded(
@@ -346,7 +417,10 @@ class _RailSidebar extends ConsumerWidget {
               }).toList(),
             ),
           ),
-          Divider(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, height: 1),
+          Divider(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+            height: 1,
+          ),
           // User avatar + signout
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 10),
@@ -355,27 +429,32 @@ class _RailSidebar extends ConsumerWidget {
                 CircleAvatar(
                   radius: 14,
                   backgroundColor: Theme.of(context).colorScheme.primary,
-                  backgroundImage:
-                      photoUrl != null ? NetworkImage(photoUrl!) : null,
+                  backgroundImage: photoUrl != null
+                      ? NetworkImage(photoUrl!)
+                      : null,
                   child: photoUrl == null
                       ? Text(
-                          userName.isNotEmpty
-                              ? userName[0].toUpperCase()
-                              : '?',
+                          userName.isNotEmpty ? userName[0].toUpperCase() : '?',
                           style: const TextStyle(
-                              color: Colors.white, fontSize: 11),
+                            color: Colors.white,
+                            fontSize: 11,
+                          ),
                         )
                       : null,
                 ),
                 IconButton(
-                  icon: Icon(Icons.logout,
-                      size: 16, color: Theme.of(context).colorScheme.onSurfaceVariant),
-                  onPressed: () =>
-                      ref.read(firebaseAuthProvider).signOut(),
+                  icon: Icon(
+                    Icons.logout,
+                    size: 16,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  onPressed: () => ref.read(firebaseAuthProvider).signOut(),
                   tooltip: 'Cerrar sesión',
                   padding: EdgeInsets.zero,
-                  constraints:
-                      const BoxConstraints(minWidth: 32, minHeight: 32),
+                  constraints: const BoxConstraints(
+                    minWidth: 32,
+                    minHeight: 32,
+                  ),
                 ),
               ],
             ),
@@ -414,7 +493,10 @@ class _RailTile extends StatelessWidget {
                     : Colors.transparent,
                 borderRadius: BorderRadius.circular(8),
                 border: isActive
-                    ? Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(70))
+                    ? Border.all(
+                        color: Theme.of(context).colorScheme.primary
+                            .withAlpha(70),
+                      )
                     : null,
               ),
               child: Icon(
@@ -448,8 +530,11 @@ class _LogoHeader extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(Icons.fitness_center,
-                color: Colors.white, size: 18),
+            child: const Icon(
+              Icons.fitness_center,
+              color: Colors.white,
+              size: 18,
+            ),
           ),
           const SizedBox(width: 10),
           Text(
@@ -487,15 +572,17 @@ class _NavTile extends StatelessWidget {
           onTap: () => context.go(item.route),
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 150),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: isActive
                   ? Theme.of(context).colorScheme.primary.withAlpha(30)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(8),
               border: isActive
-                  ? Border.all(color: Theme.of(context).colorScheme.primary.withAlpha(70))
+                  ? Border.all(
+                      color: Theme.of(context).colorScheme.primary
+                          .withAlpha(70),
+                    )
                   : null,
             ),
             child: Row(
@@ -516,8 +603,9 @@ class _NavTile extends StatelessWidget {
                           ? Theme.of(context).colorScheme.primary
                           : Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 13,
-                      fontWeight:
-                          isActive ? FontWeight.w600 : FontWeight.normal,
+                      fontWeight: isActive
+                          ? FontWeight.w600
+                          : FontWeight.normal,
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -578,13 +666,11 @@ class _UserFooter extends StatelessWidget {
           CircleAvatar(
             radius: 16,
             backgroundColor: Theme.of(context).colorScheme.primary,
-            backgroundImage:
-                photoUrl != null ? NetworkImage(photoUrl!) : null,
+            backgroundImage: photoUrl != null ? NetworkImage(photoUrl!) : null,
             child: photoUrl == null
                 ? Text(
                     name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    style: const TextStyle(
-                        color: Colors.white, fontSize: 13),
+                    style: const TextStyle(color: Colors.white, fontSize: 13),
                   )
                 : null,
           ),
@@ -623,8 +709,7 @@ class _UserFooter extends StatelessWidget {
             onPressed: onSignOut,
             tooltip: 'Cerrar sesión',
             padding: EdgeInsets.zero,
-            constraints:
-                const BoxConstraints(minWidth: 32, minHeight: 32),
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
           ),
         ],
       ),

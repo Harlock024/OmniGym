@@ -1,13 +1,14 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../models/app_user.dart';
+import '../models/module_access.dart';
 
 class UserRepository {
   final FirebaseFirestore _db;
 
   const UserRepository(this._db);
 
-  CollectionReference<Map<String, dynamic>> get _col =>
-      _db.collection('users');
+  CollectionReference<Map<String, dynamic>> get _col => _db.collection('users');
 
   Future<void> create(AppUser user) async {
     final json = user.toJson()..remove('id');
@@ -21,9 +22,10 @@ class UserRepository {
   }
 
   Stream<AppUser?> watch(String uid) {
-    return _col.doc(uid).snapshots().map(
-          (snap) => snap.exists ? AppUser.fromFirestore(snap) : null,
-        );
+    return _col
+        .doc(uid)
+        .snapshots()
+        .map((snap) => snap.exists ? AppUser.fromFirestore(snap) : null);
   }
 
   Stream<List<AppUser>> watchByTenant(String tenantId) {
@@ -46,7 +48,13 @@ class UserRepository {
   }
 
   Future<void> updateRole(String uid, UserRole role) async {
-    await _col.doc(uid).update({'role': role.name});
+    await _col.doc(uid).update({
+      'role': role.name,
+      if (role == UserRole.receptionist)
+        'permissions': {
+          for (final module in appModules) module.key: false,
+        },
+    });
   }
 
   Future<void> updateBranchId(String uid, String? branchId) async {
@@ -58,10 +66,7 @@ class UserRepository {
     required String? tenantId,
     required UserRole role,
   }) async {
-    await _col.doc(uid).update({
-      'tenant_id': tenantId,
-      'role': role.name,
-    });
+    await _col.doc(uid).update({'tenant_id': tenantId, 'role': role.name});
   }
 
   Future<void> updatePermissions(
@@ -88,9 +93,7 @@ class UserRepository {
     String uid,
     NotificationPrefs prefs,
   ) async {
-    await _col.doc(uid).update({
-      'notification_prefs': prefs.toJson(),
-    });
+    await _col.doc(uid).update({'notification_prefs': prefs.toJson()});
   }
 
   Future<void> delete(String uid) async {

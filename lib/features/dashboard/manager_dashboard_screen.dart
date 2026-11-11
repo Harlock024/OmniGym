@@ -6,12 +6,15 @@ import 'package:go_router/go_router.dart';
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/providers/providers.dart';
+import '../../core/models/module_access.dart';
 
 class ManagerDashboardScreen extends ConsumerWidget {
   const ManagerDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canScan = ModuleAccess.has(
+      ref.watch(currentAppUserProvider).valueOrNull, 'scanner');
     final tenantIdAsync = ref.watch(activeTenantIdFutureProvider);
     final branchIdAsync = ref.watch(currentBranchIdProvider);
 
@@ -24,7 +27,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
         title: const Text('Mi Sucursal'),
         actions: context.isMobile
             ? [
-                IconButton(
+                if (canScan) IconButton(
                   icon: const Icon(Icons.qr_code_scanner_rounded),
                   tooltip: 'Escáner',
                   onPressed: () => context.push('/scanner'),
@@ -37,8 +40,8 @@ class ManagerDashboardScreen extends ConsumerWidget {
                     if (v == 'profile') context.push('/profile');
                     if (v == 'logout') ref.read(firebaseAuthProvider).signOut();
                   },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
+                  itemBuilder: (_) => [
+                    if (canScan) PopupMenuItem(
                       value: 'kiosk',
                       child: Row(children: [
                         Icon(Icons.tablet_android_rounded, size: 18),
@@ -66,7 +69,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
                 ),
               ]
             : [
-                IconButton(
+                if (canScan) IconButton(
                   icon: const Icon(Icons.qr_code_scanner_rounded),
                   tooltip: 'Escáner',
                   onPressed: () => context.push('/scanner'),
@@ -116,6 +119,8 @@ class _ManagerContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final canScan = ModuleAccess.has(
+      ref.watch(currentAppUserProvider).valueOrNull, 'scanner');
     final branchArgs = (tenantId: tenantId, branchId: branchId);
 
     final branchAsync = ref.watch(
@@ -165,7 +170,7 @@ class _ManagerContent extends ConsumerWidget {
             ),
             // En móvil estas acciones viven en el AppBar (escáner) y en el
             // menú "…" (kiosko); aquí solo se muestran en pantallas anchas.
-            if (!context.isMobile) ...[
+            if (!context.isMobile && canScan) ...[
               FilledButton.icon(
                 icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
                 label: const Text('Escáner'),

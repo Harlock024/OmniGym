@@ -21,7 +21,7 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
   final _emailCtrl = TextEditingController();
   final _csdCargoCtrl = TextEditingController();
 
-  UserRole _role = UserRole.staff;
+  UserRole _role = UserRole.receptionist;
   String? _selectedBranchId;
   List<Branch> _branches = [];
   bool _loading = false;
@@ -42,7 +42,8 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
   }
 
   Future<void> _loadBranches() async {
-    final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull ??
+    final tenantId =
+        ref.read(activeTenantIdFutureProvider).valueOrNull ??
         await ref.read(activeTenantIdFutureProvider.future);
     if (tenantId == null || !mounted) return;
     final snap = await ref
@@ -55,8 +56,11 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
     if (!mounted) return;
     setState(() {
       _branches = snap.docs
-          .map((d) =>
-              Branch.fromFirestore(d as DocumentSnapshot<Map<String, dynamic>>))
+          .map(
+            (d) => Branch.fromFirestore(
+              d as DocumentSnapshot<Map<String, dynamic>>,
+            ),
+          )
           .toList();
     });
   }
@@ -70,15 +74,16 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
     });
 
     try {
-      final tenantId = ref.read(activeTenantIdFutureProvider).valueOrNull ??
+      final tenantId =
+          ref.read(activeTenantIdFutureProvider).valueOrNull ??
           await ref.read(activeTenantIdFutureProvider.future);
       if (tenantId == null) throw Exception('Tenant no encontrado.');
 
-      final branchId = _role == UserRole.staff ? _selectedBranchId : null;
+      final branchId = _selectedBranchId;
       final gymName = ref.read(activeTenantProvider).valueOrNull?.name;
 
       // El worker crea el usuario en Auth, asigna claims, escribe /users/{uid}
-      // y envía el email de invitación (Resend) — todo server-side de forma atómica.
+      // y envía el correo para establecer contraseña desde el backend.
       await WorkerService.createStaff(
         name: _nameCtrl.text.trim(),
         email: _emailCtrl.text.trim(),
@@ -94,7 +99,8 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-                'Operador creado. Recibirá un correo para configurar su contraseña.'),
+              'Operador creado. Recibirá un correo para configurar su contraseña.',
+            ),
           ),
         );
       }
@@ -160,19 +166,25 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
                     prefixIcon: Icon(Icons.badge_outlined),
                     border: OutlineInputBorder(),
                   ),
-                  items: const [
-                    DropdownMenuItem(
-                        value: UserRole.owner, child: Text('Manager (Owner)')),
-                    DropdownMenuItem(
+                  items: [
+                    if (ref.watch(currentAppUserProvider).valueOrNull?.role !=
+                        UserRole.staff)
+                      const DropdownMenuItem(
                         value: UserRole.staff,
-                        child: Text('Recepcionista (Staff)')),
+                        child: Text('Staff (encargado)'),
+                      ),
+                    const DropdownMenuItem(
+                      value: UserRole.receptionist,
+                      child: Text('Recepcionista'),
+                    ),
                   ],
                   onChanged: (v) => setState(() {
                     _role = v!;
                     _selectedBranchId = null;
                   }),
                 ),
-                if (_role == UserRole.staff) ...[
+                if (_role == UserRole.staff ||
+                    _role == UserRole.receptionist) ...[
                   const SizedBox(height: 16),
                   DropdownButtonFormField<String>(
                     initialValue: _selectedBranchId,
@@ -183,16 +195,26 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
                       border: OutlineInputBorder(),
                     ),
                     items: _branches
-                        .map((b) =>
-                            DropdownMenuItem(value: b.id, child: Text(b.name)))
+                        .map(
+                          (b) => DropdownMenuItem(
+                            value: b.id,
+                            child: Text(b.name),
+                          ),
+                        )
                         .toList(),
                     onChanged: (v) => setState(() => _selectedBranchId = v),
-                    validator: (v) =>
-                        (_role == UserRole.staff && (v == null || v.isEmpty))
-                            ? 'Selecciona una sucursal'
-                            : null,
+                    validator: (v) => (v == null || v.isEmpty)
+                        ? 'Selecciona una sucursal'
+                        : null,
                   ),
                 ],
+                if (_role == UserRole.receptionist)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 12),
+                    child: Text(
+                      'Comenzará sin módulos habilitados. Asigna sus accesos desde Equipo → Permisos.',
+                    ),
+                  ),
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _csdCargoCtrl,
@@ -208,8 +230,9 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
                   Text(
                     _error!,
                     style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                        fontSize: 13),
+                      color: Theme.of(context).colorScheme.error,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
                 const SizedBox(height: 24),
@@ -217,8 +240,7 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      onPressed:
-                          _loading ? null : () => Navigator.pop(context),
+                      onPressed: _loading ? null : () => Navigator.pop(context),
                       child: const Text('Cancelar'),
                     ),
                     const SizedBox(width: 8),
@@ -228,8 +250,7 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
                           ? const SizedBox(
                               height: 20,
                               width: 20,
-                              child:
-                                  CircularProgressIndicator(strokeWidth: 2),
+                              child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : const Text('Invitar Staff'),
                     ),

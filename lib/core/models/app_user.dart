@@ -5,7 +5,7 @@ import 'converters.dart';
 part 'app_user.freezed.dart';
 part 'app_user.g.dart';
 
-enum UserRole { superuser, owner, staff }
+enum UserRole { superuser, owner, staff, receptionist }
 
 enum UserStatus { active, suspended }
 

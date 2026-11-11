@@ -7,7 +7,7 @@ import { logger } from "firebase-functions/v2";
 
 initializeApp();
 
-type UserRole = "superuser" | "owner" | "staff";
+type UserRole = "superuser" | "owner" | "staff" | "receptionist";
 type UserStatus = "active" | "suspended";
 
 interface UserDoc {
@@ -20,7 +20,7 @@ interface UserDoc {
 interface CreateStaffRequest {
   name: string;
   email: string;
-  role: "owner" | "staff";
+  role: "staff" | "receptionist";
   tenantId: string;
   branchId?: string | null;
 }
@@ -69,28 +69,25 @@ export const createStaffUser = onCall<CreateStaffRequest>(
     const caller = request.auth;
     if (!caller) throw new HttpsError("unauthenticated", "Login required.");
 
-    const callerRole = caller.token["role"] as string | undefined;
-    const callerTenantId = caller.token["tenant_id"] as string | undefined;
-
-    // Solo owner del mismo tenant o superuser pueden crear operadores
-    if (
-      callerRole !== "superuser" &&
-      !(callerRole === "owner" && callerTenantId === request.data.tenantId)
-    ) {
+    const db = getFirestore();
+    const callerProfile = (await db.collection("users").doc(caller.uid).get()).data();
+    const { name, email, role, tenantId, branchId = null } = request.data;
+    if (!["staff", "receptionist"].includes(role)) {
+      throw new HttpsError("invalid-argument", "Only Staff or Receptionist can be invited.");
+    }
+    const managesTenant = callerProfile?.tenant_id === tenantId &&
+      (callerProfile?.role === "owner" || (callerProfile?.role === "staff" && role === "receptionist"));
+    if (callerProfile?.status !== "active" || !(callerProfile.role === "superuser" || managesTenant)) {
       throw new HttpsError("permission-denied", "Insufficient permissions.");
     }
-
-    const { name, email, role, tenantId, branchId = null } = request.data;
-
-    if (role === "staff" && !branchId) {
-      throw new HttpsError(
-        "invalid-argument",
-        "branchId is required for staff role."
-      );
+    if (!branchId || !(await db.collection("tenants").doc(tenantId).collection("branches").doc(branchId).get()).exists) {
+      throw new HttpsError("invalid-argument", "Select a branch belonging to this gym.");
     }
-
     const auth = getAuth();
-    const db = getFirestore();
+    const permissions = Object.fromEntries(
+      ["dashboard", "branches", "members", "scanner", "memberships", "billing", "reports"]
+        .map(module => [module, role === "staff" && ["dashboard", "scanner"].includes(module)])
+    );
 
     // Crear usuario en Firebase Auth — el email link para establecer contraseña
     // lo envía Firebase Auth automáticamente con sendEmailVerification si se
@@ -102,6 +99,7 @@ export const createStaffUser = onCall<CreateStaffRequest>(
       name,
       email,
       role,
+      permissions,
       tenant_id: tenantId,
       branch_id: branchId,
       status: "active",

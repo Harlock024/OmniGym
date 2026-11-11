@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/providers/providers.dart';
+import '../core/models/module_access.dart';
+import '../features/staff/no_modules_screen.dart';
 import '../features/auth/forgot_password_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
@@ -29,6 +31,7 @@ import 'app_shell.dart';
 class _AuthNotifier extends ChangeNotifier {
   _AuthNotifier(this._ref) {
     _ref.listen(authStateProvider, (prev, next) => notifyListeners());
+    _ref.listen(currentAppUserProvider, (prev, next) => notifyListeners());
   }
   final Ref _ref;
 }
@@ -41,67 +44,64 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     refreshListenable: notifier,
     redirect: (context, state) async {
-      final user = ref.read(authStateProvider).valueOrNull;
+      final auth = ref.read(authStateProvider);
+      final user =
+          auth.valueOrNull ??
+          (auth.isLoading ? await ref.read(authStateProvider.future) : null);
       const publicRoutes = {'/login', '/register', '/forgot-password'};
-      if (user == null) {
-        return publicRoutes.contains(state.matchedLocation) ? null : '/login';
-      }
-
-      if (publicRoutes.contains(state.matchedLocation)) {
-        try {
-          final result = await user.getIdTokenResult();
-          final role = result.claims?['role'] as String?;
-
-          if (role != null) return _homeForRole(role);
-
-          // Fallback: leer role de Firestore si no hay claims aún
-          final doc = await ref
-              .read(firestoreProvider)
-              .collection('users')
-              .doc(user.uid)
-              .get();
-          final fsRole = doc.data()?['role'] as String?;
-          if (fsRole != null) return _homeForRole(fsRole);
-
-          // Fallback: verificar si es socio (member) via collectionGroup
-          final memberSnap = await ref
-              .read(firestoreProvider)
-              .collectionGroup('members')
-              .where('uid', isEqualTo: user.uid)
-              .limit(1)
-              .get();
-          if (memberSnap.docs.isNotEmpty) return _homeForRole('member');
-        } catch (_) {
-          // Si falla el token o Firestore, intentar con token cacheado
-          try {
-            final doc = await ref
-                .read(firestoreProvider)
-                .collection('users')
-                .doc(user.uid)
-                .get();
-            final fsRole = doc.data()?['role'] as String?;
-            if (fsRole != null) return _homeForRole(fsRole);
-
-            final memberSnap = await ref
-                .read(firestoreProvider)
-                .collectionGroup('members')
-                .where('uid', isEqualTo: user.uid)
-                .limit(1)
-                .get();
-            if (memberSnap.docs.isNotEmpty) return _homeForRole('member');
-          } catch (_) {}
+      final path = state.uri.path;
+      if (user == null) return publicRoutes.contains(path) ? null : '/login';
+      final profile =
+          ref.read(currentAppUserProvider).valueOrNull ??
+          await ref.read(currentAppUserProvider.future);
+      if (profile != null) {
+        final home = ModuleAccess.home(profile);
+        if (publicRoutes.contains(path)) return home;
+        if (path == '/access-suspended') return home == path ? null : home;
+        if (home == '/access-suspended') return home;
+        if (path == '/no-access') return home == path ? null : home;
+        if (path.startsWith('/superadmin') && profile.role.name != 'superuser') {
+          return home;
         }
-        return '/dashboard/owner';
+        if ((path.startsWith('/settings') || path == '/subscription') &&
+            !const {'owner', 'superuser'}.contains(profile.role.name)) {
+          return home;
+        }
+        if (path == '/staff' &&
+            !const {'owner', 'staff', 'superuser'}.contains(profile.role.name)) {
+          return home;
+        }
+        if (path == '/portal') return home;
+        if (path == '/dashboard/owner' &&
+            !const {'owner', 'superuser'}.contains(profile.role.name)) {
+          return home;
+        }
+        final module = ModuleAccess.moduleForRoute(path);
+        if (module != null && !ModuleAccess.has(profile, module)) return home;
+        return null;
       }
-
-      return null;
+      final token = await user.getIdTokenResult();
+      final isMember =
+          token.claims?['role'] == 'member' ||
+          (await ref
+                  .read(firestoreProvider)
+                  .collectionGroup('members')
+                  .where('uid', isEqualTo: user.uid)
+                  .limit(1)
+                  .get())
+              .docs
+              .isNotEmpty;
+      final home = isMember ? '/portal' : '/no-access';
+      return path == home ? null : home;
     },
     routes: [
-      // ── Auth (sin sidebar) ──────────────────────────────────────────────────
+      GoRoute(path: '/no-access', builder: (_, _) => const NoModulesScreen()),
       GoRoute(
-        path: '/login',
-        builder: (context, _) => const LoginScreen(),
+        path: '/access-suspended',
+        builder: (_, _) => const NoModulesScreen(suspended: true),
       ),
+      // ── Auth (sin sidebar) ──────────────────────────────────────────────────
+      GoRoute(path: '/login', builder: (context, _) => const LoginScreen()),
       GoRoute(
         path: '/register',
         builder: (context, _) => const RegisterScreen(),
@@ -112,33 +112,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // ── Kiosko (fullscreen, sin sidebar) ───────────────────────────────────
-      GoRoute(
-        path: '/kiosk',
-        builder: (context, _) => const KioskScreen(),
-        redirect: (context, state) async {
-          final user = ref.read(authStateProvider).valueOrNull;
-          if (user == null) return '/login';
-          return null;
-        },
-      ),
+      GoRoute(path: '/kiosk', builder: (context, _) => const KioskScreen()),
 
       // ── Portal del socio (fullscreen, sin sidebar) ───────────────────────
       GoRoute(
         path: '/portal',
         builder: (context, _) => const MemberPortalScreen(),
-        redirect: (context, state) async {
-          final user = ref.read(authStateProvider).valueOrNull;
-          if (user == null) return '/login';
-          return null;
-        },
       ),
 
       // ── App autenticada (con sidebar) ───────────────────────────────────────
       ShellRoute(
-        builder: (context, state, child) => AppShell(
-          location: state.uri.path,
-          child: child,
-        ),
+        builder: (context, state, child) =>
+            AppShell(location: state.uri.path, child: child),
         routes: [
           GoRoute(
             path: '/dashboard/owner',
@@ -156,13 +141,6 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/settings',
             builder: (context, _) =>
                 const TenantDetailScreen(isOwnerMode: true),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'owner' && role != 'superuser') {
-                return '/dashboard/owner';
-              }
-              return null;
-            },
           ),
           GoRoute(
             path: '/settings/branding',
@@ -175,96 +153,37 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/subscription',
             builder: (context, _) => const SubscriptionScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'owner' && role != 'superuser') {
-                return '/dashboard/owner';
-              }
-              return null;
-            },
           ),
           GoRoute(
             path: '/memberships',
             builder: (context, _) => const MembershipsScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'owner' && role != 'superuser') {
-                return '/dashboard/owner';
-              }
-              return null;
-            },
           ),
           GoRoute(
             path: '/facturacion',
             builder: (context, _) => const FacturacionScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'owner' && role != 'superuser') {
-                return '/dashboard/owner';
-              }
-              return null;
-            },
           ),
           GoRoute(
             path: '/reports',
             builder: (context, _) => const ReportsScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'owner' && role != 'superuser') {
-                return '/dashboard/owner';
-              }
-              return null;
-            },
           ),
-          GoRoute(
-            path: '/staff',
-            builder: (context, _) => const StaffScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'owner' && role != 'superuser') {
-                return '/dashboard/owner';
-              }
-              return null;
-            },
-          ),
+          GoRoute(path: '/staff', builder: (context, _) => const StaffScreen()),
           // ── SuperAdmin ─────────────────────────────────────────────────────
           GoRoute(
             path: '/superadmin',
             builder: (context, _) => const TenantsScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'superuser') return '/dashboard/owner';
-              return null;
-            },
           ),
           GoRoute(
             path: '/superadmin/tenant/:tenantId',
-            builder: (context, state) => TenantDetailScreen(
-              tenantId: state.pathParameters['tenantId']!,
-            ),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'superuser') return '/dashboard/owner';
-              return null;
-            },
+            builder: (context, state) =>
+                TenantDetailScreen(tenantId: state.pathParameters['tenantId']!),
           ),
           GoRoute(
             path: '/superadmin/users',
             builder: (context, _) => const UsersAdminScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'superuser') return '/dashboard/owner';
-              return null;
-            },
           ),
           GoRoute(
             path: '/superadmin/packages',
             builder: (context, _) => const SubscriptionPackagesScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'superuser') return '/dashboard/owner';
-              return null;
-            },
           ),
           GoRoute(
             path: '/branches',
@@ -277,30 +196,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/scanner',
             builder: (context, _) => const ScannerScreen(),
-            redirect: (context, state) async {
-              final role = await ref.read(currentUserRoleProvider.future);
-              if (role != 'staff' && role != 'owner') {
-                return '/dashboard/owner';
-              }
-              return null;
-            },
           ),
         ],
       ),
     ],
-    errorBuilder: (_, state) => Scaffold(
-      body: Center(child: Text('Ruta no encontrada: ${state.uri}')),
-    ),
+    errorBuilder: (_, state) =>
+        Scaffold(body: Center(child: Text('Ruta no encontrada: ${state.uri}'))),
   );
 });
-
-String _homeForRole(String? role) {
-  return switch (role) {
-    'superuser' => '/superadmin',
-    'owner' => '/dashboard/owner',
-    'staff' => '/dashboard/manager',
-    'member' => '/portal',
-    _ => '/login',
-  };
-}
-

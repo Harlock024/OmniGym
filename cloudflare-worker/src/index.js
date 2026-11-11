@@ -1,4 +1,6 @@
 import { timbrarFactura, validarFacturacion } from './cfdi/facturacion.js';
+import { authenticate, authorize, AccessError } from './authorization.js';
+import { initialPermissions } from './module_access.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -15,9 +17,6 @@ function jsonRes(data, status = 200) {
   });
 }
 
-function checkAuth(request, env) {
-  return (request.headers.get('Authorization') ?? '') === `Bearer ${env.UPLOAD_SECRET}`;
-}
 
 // ── Google / Firebase Admin auth ──────────────────────────────────────────────
 
@@ -820,23 +819,15 @@ async function runAutoFacturacion(projectId, token, env) {
 }
 
 // ── Manejador de factura (PDF/XML) ──────────────────────────────────────────
-// Acepta ?token= como alternativa al Bearer para descargas desde navegador.
+// Authorized by Firebase identity and module before dispatch.
 async function handleInvoiceRequest(request, env) {
   const url = new URL(request.url);
   const uuid = url.searchParams.get('uuid');
   const tenantId = url.searchParams.get('tenantId');
   const format = url.searchParams.get('format') || 'json';
-  const qToken = url.searchParams.get('token') || '';
 
   if (!uuid || !tenantId) {
     return jsonRes({ error: 'Faltan uuid y tenantId' }, 400);
-  }
-
-  // Auth: Bearer header o ?token=
-  const hasBearer = checkAuth(request, env);
-  const hasToken = qToken && qToken === env.UPLOAD_SECRET;
-  if (!hasBearer && !hasToken) {
-    return jsonRes({ error: 'Unauthorized' }, 401);
   }
 
   const token = await getAdminToken(env);
@@ -1121,14 +1112,19 @@ export default {
       return handleStripeWebhook(request, env);
     }
 
-    // ── GET /facturacion/invoice (PDF/XML) ─────────────────────────────────────
-    // ANTES de checkAuth: acepta ?token= como alternativa al Bearer (navegador)
+    let adminToken;
+    const loadDocument = async (path) => {
+      adminToken ??= await getAdminToken(env);
+      return fsGet(JSON.parse(env.SA_JSON).project_id, path, adminToken);
+    };
+    try {
+      const actor = await authenticate(request, env, loadDocument);
+      await authorize(request, actor, loadDocument);
+    } catch (error) {
+      return jsonRes({ error: error instanceof AccessError ? error.message : 'No se pudo verificar el acceso.' }, error instanceof AccessError ? error.status : 503);
+    }
     if (request.method === 'GET' && pathname === '/facturacion/invoice') {
       return handleInvoiceRequest(request, env);
-    }
-
-    if (!checkAuth(request, env)) {
-      return jsonRes({ error: 'Unauthorized' }, 401);
     }
 
     // ── POST /upload ──────────────────────────────────────────────────────────
@@ -1406,6 +1402,7 @@ export default {
         name,
         email,
         role,
+        permissions: initialPermissions(role),
         status: 'active',
         tenant_id,
         branch_id: branch_id || null,
@@ -1418,7 +1415,7 @@ export default {
       let emailSent = false;
       if (env.RESEND_API_KEY) {
         const link = await generatePasswordResetLink(email, token);
-        const roleLabel = role === 'owner' ? 'administrador' : 'recepcionista';
+        const roleLabel = role === 'staff' ? 'encargado' : 'recepcionista';
         emailSent = await sendStaffInviteEmail(
             email, name, gymName ?? 'OmniGym', roleLabel, link, env);
       }

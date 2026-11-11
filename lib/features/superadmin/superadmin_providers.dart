@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
 import '../../core/models/app_user.dart';
+import '../../core/models/module_access.dart';
 import '../../core/models/tenant.dart';
 import '../../core/models/tenant_invoice.dart';
 import '../../core/providers/providers.dart';
@@ -8,15 +10,15 @@ import '../../core/providers/providers.dart';
 
 final tenantInvoicesProvider =
     StreamProvider.family<List<TenantInvoice>, String>((ref, tenantId) {
-  return ref
-      .watch(firestoreProvider)
-      .collection('tenant_invoices')
-      .where('tenant_id', isEqualTo: tenantId)
-      .orderBy('created_at', descending: true)
-      .limit(50)
-      .snapshots()
-      .map((s) => s.docs.map(TenantInvoice.fromFirestore).toList());
-});
+      return ref
+          .watch(firestoreProvider)
+          .collection('tenant_invoices')
+          .where('tenant_id', isEqualTo: tenantId)
+          .orderBy('created_at', descending: true)
+          .limit(50)
+          .snapshots()
+          .map((s) => s.docs.map(TenantInvoice.fromFirestore).toList());
+    });
 
 // ── Lista de todos los tenants (solo superuser) ──────────────────────────────
 
@@ -75,14 +77,4 @@ final tenantMapProvider = Provider<Map<String, Tenant>>((ref) {
 
 // ── Módulos OmniGym disponibles para permisos ────────────────────────────────
 
-const kOmniGymModules = [
-  (key: 'dashboard', label: 'Dashboard'),
-  (key: 'branches', label: 'Sucursales'),
-  (key: 'members', label: 'Socios'),
-  (key: 'scanner', label: 'Scanner QR'),
-  (key: 'payments', label: 'Pagos'),
-  (key: 'memberships', label: 'Membresías'),
-  (key: 'staff', label: 'Staff'),
-  (key: 'settings', label: 'Configuración'),
-  (key: 'billing', label: 'Facturación SAT'),
-];
+const kOmniGymModules = appModules;

@@ -8,6 +8,7 @@ import '../../core/models/member.dart';
 import '../../core/models/membership_plan.dart';
 import '../../core/models/payment.dart';
 import '../../core/providers/providers.dart';
+import '../../core/models/module_access.dart';
 import 'facturar_dialog.dart';
 
 class MembershipsScreen extends ConsumerStatefulWidget {
@@ -554,7 +555,9 @@ class _PaymentRow extends ConsumerWidget {
                               color: OmniGymColors.textSecondary)),
                     ],
                   )
-                : TextButton.icon(
+                : !ModuleAccess.has(ref.watch(currentAppUserProvider).valueOrNull, 'billing')
+                    ? const SizedBox.shrink()
+                    : TextButton.icon(
                     onPressed: () => _facturar(context, ref),
                     icon: const Icon(Icons.receipt, size: 14),
                     label: const Text('Facturar', style: TextStyle(fontSize: 11)),
@@ -571,6 +574,7 @@ class _PaymentRow extends ConsumerWidget {
   }
 
   void _facturar(BuildContext context, WidgetRef ref) {
+    if (!ModuleAccess.has(ref.read(currentAppUserProvider).valueOrNull, 'billing')) return;
     final members = ref.read(membersProvider(tenantId)).valueOrNull ?? [];
     final plans = ref.read(allPlansProvider(tenantId)).valueOrNull ?? [];
     final member = members.where((m) => m.id == payment.memberId).firstOrNull;
@@ -583,6 +587,7 @@ class _PaymentRow extends ConsumerWidget {
       return;
     }
 
+    if (!ModuleAccess.has(ref.read(currentAppUserProvider).valueOrNull, 'billing')) return;
     showDialog(
       context: context,
       builder: (ctx) => FacturarDialog(
@@ -924,6 +929,7 @@ class _RegisterPaymentDialogState
 
   void _mostrarDialogoFacturar(BuildContext context, WidgetRef ref,
       String tenantId, String paymentId, Member member, MembershipPlan plan, double amount) {
+    if (!ModuleAccess.has(ref.read(currentAppUserProvider).valueOrNull, 'billing')) return;
     showDialog(
       context: context,
       builder: (ctx) => FacturarDialog(
