@@ -168,7 +168,7 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
                 const Padding(
                   padding: EdgeInsets.only(top: 12),
                   child: Text(
-                    'Se generará un usuario laboral único. La cuenta se activará cuando el empleado acepte y establezca su contraseña.',
+                    'Se generará un correo de acceso con el formato gimnasio + nombre @omnigym.xyz. El empleado recibirá en su correo de contacto un enlace para aceptar o rechazar.',
                   ),
                 ),
                 const SizedBox(height: 16),

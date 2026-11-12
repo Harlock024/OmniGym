@@ -16,7 +16,12 @@ class AuthPage extends StatelessWidget {
     data: ThemeService.buildTheme(tenant: null, brightness: Brightness.dark),
     child: Builder(
       builder: (context) => Scaffold(
-        body: AuthBackground(child: AuthCard(child: builder(context))),
+        body: AuthBackground(
+          child: AuthCard(
+            padding: const EdgeInsets.all(24),
+            child: builder(context),
+          ),
+        ),
       ),
     ),
   );
@@ -50,8 +55,13 @@ class AuthBackground extends StatelessWidget {
 }
 
 class AuthCard extends StatelessWidget {
-  const AuthCard({super.key, required this.child});
+  const AuthCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(36),
+  });
   final Widget child;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +78,7 @@ class AuthCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(36),
+      padding: padding,
       child: child,
     );
   }

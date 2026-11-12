@@ -105,21 +105,30 @@ el Worker nuevo requiere identidad Firebase y rechaza el antiguo secreto incluid
 en la app. Antes de publicar, verificar `FIREBASE_API_KEY` del mismo proyecto.
 ### Cuentas laborales del equipo
 
-Al invitar desde **Equipo**, se genera un usuario laboral unico, por ejemplo
-`gymcentro.ana.a12b34c56d78`. El correo capturado es de **contacto**: recibe
+Al invitar desde **Equipo**, se genera un correo laboral con el formato
+`<nombreGimnasio><nombreCompletoEmpleado>@omnigym.xyz`, por ejemplo
+`gymcentrovictorhadith@omnigym.xyz`. Se normalizan espacios, acentos y mayusculas;
+si la direccion ya existe, se agrega un numero (`...2@omnigym.xyz`). El correo
+capturado en el formulario es de **contacto**: recibe
 invitacion, recuperacion de acceso y las comunicaciones que correspondan.
 Las cuentas existentes conservan su acceso por correo; no se migran ni se
 sobrescriben cuentas personales que usen el mismo contacto.
 
 - La nueva identidad queda `pending` y no puede consultar datos del gimnasio.
-- El enlace muestra gimnasio, sucursal, rol y usuario. Permite aceptar o rechazar.
-  Al aceptar, el empleado define su propia contrasena y autentica esa identidad;
+- El enlace abre una pantalla publica con gimnasio, sucursal, rol y correo laboral,
+  con botones **Aceptar invitacion** y **Rechazar invitacion**. La contrasena se
+  configura en un segundo paso; solo al completarlo se confirma la aceptacion.
+  El empleado define su propia contrasena y autentica esa identidad;
   el servidor comprueba destinatario, sucursal y autoridad actual del invitante.
 - El token se almacena como SHA-256 y la transicion se confirma atomicamente.
   Reintentar una aceptacion ya completada no vuelve a aplicar permisos.
 - La invitacion vence en 7 dias. El codigo de contrasena de Firebase puede
   vencer antes; **Reenviar invitacion** renueva ambos enlaces e invalida el token
   anterior. **Cancelar invitacion** impide activarla.
+- Reenviar una invitacion pendiente del formato anterior actualiza su correo
+  laboral a `@omnigym.xyz`, conservando UID, historial y contacto. Las cuentas ya
+  aceptadas conservan sus credenciales. Un reintento recupera una actualizacion
+  interrumpida entre Auth y Firestore sin generar otra cuenta.
 - Un fallo de correo deja la cuenta pendiente y visible para reenviar; no se
   informa que el mensaje fue enviado ni se crea otra identidad al reintentar.
   Solo existe una cuenta laboral por correo de contacto y gimnasio.
@@ -130,19 +139,23 @@ sobrescriben cuentas personales que usen el mismo contacto.
   Una cuenta aceptada puede reactivarse desde Equipo; una invitacion pendiente
   solo se activa mediante aceptacion, incluso para Superuser.
 
-Firebase usa internamente `usuario@staff.omnigym.invalid` como identidad de
-autenticacion. No es un buzon ni requiere Google Workspace; nunca se utiliza
-como destinatario. El dominio reservado debe coincidir en
+El correo laboral `@omnigym.xyz` identifica el acceso a OmniGym; no crea un
+buzon de correo. Los mensajes se entregan al contacto verificado. Las identidades
+antiguas `usuario@staff.omnigym.invalid` siguen siendo compatibles mientras no
+se actualice una invitacion pendiente. Los dominios deben coincidir en
 `cloudflare-worker/src/staff_accounts.js` y `lib/core/services/login_identity.dart`.
 El callable antiguo `createStaffUser` delega al mismo flujo del Worker.
 El cliente nuevo utiliza `/staff-accounts` y `/staff-accounts/deactivate`;
 un Worker antiguo no ejecutara por accidente la creacion o eliminacion anterior.
 
-Para publicar este flujo, coordinar Flutter, Worker, reglas y Functions. El
+Para publicar este flujo web, coordinar Flutter, Worker y reglas. El
 Worker requiere `SA_JSON`, `FIREBASE_API_KEY`, `RESEND_API_KEY` y un remitente
 `EMAIL_FROM` autorizado en Resend. Configurar `APP_BASE_URL` con la URL HTTPS
 de la app (incluye el subdirectorio si aplica); los correos apuntan a rutas `/#/`.
 La configuracion versionada usa `https://omnigym-567a8.web.app/`.
+El formulario web llama directamente al Worker. Las Functions de sincronizacion
+de claims y el callable legado se publican aparte; el flujo web de invitacion no
+invoca callables ni depende de que ese despliegue este habilitado.
 La generacion de enlaces y su confirmacion siguen los mecanismos de
 [Firebase Auth](https://firebase.google.com/docs/auth/admin/email-action-links) y su
 [manejador de acciones](https://firebase.google.com/docs/auth/custom-email-handler).

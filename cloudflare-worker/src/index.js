@@ -1120,6 +1120,12 @@ export default {
             create: (email, name) => createMemberAuth(projectId, email, name, `${crypto.randomUUID()}${crypto.randomUUID()}`, adminToken),
             remove: uid => deleteAuthUser(uid, adminToken),
             resetLink: email => generatePasswordResetLink(email, adminToken),
+            rename: (uid, email) => fbAuthPost('update', { localId: uid, email, emailVerified: false, targetProjectId: projectId }, adminToken),
+            async emailForUid(uid) {
+              const data = await fbAuthPost('lookup', { localId: [uid], targetProjectId: projectId }, adminToken);
+              return data.users?.[0]?.email ?? null;
+            },
+            requestReset: email => sendPasswordReset(email, env),
             async lookup(email) {
               const data = await fbAuthPost('lookup', { email: [email] }, adminToken);
               return data.users?.[0]?.localId ?? null;

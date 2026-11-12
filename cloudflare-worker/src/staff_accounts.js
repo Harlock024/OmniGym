@@ -1,15 +1,20 @@
 import { AccessError } from './authorization.js';
 import { initialPermissions, canManageUser } from './module_access.js';
 
-// Identity only: these addresses never receive mail. Keep in sync with login_identity.dart.
+// Work logins have no mailbox; delivery always uses the contact address.
+// Keep the legacy domain for accounts created before the work-email format.
 export const STAFF_AUTH_DOMAIN = 'staff.omnigym.invalid';
+export const WORK_EMAIL_DOMAIN = 'omnigym.xyz';
 const INVITATION_LIFETIME = 7 * 24 * 60 * 60 * 1000;
 const fail = (message, status = 400) => { throw new AccessError(message, status); };
-const slug = value => String(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-  .toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 20) || 'gym';
+const slug = (value, fallback) => String(value ?? '').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+  .toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 30) || fallback;
 const escapeHtml = value => String(value).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const randomSecret = () => Array.from(crypto.getRandomValues(new Uint8Array(32)), b => b.toString(16).padStart(2, '0')).join('');
-export const staffEmail = username => `${username}@${STAFF_AUTH_DOMAIN}`;
+export const staffEmail = username => username.includes('@') ? username : `${username}@${STAFF_AUTH_DOMAIN}`;
+const isWorkEmail = value => /^[a-z0-9][a-z0-9._-]{0,63}@omnigym\.xyz$/.test(value);
+const isLegacyEmail = value => /^[a-z0-9][a-z0-9._-]{2,79}@staff\.omnigym\.invalid$/.test(value);
+const emailExists = error => /EMAIL_EXISTS|email-already-exists/.test(error.message ?? '');
 export async function digest(value) {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value))), b => b.toString(16).padStart(2, '0')).join('');
 }
@@ -17,6 +22,26 @@ export async function digest(value) {
 // store.read -> { data, version }; commit atomically checks versions (null = absent).
 // No invitation secret or password is persisted or returned to the inviter.
 export function staffAccounts({ store, auth, sendEmail, appUrl, now = () => Date.now() }) {
+  async function assignWorkEmail(gymName, name, uid) {
+    // Preserve UID and history when upgrading an unaccepted legacy invitation.
+    if (uid) {
+      const current = await auth.emailForUid(uid);
+      if (isWorkEmail(current ?? '')) return { uid, username: current };
+    }
+    const base = `${slug(gymName, 'gimnasio')}${slug(name, 'empleado')}`;
+    for (let attempt = 1; attempt <= 20; attempt++) {
+      const username = `${base}${attempt === 1 ? '' : attempt}@${WORK_EMAIL_DOMAIN}`;
+      try {
+        let accountUid = uid;
+        if (uid) await auth.rename(uid, username);
+        else accountUid = await auth.create(username, name);
+        return { uid: accountUid, username };
+      } catch (error) {
+        if (!emailExists(error)) throw error;
+      }
+    }
+    fail('No se pudo asignar un correo laboral disponible. Usa un nombre más específico.', 409);
+  }
   function actionUrl(path, params) {
     const url = new URL(appUrl);
     if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname)) fail('APP_BASE_URL requiere HTTPS.', 503);
@@ -30,9 +55,10 @@ export function staffAccounts({ store, auth, sendEmail, appUrl, now = () => Date
     const link = actionUrl('/staff-invitation', { id: profile.id, token: secret, oobCode: code });
     return sendEmail(profile.email, `Invitación a ${gym.name} — OmniGym`,
       `<h2>Hola, ${escapeHtml(profile.name)}</h2><p>Te invitaron a trabajar en <strong>${escapeHtml(gym.name)}</strong>.</p>
-       <p>Tu usuario laboral es <strong>${escapeHtml(profile.username)}</strong>.</p>
+       <p>Tu correo de acceso laboral es <strong>${escapeHtml(profile.username)}</strong>.</p>
        <p><a href="${escapeHtml(link)}">Revisar invitación</a></p>
-       <p>Puedes aceptar y establecer tu contraseña, o rechazar. La invitación vence en 7 días; el enlace de contraseña puede vencer antes. Si ocurre, solicita un reenvío al gimnasio.</p>`);
+       <p>Abre la invitación para ver el gimnasio, la sucursal y tu rol. Podrás aceptar o rechazar; si aceptas, configurarás tu contraseña.</p>
+       <p>La invitación vence en 7 días; el enlace de contraseña puede vencer antes. Si ocurre, solicita un reenvío al gimnasio. Las comunicaciones y la recuperación llegarán a este correo de contacto.</p>`);
   }
   async function invitation(id, secret, allowAccepted = false) {
     if (!/^[a-zA-Z0-9_-]{1,128}$/.test(id ?? '') || !/^[a-f0-9]{64}$/.test(secret ?? '')) fail('La invitación no es válida.', 404);
@@ -61,8 +87,7 @@ export function staffAccounts({ store, auth, sendEmail, appUrl, now = () => Date
       const { gym } = await validateAssignment({ ...target, branch_id: body.branch_id });
       const accountKey = `staff_account_keys/${await digest(`${body.tenant_id}\0${email}`)}`;
       if (await store.read(accountKey)) fail('Ya existe una cuenta laboral para ese contacto en este gimnasio. Adminístrala desde Equipo.', 409);
-      const username = `${slug(gym.name)}.${slug(name.split(/\s+/)[0])}.${randomSecret().slice(0, 12)}`;
-      const uid = await auth.create(staffEmail(username), name);
+      const { uid, username } = await assignWorkEmail(gym.name, name);
       const secret = randomSecret();
       const createdAt = new Date(now()).toISOString();
       const profile = {
@@ -129,15 +154,26 @@ export function staffAccounts({ store, auth, sendEmail, appUrl, now = () => Date
       const invite = await store.read(`staff_invitations/${uid}`);
       if (invite && now() - Date.parse(invite.data.created_at) < 60_000) fail('Espera un minuto antes de reenviar.', 429);
       const { gym } = await validateAssignment(profile.data);
+      const identity = isWorkEmail(profile.data.username ?? '')
+        ? { username: profile.data.username }
+        : await assignWorkEmail(gym.name, profile.data.name, uid);
       const secret = randomSecret();
-      await store.commit([
-        { path: `staff_invitations/${uid}`, data: { token_hash: await digest(secret), status: 'pending', created_by: actor.uid,
-          expires_at: new Date(now() + INVITATION_LIFETIME).toISOString(), created_at: new Date(now()).toISOString() }, version: invite?.version ?? null },
-        { path: `users/${uid}`, data: { ...profile.data, invitation_status: 'pending' }, version: profile.version },
-      ]);
+      const tokenHash = await digest(secret);
+      try {
+        await store.commit([
+          { path: `staff_invitations/${uid}`, data: { token_hash: tokenHash, status: 'pending', created_by: actor.uid,
+            expires_at: new Date(now() + INVITATION_LIFETIME).toISOString(), created_at: new Date(now()).toISOString() }, version: invite?.version ?? null },
+          { path: `users/${uid}`, data: { ...profile.data, username: identity.username, invitation_status: 'pending' }, version: profile.version },
+        ]);
+      } catch (error) {
+        // Retry a committed write whose response was lost, without rotating Auth
+        // back to an address another concurrent request may already be using.
+        const saved = await store.read(`staff_invitations/${uid}`);
+        if (saved?.data.token_hash !== tokenHash) throw error;
+      }
       let emailSent = false;
-      try { emailSent = await sendInvitation({ ...profile.data, id: uid }, gym, secret); } catch { /* Resend remains available. */ }
-      return { username: profile.data.username, email_sent: emailSent };
+      try { emailSent = await sendInvitation({ ...profile.data, username: identity.username, id: uid }, gym, secret); } catch { /* Resend remains available. */ }
+      return { username: identity.username, email_sent: emailSent };
     },
     async deactivate(actor, uid) {
       if (!/^[a-zA-Z0-9_-]{1,128}$/.test(uid ?? '')) fail('Cuenta inválida.');
@@ -154,7 +190,9 @@ export function staffAccounts({ store, auth, sendEmail, appUrl, now = () => Date
     async recover(username, ip) {
       // Generic replies and persisted cooldowns prevent account enumeration and mail floods.
       const result = { ok: true };
-      if (typeof username !== 'string' || !/^[a-z0-9][a-z0-9._-]{2,79}$/.test(username)) return result;
+      if (typeof username !== 'string') return result;
+      username = username.trim().toLowerCase();
+      if (!/^[a-z0-9][a-z0-9._-]{2,79}$/.test(username) && !isWorkEmail(username) && !isLegacyEmail(username)) return result;
       const limitPath = `staff_recovery_limits/${await digest(ip || 'unknown')}`;
       const limit = await store.read(limitPath);
       if (limit && now() - limit.data.at < 30_000) return result;
@@ -163,12 +201,17 @@ export function staffAccounts({ store, auth, sendEmail, appUrl, now = () => Date
       const account = await auth.lookup(staffEmail(username));
       if (!account) return result;
       const profile = await store.read(`users/${account}`);
-      if (!profile || profile.data.account_type !== 'managed_staff' || profile.data.status !== 'active' || !profile.data.contact_verified_at) return result;
+      if (!profile || profile.data.status !== 'active') return result;
+      const managed = profile.data.account_type === 'managed_staff';
+      if ((managed && !profile.data.contact_verified_at) || (!managed && !isWorkEmail(username))) return result;
       const throttlePath = `staff_recovery_accounts/${account}`;
       const throttle = await store.read(throttlePath);
       if (throttle && now() - throttle.data.at < 60_000) return result;
       try { await store.commit([{ path: throttlePath, data: { at: now() }, version: throttle?.version ?? null }]); }
       catch (error) { if (error.status === 409) return result; throw error; }
+      // Existing personal/Owner accounts at the same domain retain Firebase's
+      // normal recovery flow; managed accounts always recover to their contact.
+      if (!managed) { await auth.requestReset(username); return result; }
       const resetLink = await auth.resetLink(staffEmail(username));
       const code = new URL(resetLink).searchParams.get('oobCode');
       if (!code) fail('No se pudo generar la recuperación.', 503);

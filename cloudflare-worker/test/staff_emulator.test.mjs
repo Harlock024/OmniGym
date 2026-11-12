@@ -29,7 +29,7 @@ test('Worker creates, activates, recovers and suspends a work account through lo
     assert.equal(response.status, 200);
   }
   const gymId = `work-gym-${suffix}`;
-  await seed(`tenants/${gymId}`, { name: { stringValue: 'Gym Local' } });
+  await seed(`tenants/${gymId}`, { name: { stringValue: `Gym Local ${suffix}` } });
   await seed(`tenants/${gymId}/branches/b`, { name: { stringValue: 'Centro' } });
   await seed(`users/${owner.localId}`, { name: { stringValue: 'Owner' }, email: { stringValue: ownerEmail }, role: { stringValue: 'owner' }, tenant_id: { stringValue: gymId }, status: { stringValue: 'active' } });
   const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 });
@@ -61,9 +61,26 @@ test('Worker creates, activates, recovers and suspends a work account through lo
     assert.equal(createdResponse.status, 200, JSON.stringify(created));
     assert.equal(created.email_sent, true, 'Local Auth must generate a password setup code');
     assert.deepEqual(mail[0].to, [ownerEmail]);
+    assert.equal(created.username, `gymlocal${suffix}ana@omnigym.xyz`);
+    // Upgrade a pending invitation from the previous internal-email format using
+    // the real Auth update API, preserving the identity through acceptance.
+    const legacyLogin = `legacy.${suffix}.ana`;
+    const rename = await realFetch(authUrl('accounts:update?key=fake-key'), post({
+      localId: created.uid, email: `${legacyLogin}@staff.omnigym.invalid`, targetProjectId: project,
+    }, 'Bearer owner'));
+    assert.equal(rename.status, 200);
+    const oldProfile = await (await realFetch(fsUrl(`users/${created.uid}`), { headers: { Authorization: 'Bearer owner' } })).json();
+    await seed(`users/${created.uid}`, { ...oldProfile.fields, username: { stringValue: legacyLogin } });
+    const oldInvite = await (await realFetch(fsUrl(`staff_invitations/${created.uid}`), { headers: { Authorization: 'Bearer owner' } })).json();
+    await seed(`staff_invitations/${created.uid}`, { ...oldInvite.fields, created_at: { stringValue: new Date(Date.now() - 61_000).toISOString() } });
+    const resentResponse = await call('/staff-invitations/resend', { uid: created.uid }, owner.idToken);
+    const resent = await resentResponse.json();
+    assert.equal(resentResponse.status, 200, JSON.stringify(resent));
+    assert.equal(resent.username, created.username);
+    assert.equal(resent.email_sent, true);
     const params = invitationParams();
     assert.equal((await call('/staff-invitations/preview', { id: created.uid, token: params.get('token') })).status, 200);
-    const identity = `${created.username}@staff.omnigym.invalid`;
+    const identity = created.username;
     const verification = await auth('accounts:resetPassword', { oobCode: params.get('oobCode') });
     assert.equal(verification.email, identity);
     await auth('accounts:resetPassword', { oobCode: params.get('oobCode'), newPassword: 'WorkTest123!' });
@@ -78,8 +95,8 @@ test('Worker creates, activates, recovers and suspends a work account through lo
     assert.equal(profile.fields.email.stringValue, ownerEmail);
     assert.equal(profile.fields.permissions.mapValue.fields.members.booleanValue, false);
     assert.equal((await call('/staff-password-recovery', { username: created.username })).status, 200);
-    assert.equal(mail.length, 2);
-    assert.deepEqual(mail[1].to, [ownerEmail]);
+    assert.equal(mail.length, 3);
+    assert.deepEqual(mail[2].to, [ownerEmail]);
     const recovery = invitationParams();
     await auth('accounts:resetPassword', { oobCode: recovery.get('oobCode'), newPassword: 'NewWorkTest123!' });
     const duplicateReset = await realFetch(authUrl('accounts:resetPassword?key=fake-key'), post({ oobCode: recovery.get('oobCode'), newPassword: 'OtherPassword123!' }));

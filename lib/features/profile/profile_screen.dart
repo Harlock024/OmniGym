@@ -267,7 +267,7 @@ class _AvatarCard extends StatelessWidget {
                 if (user.username != null) ...[
                   const SizedBox(height: 4),
                   SelectableText(
-                    'Usuario laboral: ${user.username!}',
+                    '${user.username!.contains('@') ? 'Correo laboral' : 'Usuario laboral'}: ${user.username!}',
                     style: const TextStyle(fontSize: 13),
                   ),
                   const Text(

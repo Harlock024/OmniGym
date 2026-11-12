@@ -31,7 +31,7 @@ class _Auth extends Fake implements FirebaseAuth {
   String? deliveryEmail;
   int passwordResets = 0;
   int signIns = 0;
-  String resetEmail = 'gym.ana.123@staff.omnigym.invalid';
+  String resetEmail = 'gymcentroana@omnigym.xyz';
 
   @override
   Future<String> verifyPasswordResetCode(String code) async {
@@ -70,7 +70,7 @@ class _Auth extends Fake implements FirebaseAuth {
 
 const _details = {
   'name': 'Ana',
-  'username': 'gym.ana.123',
+  'username': 'gymcentroana@omnigym.xyz',
   'gym_name': 'Gym Centro',
   'branch_name': 'Centro',
   'role': 'receptionist',
@@ -112,6 +112,15 @@ Future<void> _passwords(WidgetTester tester) async {
   tester.testTextInput.hide();
 }
 
+Future<void> _reviewAndAccept(WidgetTester tester) async {
+  expect(find.byType(TextFormField), findsNothing);
+  expect(find.text('Rechazar invitación'), findsOneWidget);
+  await tester.ensureVisible(find.text('Aceptar invitación'));
+  await tester.tap(find.text('Aceptar invitación'));
+  await tester.pumpAndSettle();
+  expect(find.text('Configura tu cuenta laboral'), findsOneWidget);
+}
+
 void main() {
   test('existing email logins and normalized work usernames keep separate identities', () {
     expect(
@@ -124,6 +133,12 @@ void main() {
     );
     expect(LoginIdentity.isUsername('gym.ana.123'), isTrue);
     expect(LoginIdentity.isUsername('contact@example.test'), isFalse);
+    expect(
+      LoginIdentity.emailFor('GymCentroAna@OmniGym.xyz'),
+      'gymcentroana@omnigym.xyz',
+    );
+    expect(LoginIdentity.isWorkLogin('GymCentroAna@OmniGym.xyz'), isTrue);
+    expect(LoginIdentity.isWorkLogin('owner@example.test'), isFalse);
   });
 
   test('creation authenticates the inviter and reports delivery failure without claiming success', () async {
@@ -138,7 +153,7 @@ void main() {
         return http.Response(
           jsonEncode({
             'uid': 'work',
-            'username': 'gym.ana.123',
+            'username': 'gymcentroana@omnigym.xyz',
             'email_sent': false,
           }),
           200,
@@ -153,7 +168,7 @@ void main() {
       tenantId: 'gym',
       branchId: 'b',
     );
-    expect(result.username, 'gym.ana.123');
+    expect(result.username, 'gymcentroana@omnigym.xyz');
     expect(result.emailSent, isFalse);
   });
 
@@ -232,6 +247,14 @@ void main() {
       await tester.tap(find.text('Iniciar sesión'));
       await tester.pumpAndSettle();
       expect(auth.email, 'owner@example.test');
+      await tester.enterText(
+        find.byType(TextFormField).at(0),
+        'GYMCENTROANA@OMNIGYM.XYZ',
+      );
+      await tester.ensureVisible(find.text('Iniciar sesión'));
+      await tester.tap(find.text('Iniciar sesión'));
+      await tester.pumpAndSettle();
+      expect(auth.email, 'gymcentroana@omnigym.xyz');
     },
   );
 
@@ -268,14 +291,22 @@ void main() {
         auth,
         service,
       );
-      expect(find.textContaining('Gym Centro'), findsOneWidget);
+      expect(find.text('Invitación a Gym Centro'), findsOneWidget);
+      await _reviewAndAccept(tester);
       await _passwords(tester);
-      await tester.ensureVisible(find.text('Aceptar y activar cuenta'));
-      await tester.tap(find.text('Aceptar y activar cuenta'));
+      await tester.ensureVisible(
+        find.text('Crear contraseña y activar cuenta'),
+      );
+      await tester.tap(find.text('Crear contraseña y activar cuenta'));
       await tester.pumpAndSettle();
       expect(find.text('Intenta de nuevo'), findsOneWidget);
-      await tester.ensureVisible(find.text('Aceptar y activar cuenta'));
-      await tester.tap(find.text('Aceptar y activar cuenta'));
+      await tester.ensureVisible(
+        find.text('Crear contraseña y activar cuenta'),
+      );
+      await tester.tap(find.text('Crear contraseña y activar cuenta'));
+      await tester.pumpAndSettle();
+      expect(find.text('Invitación aceptada'), findsOneWidget);
+      await tester.tap(find.text('Entrar a OmniGym'));
       await tester.pumpAndSettle();
       expect(find.text('Acceso configurado'), findsOneWidget);
       expect(auth.passwordResets, 1);
@@ -307,6 +338,7 @@ void main() {
       auth,
       service,
     );
+    expect(find.byType(TextFormField), findsNothing);
     await tester.ensureVisible(find.text('Rechazar invitación'));
     await tester.tap(find.text('Rechazar invitación'));
     await tester.pumpAndSettle();
@@ -332,9 +364,10 @@ void main() {
       auth,
       service,
     );
+    await _reviewAndAccept(tester);
     await _passwords(tester);
-    await tester.ensureVisible(find.text('Aceptar y activar cuenta'));
-    await tester.tap(find.text('Aceptar y activar cuenta'));
+    await tester.ensureVisible(find.text('Crear contraseña y activar cuenta'));
+    await tester.tap(find.text('Crear contraseña y activar cuenta'));
     await tester.pumpAndSettle();
     expect(
       find.textContaining('no corresponde a esta invitación'),
@@ -362,7 +395,7 @@ void main() {
         service,
       );
       expect(find.textContaining('La invitación venció.'), findsOneWidget);
-      expect(find.text('Aceptar y activar cuenta'), findsNothing);
+      expect(find.text('Crear contraseña y activar cuenta'), findsNothing);
     },
   );
 
@@ -411,6 +444,67 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Contraseña actualizada'), findsOneWidget);
       expect(auth.passwordResets, 1);
+      expect(auth.signIns, 0);
+    },
+  );
+
+  testWidgets(
+    'corporate work email recovery goes to the verified contact rather than the login address',
+    (tester) async {
+      final auth = _Auth();
+      final service = StaffAccountService(
+        client: MockClient((request) async {
+          expect(request.url.path, '/staff-password-recovery');
+          expect(jsonDecode(request.body), {
+            'username': 'gymcentroana@omnigym.xyz',
+          });
+          return http.Response('{"ok":true}', 200);
+        }),
+      );
+      await _mount(tester, const ForgotPasswordScreen(), auth, service);
+      await tester.enterText(
+        find.byType(TextFormField),
+        'GYMCENTROANA@OMNIGYM.XYZ',
+      );
+      await tester.ensureVisible(find.text('Enviar correo de recuperación'));
+      await tester.tap(find.text('Enviar correo de recuperación'));
+      await tester.pumpAndSettle();
+      expect(auth.deliveryEmail, isNull);
+      expect(find.textContaining('correo de contacto'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an invitee can return to review and reject without configuring a password',
+    (tester) async {
+      final auth = _Auth();
+      final service = StaffAccountService(
+        client: MockClient(
+          (request) async => http.Response(
+            jsonEncode(
+              request.url.path.endsWith('/preview') ? _details : {'ok': true},
+            ),
+            200,
+          ),
+        ),
+      );
+      await _mount(
+        tester,
+        const StaffInvitationScreen(id: 'work', token: 'secret', code: 'code'),
+        auth,
+        service,
+      );
+      expect(find.text('gymcentroana@omnigym.xyz'), findsOneWidget);
+      await _reviewAndAccept(tester);
+      await tester.ensureVisible(find.text('Volver a la invitación'));
+      await tester.tap(find.text('Volver a la invitación'));
+      await tester.pumpAndSettle();
+      expect(find.byType(TextFormField), findsNothing);
+      await tester.ensureVisible(find.text('Rechazar invitación'));
+      await tester.tap(find.text('Rechazar invitación'));
+      await tester.pumpAndSettle();
+      expect(find.text('Invitación rechazada'), findsOneWidget);
+      expect(auth.passwordResets, 0);
       expect(auth.signIns, 0);
     },
   );

@@ -17,11 +17,15 @@ function fixture() {
   const accounts = new Map();
   let deliveryWorks = true;
   let loseCommitResponse = false;
+  let failCommit = false;
+  let nextUid = 0;
+  const resetRequests = [];
   const service = staffAccounts({
     now: () => time, appUrl: 'https://app.example.test/',
     store: {
       read: async path => structuredClone(records.get(path) ?? null),
       async commit(writes) {
+        if (failCommit) { failCommit = false; throw new AccessError('Write unavailable', 503); }
         for (const item of writes) {
           if ((records.get(item.path)?.version ?? null) !== item.version) throw new AccessError('Conflict', 409);
         }
@@ -33,7 +37,17 @@ function fixture() {
       },
     },
     auth: {
-      async create(email) { const uid = `work-${accounts.size + 1}`; accounts.set(email, uid); return uid; },
+      async create(email) {
+        if (accounts.has(email)) throw new Error('EMAIL_EXISTS');
+        const uid = `work-${++nextUid}`; accounts.set(email, uid); return uid;
+      },
+      async emailForUid(uid) { return [...accounts].find(([, id]) => id === uid)?.[0] ?? null; },
+      async rename(uid, email) {
+        if (accounts.has(email) && accounts.get(email) !== uid) throw new Error('EMAIL_EXISTS');
+        for (const [oldEmail, id] of accounts) if (id === uid) accounts.delete(oldEmail);
+        accounts.set(email, uid);
+      },
+      async requestReset(email) { resetRequests.push(email); },
       async remove(uid) { for (const [email, id] of accounts) if (id === uid) accounts.delete(email); },
       async resetLink(email) { assert.ok(accounts.has(email)); return 'https://firebase.test/action?oobCode=one-use-code'; },
       lookup: async email => accounts.get(email) ?? null,
@@ -45,10 +59,10 @@ function fixture() {
     const url = new URL(messages.at(-1).html.match(/href="([^"]+)"/)[1].replaceAll('&amp;', '&'));
     return new URLSearchParams(url.hash.split('?')[1]);
   }
-  return { service, records, accounts, messages, owner, body, write, link,
+  return { service, records, accounts, messages, resetRequests, owner, body, write, link,
     data: path => records.get(path)?.data,
     advance: ms => { time += ms; }, failEmail: () => { deliveryWorks = false; }, restoreEmail: () => { deliveryWorks = true; },
-    loseCommitResponse: () => { loseCommitResponse = true; } };
+    loseCommitResponse: () => { loseCommitResponse = true; }, failCommit: () => { failCommit = true; } };
 }
 const rejects = (operation, status) => assert.rejects(operation, error => error.status === status);
 
@@ -56,7 +70,7 @@ test('generated work identity is pending and keeps an existing personal account 
   const f = fixture();
   const personal = structuredClone(f.data('users/personal'));
   const created = await f.service.create(f.owner, f.body);
-  assert.match(created.username, /^gimnasiocentrico\.ana\.[a-f0-9]{12}$/);
+  assert.equal(created.username, 'gimnasiocentricoanalopez@omnigym.xyz');
   assert.equal(created.email_sent, true);
   const profile = f.data(`users/${created.uid}`);
   assert.equal(profile.status, 'pending');
@@ -90,6 +104,82 @@ test('duplicate concurrent invitations reserve only one account and roll back th
   assert.equal(results.filter(result => result.status === 'fulfilled').length, 1);
   assert.equal(f.accounts.size, 1);
   assert.equal(f.messages.length, 1);
+});
+
+test('work emails combine tenant and full staff names, normalize accents and resolve global collisions with a number', async () => {
+  const f = fixture();
+  f.accounts.set('gimnasiocentricoanalopez@omnigym.xyz', 'existing-account');
+  const created = await f.service.create(f.owner, f.body);
+  assert.equal(created.username, 'gimnasiocentricoanalopez2@omnigym.xyz');
+  assert.equal(f.accounts.get('gimnasiocentricoanalopez@omnigym.xyz'), 'existing-account');
+  assert.equal(f.accounts.get(created.username), created.uid);
+  assert.ok(f.messages[0].html.includes(created.username));
+});
+
+test('long names still generate a valid email local part', async () => {
+  const f = fixture();
+  f.write('tenants/gym', { name: 'G'.repeat(100) });
+  const created = await f.service.create(f.owner, { ...f.body, name: 'Á'.repeat(100) });
+  assert.ok(created.username.split('@')[0].length <= 64);
+  assert.match(created.username, /^[a-z0-9]+@omnigym\.xyz$/);
+});
+
+test('resending an old pending invitation upgrades the email without replacing UID or contact', async () => {
+  const f = fixture();
+  const created = await f.service.create(f.owner, f.body);
+  const oldToken = f.link().get('token');
+  const oldUsername = 'gym.ana.legacy';
+  f.accounts.delete(created.username);
+  f.accounts.set(staffEmail(oldUsername), created.uid);
+  f.write(`users/${created.uid}`, { ...f.data(`users/${created.uid}`), username: oldUsername });
+  f.advance(61_000);
+  f.loseCommitResponse();
+  const resent = await f.service.resend(f.owner, created.uid);
+  assert.equal(resent.username, 'gimnasiocentricoanalopez@omnigym.xyz');
+  assert.equal(f.accounts.get(resent.username), created.uid);
+  assert.equal(f.accounts.has(staffEmail(oldUsername)), false);
+  assert.equal(f.accounts.size, 1);
+  assert.equal(f.data(`users/${created.uid}`).email, 'ana@example.test');
+  assert.equal(f.data(`users/${created.uid}`).username, resent.username);
+  assert.equal(f.messages.at(-1).to, 'ana@example.test');
+  await rejects(() => f.service.preview(created.uid, oldToken), 404);
+});
+
+test('a failed profile write after renaming a pending account can be resumed safely', async () => {
+  const f = fixture();
+  const created = await f.service.create(f.owner, f.body);
+  f.accounts.delete(created.username);
+  f.accounts.set(staffEmail('gym.ana.legacy'), created.uid);
+  f.write(`users/${created.uid}`, { ...f.data(`users/${created.uid}`), username: 'gym.ana.legacy' });
+  f.advance(61_000); f.failCommit();
+  await rejects(() => f.service.resend(f.owner, created.uid), 503);
+  assert.equal(f.accounts.get(created.username), created.uid);
+  assert.equal(f.data(`users/${created.uid}`).username, 'gym.ana.legacy');
+  const resent = await f.service.resend(f.owner, created.uid);
+  assert.equal(resent.username, created.username);
+  assert.equal(f.data(`users/${created.uid}`).username, created.username);
+  assert.equal(f.accounts.size, 1);
+});
+
+test('accepted legacy accounts retain their login and contact-based recovery', async () => {
+  const f = fixture();
+  const created = await f.service.create(f.owner, f.body);
+  await f.service.respond(created.uid, f.link().get('token'), 'accept', { uid: created.uid });
+  f.accounts.delete(created.username);
+  f.accounts.set(staffEmail('gym.ana.legacy'), created.uid);
+  f.write(`users/${created.uid}`, { ...f.data(`users/${created.uid}`), username: 'gym.ana.legacy' });
+  await rejects(() => f.service.resend(f.owner, created.uid), 409);
+  await f.service.recover('gym.ana.legacy', 'legacy-ip');
+  assert.equal(f.messages.at(-1).to, 'ana@example.test');
+  assert.equal(f.accounts.get(staffEmail('gym.ana.legacy')), created.uid);
+});
+
+test('personal Owner accounts on the corporate domain keep their original email recovery', async () => {
+  const f = fixture();
+  f.accounts.set('owner@omnigym.xyz', 'owner');
+  await f.service.recover('OWNER@OMNIGYM.XYZ', 'owner-ip');
+  assert.deepEqual(f.resetRequests, ['owner@omnigym.xyz']);
+  assert.equal(f.messages.length, 0);
 });
 
 test('a lost successful creation response never deletes the committed Auth account', async () => {

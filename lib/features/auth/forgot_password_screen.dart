@@ -37,8 +37,8 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       _error = null;
     });
     try {
-      if (!email.contains('@')) {
-        if (!LoginIdentity.isUsername(email)) {
+      if (LoginIdentity.isWorkLogin(email)) {
+        if (!email.contains('@') && !LoginIdentity.isUsername(email)) {
           throw const StaffAccountException(
             'Indica un usuario laboral válido.',
           );
@@ -143,7 +143,7 @@ class _FormState extends StatelessWidget {
         ),
         const SizedBox(height: 12),
         const Text(
-          'Para una cuenta laboral, escribe el usuario que recibiste en la invitación. El enlace llegará a tu correo de contacto.',
+          'Para una cuenta laboral, escribe el correo @omnigym.xyz de la invitación. El enlace llegará a tu correo de contacto.',
           style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 12),
         ),
         if (error != null) ...[
@@ -219,7 +219,7 @@ class _SentState extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          email.contains('@')
+          !LoginIdentity.isWorkLogin(email)
               ? 'Si existe una cuenta para $email, recibirás un enlace de recuperación. Revisa tu bandeja de entrada.'
               : 'Si el usuario $email tiene una cuenta laboral activa, recibirá un enlace en su correo de contacto. Si aún no la activaste, solicita al gimnasio que reenvíe la invitación.',
           style: const TextStyle(
