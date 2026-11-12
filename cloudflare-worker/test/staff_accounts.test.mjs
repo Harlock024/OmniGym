@@ -182,6 +182,14 @@ test('personal Owner accounts on the corporate domain keep their original email 
   assert.equal(f.messages.length, 0);
 });
 
+test('existing member accounts without a global operator profile keep corporate email recovery', async () => {
+  const f = fixture();
+  f.accounts.set('member@omnigym.xyz', 'member');
+  await f.service.recover('member@omnigym.xyz', 'member-ip');
+  assert.deepEqual(f.resetRequests, ['member@omnigym.xyz']);
+  assert.equal(f.messages.length, 0);
+});
+
 test('a lost successful creation response never deletes the committed Auth account', async () => {
   const f = fixture();
   f.loseCommitResponse();

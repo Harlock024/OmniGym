@@ -201,8 +201,8 @@ export function staffAccounts({ store, auth, sendEmail, appUrl, now = () => Date
       const account = await auth.lookup(staffEmail(username));
       if (!account) return result;
       const profile = await store.read(`users/${account}`);
-      if (!profile || profile.data.status !== 'active') return result;
-      const managed = profile.data.account_type === 'managed_staff';
+      if (profile && profile.data.status !== 'active') return result;
+      const managed = profile?.data.account_type === 'managed_staff';
       if ((managed && !profile.data.contact_verified_at) || (!managed && !isWorkEmail(username))) return result;
       const throttlePath = `staff_recovery_accounts/${account}`;
       const throttle = await store.read(throttlePath);
