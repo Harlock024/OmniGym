@@ -45,6 +45,10 @@ class StaffInvitation {
 }
 
 class StaffAccountService {
+  static const _unavailableMessage =
+      'El servicio de cuentas laborales todavía no está disponible en este servidor. '
+      'Contacta al administrador para actualizarlo.';
+
   StaffAccountService({
     http.Client? client,
     this.baseUrl = const String.fromEnvironment(
@@ -80,9 +84,20 @@ class StaffAccountService {
     try {
       data = jsonDecode(response.body) as Map<String, dynamic>;
     } catch (_) {
+      if (response.statusCode == 404) {
+        throw const StaffAccountException(_unavailableMessage);
+      }
       throw const StaffAccountException(
         'No se pudo conectar con el servicio. Intenta más tarde.',
       );
+    }
+    if (response.statusCode == 404 &&
+        const {
+          '',
+          'not found',
+          'not_found',
+        }.contains((data['error'] as String? ?? '').trim().toLowerCase())) {
+      throw const StaffAccountException(_unavailableMessage);
     }
     if (response.statusCode != 200) {
       throw StaffAccountException(

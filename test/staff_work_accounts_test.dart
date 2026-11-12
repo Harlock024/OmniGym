@@ -157,6 +157,57 @@ void main() {
     expect(result.emailSent, isFalse);
   });
 
+  test('an unpublished account endpoint gives an actionable error without falling back to legacy creation', () async {
+    for (final body in ['{"error":"Not found"}', '<html>Not Found</html>']) {
+      final requests = <String>[];
+      final service = StaffAccountService(
+        authHeaders: () async => {'Authorization': 'Bearer owner'},
+        client: MockClient((request) async {
+          requests.add(request.url.path);
+          return http.Response(body, 404);
+        }),
+      );
+      addTearDown(service.close);
+      await expectLater(
+        service.create(
+          name: 'Ana',
+          contactEmail: 'contact@example.test',
+          role: 'receptionist',
+          tenantId: 'gym',
+          branchId: 'b',
+        ),
+        throwsA(
+          isA<StaffAccountException>().having(
+            (error) => error.message,
+            'message',
+            contains('Contacta al administrador para actualizarlo.'),
+          ),
+        ),
+      );
+      expect(requests, ['/staff-accounts']);
+    }
+  });
+
+  test('a missing invitation preserves its specific error rather than reporting a deployment problem', () async {
+    final service = StaffAccountService(
+      client: MockClient(
+        (_) async =>
+            http.Response('{"error":"La invitación no es válida."}', 404),
+      ),
+    );
+    addTearDown(service.close);
+    await expectLater(
+      service.preview('missing', 'token'),
+      throwsA(
+        isA<StaffAccountException>().having(
+          (error) => error.message,
+          'message',
+          'La invitación no es válida.',
+        ),
+      ),
+    );
+  });
+
   testWidgets(
     'login accepts a generated username and preserves existing email access',
     (tester) async {
