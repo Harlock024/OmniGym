@@ -8,7 +8,7 @@ import { logger } from "firebase-functions/v2";
 initializeApp();
 
 type UserRole = "superuser" | "owner" | "staff" | "receptionist";
-type UserStatus = "active" | "suspended";
+type UserStatus = "active" | "suspended" | "pending";
 
 interface UserDoc {
   role: UserRole;
@@ -42,12 +42,11 @@ export const onUserWritten = onDocumentWritten(
 
     const data = event.data.after.data() as UserDoc;
     const { role, tenant_id, branch_id, status } = data;
-
-    await auth.setCustomUserClaims(uid, {
+    await auth.setCustomUserClaims(uid, status === "active" ? {
       role,
       tenant_id: tenant_id ?? null,
       branch_id: branch_id ?? null,
-    });
+    } : {});
 
     logger.info("claims updated", { uid, role, tenant_id, branch_id });
 
@@ -83,35 +82,21 @@ export const createStaffUser = onCall<CreateStaffRequest>(
     if (!branchId || !(await db.collection("tenants").doc(tenantId).collection("branches").doc(branchId).get()).exists) {
       throw new HttpsError("invalid-argument", "Select a branch belonging to this gym.");
     }
-    const auth = getAuth();
-    const permissions = Object.fromEntries(
-      ["dashboard", "branches", "members", "scanner", "memberships", "billing", "reports"]
-        .map(module => [module, role === "staff" && ["dashboard", "scanner"].includes(module)])
-    );
-
-    // Crear usuario en Firebase Auth — el email link para establecer contraseña
-    // lo envía Firebase Auth automáticamente con sendEmailVerification si se
-    // configura la plantilla en la consola. Aquí usamos contraseña temporal aleatoria.
-    const tempPassword = Math.random().toString(36).slice(-12) + "A1!";
-    const userRecord = await auth.createUser({ email, displayName: name, password: tempPassword });
-
-    await db.collection("users").doc(userRecord.uid).set({
-      name,
-      email,
-      role,
-      permissions,
-      tenant_id: tenantId,
-      branch_id: branchId,
-      status: "active",
-      created_at: new Date(),
+    // Keep this legacy callable as an adapter: all account creation and email
+    // delivery must follow the same pending-invitation flow as the web app.
+    const authorization = request.rawRequest.get("authorization");
+    if (!authorization?.startsWith("Bearer ")) {
+      throw new HttpsError("unauthenticated", "Login required.");
+    }
+    const response = await fetch(`${process.env.WORKER_BASE_URL ?? "https://omni-gym.hadith024.workers.dev"}/staff-accounts`, {
+      method: "POST",
+      headers: { Authorization: authorization, "Content-Type": "application/json" },
+      body: JSON.stringify({ name, email, role, tenant_id: tenantId, branch_id: branchId }),
     });
-
-    // El trigger onUserWritten asigna los claims automáticamente
-
-    // Enviar email para que el usuario establezca su contraseña
-    const resetLink = await auth.generatePasswordResetLink(email);
-    logger.info("staff user created", { uid: userRecord.uid, role, tenantId, resetLink });
-
-    return { uid: userRecord.uid };
+    const result = await response.json() as { error?: string; uid?: string; username?: string; email_sent?: boolean };
+    if (!response.ok) {
+      throw new HttpsError(response.status === 409 ? "already-exists" : "failed-precondition", result.error ?? "Account creation failed.");
+    }
+    return result;
   }
 );

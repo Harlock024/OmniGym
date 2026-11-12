@@ -1,5 +1,6 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'converters.dart';
 
 part 'app_user.freezed.dart';
@@ -7,7 +8,7 @@ part 'app_user.g.dart';
 
 enum UserRole { superuser, owner, staff, receptionist }
 
-enum UserStatus { active, suspended }
+enum UserStatus { active, suspended, pending }
 
 @freezed
 abstract class NotificationPrefs with _$NotificationPrefs {
@@ -32,6 +33,9 @@ abstract class AppUser with _$AppUser {
     @JsonKey(name: 'csd_cargo') String? csdCargo,
     required String name,
     required String email,
+    String? username,
+    @JsonKey(name: 'account_type') String? accountType,
+    @JsonKey(name: 'invitation_status') String? invitationStatus,
     String? phone,
     @JsonKey(name: 'photo_url') String? photoUrl,
     required UserRole role,

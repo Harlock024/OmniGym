@@ -7,7 +7,7 @@ import '../../core/models/app_user.dart';
 import '../../core/models/module_access.dart';
 import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
-import '../../core/services/worker_service.dart';
+import '../../core/services/staff_account_service.dart';
 import 'invite_staff_dialog.dart';
 import 'staff_providers.dart';
 import 'module_permissions_popover.dart';
@@ -105,6 +105,14 @@ class _StaffFilters extends ConsumerWidget {
                 ? UserStatus.suspended
                 : null,
           ),
+          FilterChip(
+            label: const Text('Pendientes'),
+            selected: statusFilter == UserStatus.pending,
+            onSelected: (value) =>
+                ref.read(staffStatusFilterProvider.notifier).state = value
+                ? UserStatus.pending
+                : null,
+          ),
         ],
       ),
     );
@@ -144,8 +152,10 @@ class _StaffTable extends ConsumerWidget {
                 minWidth: MediaQuery.of(context).size.width - 32,
               ),
               child: DataTable(
+                dataRowMinHeight: 76,
+                dataRowMaxHeight: 88,
                 columns: const [
-                  DataColumn(label: Text('Nombre')),
+                  DataColumn(label: Text('Nombre y acceso')),
                   DataColumn(label: Text('Rol')),
                   DataColumn(label: Text('Sucursal asignada')),
                   DataColumn(label: Text('Acciones')),
@@ -199,6 +209,14 @@ class _StaffTable extends ConsumerWidget {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
+              if (user.username != null)
+                SelectableText(
+                  user.username!,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
             ],
           ),
         ),
@@ -208,7 +226,7 @@ class _StaffTable extends ConsumerWidget {
             spacing: 6,
             children: [
               _RoleChip(role: user.role),
-              _StatusChip(isActive: user.status == UserStatus.active),
+              _StatusChip(user: user),
             ],
           ),
         ),
@@ -257,12 +275,22 @@ class _RoleChip extends StatelessWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.isActive});
-  final bool isActive;
+  const _StatusChip({required this.user});
+  final AppUser user;
 
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
+    final isActive = user.status == UserStatus.active;
+    final label = user.status == UserStatus.pending
+        ? switch (user.invitationStatus) {
+            'rejected' => 'Rechazada',
+            'cancelled' => 'Cancelada',
+            _ => 'Pendiente',
+          }
+        : isActive
+        ? 'Activo'
+        : 'Suspendido';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -270,7 +298,7 @@ class _StatusChip extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
-        isActive ? 'Activo' : 'Suspendido',
+        label,
         style: TextStyle(
           fontSize: 11,
           color: isActive ? cs.onPrimaryContainer : cs.onErrorContainer,
@@ -289,6 +317,7 @@ class _ActionMenu extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isActive = user.status == UserStatus.active;
+    final isPending = user.status == UserStatus.pending;
 
     return PopupMenuButton<_Action>(
       onSelected: (action) => _handleAction(context, ref, action),
@@ -303,14 +332,26 @@ class _ActionMenu extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        PopupMenuItem(
-          value: isActive ? _Action.suspend : _Action.activate,
-          child: ListTile(
-            leading: Icon(isActive ? Icons.block : Icons.check_circle_outline),
-            title: Text(isActive ? 'Suspender' : 'Activar'),
-            contentPadding: EdgeInsets.zero,
+        if (isPending)
+          const PopupMenuItem(
+            value: _Action.resend,
+            child: ListTile(
+              leading: Icon(Icons.forward_to_inbox),
+              title: Text('Reenviar invitación'),
+              contentPadding: EdgeInsets.zero,
+            ),
           ),
-        ),
+        if (!isPending)
+          PopupMenuItem(
+            value: isActive ? _Action.suspend : _Action.activate,
+            child: ListTile(
+              leading: Icon(
+                isActive ? Icons.block : Icons.check_circle_outline,
+              ),
+              title: Text(isActive ? 'Suspender' : 'Activar'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
         if (user.role == UserRole.staff || user.role == UserRole.receptionist)
           const PopupMenuItem(
             value: _Action.changeBranch,
@@ -320,11 +361,14 @@ class _ActionMenu extends ConsumerWidget {
               contentPadding: EdgeInsets.zero,
             ),
           ),
-        const PopupMenuItem(
+        PopupMenuItem(
           value: _Action.delete,
           child: ListTile(
-            leading: Icon(Icons.delete_outline, color: Colors.redAccent),
-            title: Text('Eliminar', style: TextStyle(color: Colors.redAccent)),
+            leading: const Icon(Icons.block, color: Colors.redAccent),
+            title: Text(
+              isPending ? 'Cancelar invitación' : 'Dar de baja',
+              style: const TextStyle(color: Colors.redAccent),
+            ),
             contentPadding: EdgeInsets.zero,
           ),
         ),
@@ -349,7 +393,36 @@ class _ActionMenu extends ConsumerWidget {
       case _Action.changeBranch:
         if (context.mounted) _showChangeBranchDialog(context, ref);
       case _Action.delete:
-        if (context.mounted) await _confirmAndDelete(context);
+        if (context.mounted) await _confirmAndDelete(context, ref);
+      case _Action.resend:
+        try {
+          final sent = await ref
+              .read(staffAccountServiceProvider)
+              .resend(user.id);
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  sent
+                      ? 'Invitación reenviada al correo de contacto.'
+                      : 'No se pudo enviar el correo. Intenta más tarde.',
+                ),
+              ),
+            );
+          }
+        } catch (error) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  error is StaffAccountException
+                      ? error.message
+                      : 'No se pudo reenviar la invitación.',
+                ),
+              ),
+            );
+          }
+        }
     }
   }
 
@@ -382,13 +455,18 @@ class _ActionMenu extends ConsumerWidget {
     }
   }
 
-  Future<void> _confirmAndDelete(BuildContext context) async {
+  Future<void> _confirmAndDelete(BuildContext context, WidgetRef ref) async {
+    final pending = user.status == UserStatus.pending;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Eliminar operador'),
+        title: Text(
+          pending ? 'Cancelar invitación' : 'Dar de baja al operador',
+        ),
         content: Text(
-          '¿Eliminar a ${user.name}? Se borrará su cuenta de acceso de forma permanente.',
+          pending
+              ? '¿Cancelar la invitación de ${user.name}? El enlace dejará de permitir la activación.'
+              : '¿Dar de baja a ${user.name}? Se desactivará su acceso y se conservará su historial.',
         ),
         actions: [
           TextButton(
@@ -398,7 +476,7 @@ class _ActionMenu extends ConsumerWidget {
           FilledButton(
             style: FilledButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('Eliminar'),
+            child: Text(pending ? 'Cancelar invitación' : 'Dar de baja'),
           ),
         ],
       ),
@@ -407,13 +485,25 @@ class _ActionMenu extends ConsumerWidget {
 
     final messenger = ScaffoldMessenger.of(context);
     try {
-      await WorkerService.deleteStaff(user.id);
+      await ref.read(staffAccountServiceProvider).deactivate(user.id);
       messenger.showSnackBar(
-        SnackBar(content: Text('${user.name} fue eliminado.')),
+        SnackBar(
+          content: Text(
+            pending
+                ? 'Invitación cancelada.'
+                : 'Acceso de ${user.name} desactivado.',
+          ),
+        ),
       );
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(content: Text('No se pudo eliminar: $e')),
+        SnackBar(
+          content: Text(
+            e is StaffAccountException
+                ? e.message
+                : 'No se pudo desactivar el acceso.',
+          ),
+        ),
       );
     }
   }
@@ -438,7 +528,7 @@ class _ActionMenu extends ConsumerWidget {
   }
 }
 
-enum _Action { changeRole, suspend, activate, changeBranch, delete }
+enum _Action { changeRole, suspend, activate, changeBranch, delete, resend }
 
 class _ChangeBranchDialog extends ConsumerWidget {
   const _ChangeBranchDialog({required this.user, required this.branches});

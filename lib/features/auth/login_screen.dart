@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/providers/providers.dart';
+import '../../core/services/login_identity.dart';
 import 'auth_widgets.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -34,8 +35,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       _error = null;
     });
     try {
-      await ref.read(firebaseAuthProvider).signInWithEmailAndPassword(
-            email: _emailCtrl.text.trim(),
+      await ref
+          .read(firebaseAuthProvider)
+          .signInWithEmailAndPassword(
+            email: LoginIdentity.emailFor(_emailCtrl.text),
             password: _passCtrl.text,
           );
     } on FirebaseAuthException catch (e) {
@@ -46,13 +49,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   String _mapError(String code) => switch (code) {
-        'user-not-found' => 'No existe una cuenta con ese correo.',
-        'wrong-password' => 'Contraseña incorrecta.',
-        'invalid-credential' => 'Correo o contraseña incorrectos.',
-        'invalid-email' => 'Correo electrónico inválido.',
-        'user-disabled' => 'Esta cuenta ha sido deshabilitada.',
-        _ => 'Error al iniciar sesión. Intenta de nuevo.',
-      };
+    'user-not-found' => 'No existe una cuenta con ese correo o usuario.',
+    'wrong-password' => 'Contraseña incorrecta.',
+    'invalid-credential' => 'Correo, usuario o contraseña incorrectos.',
+    'invalid-email' => 'Correo o usuario inválido.',
+    'user-disabled' => 'Esta cuenta ha sido deshabilitada.',
+    _ => 'Error al iniciar sesión. Intenta de nuevo.',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -88,9 +91,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
               AuthDarkField(
                 controller: _emailCtrl,
-                label: 'Correo electrónico',
+                label: 'Correo o usuario laboral',
                 prefixIcon: Icons.person_outline,
-                keyboardType: TextInputType.emailAddress,
+                keyboardType: TextInputType.text,
                 onSubmitted: (_) => _signIn(),
               ),
               const SizedBox(height: 14),
@@ -106,8 +109,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                     size: 20,
                   ),
-                  onPressed: () =>
-                      setState(() => _obscurePass = !_obscurePass),
+                  onPressed: () => setState(() => _obscurePass = !_obscurePass),
                 ),
                 onSubmitted: (_) => _signIn(),
               ),
@@ -140,7 +142,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
               TextButton(
                 onPressed: () => context.go('/forgot-password'),
                 style: TextButton.styleFrom(
-                  foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                  foregroundColor: Theme.of(context)
+                      .colorScheme
+                      .onSurfaceVariant,
                   textStyle: const TextStyle(fontSize: 13),
                 ),
                 child: const Text('¿Olvidaste tu contraseña?'),

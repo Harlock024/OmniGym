@@ -124,4 +124,9 @@ describe("onUserWritten", () => {
     expect(mockSetCustomUserClaims).toHaveBeenCalledWith("uid-test", {});
     expect(mockRevokeRefreshTokens).not.toHaveBeenCalled();
   });
+  it("no asigna acceso al gimnasio a una cuenta pendiente de activación", async () => {
+    await handler(makeEvent({ role: 'staff', tenant_id: 'tenant-abc', branch_id: 'b', status: 'pending' }));
+    expect(mockSetCustomUserClaims).toHaveBeenCalledWith('uid-test', {});
+    expect(mockRevokeRefreshTokens).not.toHaveBeenCalled();
+  });
 });

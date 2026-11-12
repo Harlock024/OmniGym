@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/models/app_user.dart';
 import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
-import '../../core/services/worker_service.dart';
+import '../../core/services/staff_account_service.dart';
 
 /// Modal de invitación de operadores. Se abre con [showDialog].
 class InviteStaffDialog extends ConsumerStatefulWidget {
@@ -79,35 +79,37 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
           await ref.read(activeTenantIdFutureProvider.future);
       if (tenantId == null) throw Exception('Tenant no encontrado.');
 
-      final branchId = _selectedBranchId;
-      final gymName = ref.read(activeTenantProvider).valueOrNull?.name;
-
-      // El worker crea el usuario en Auth, asigna claims, escribe /users/{uid}
-      // y envía el correo para establecer contraseña desde el backend.
-      await WorkerService.createStaff(
-        name: _nameCtrl.text.trim(),
-        email: _emailCtrl.text.trim(),
-        role: _role.name,
-        tenantId: tenantId,
-        branchId: branchId,
-        gymName: gymName,
-        csdCargo: _csdCargoCtrl.text.trim(),
-      );
+      final result = await ref
+          .read(staffAccountServiceProvider)
+          .create(
+            name: _nameCtrl.text.trim(),
+            contactEmail: _emailCtrl.text.trim(),
+            role: _role.name,
+            tenantId: tenantId,
+            branchId: _selectedBranchId!,
+            csdCargo: _csdCargoCtrl.text.trim(),
+          );
 
       if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              'Operador creado. Recibirá un correo para configurar su contraseña.',
+              result.emailSent
+                  ? 'Cuenta ${result.username} creada. La invitación fue enviada al correo de contacto.'
+                  : 'Cuenta ${result.username} creada, pero no se pudo enviar el correo. Reenvía la invitación desde Equipo.',
             ),
           ),
         );
       }
-    } on StaffAlreadyExistsException catch (e) {
-      setState(() => _error = e.message);
-    } catch (e) {
-      setState(() => _error = 'Error: $e');
+    } on StaffAccountException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = 'No se pudo crear la cuenta. Intenta de nuevo.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -147,15 +149,27 @@ class _InviteStaffDialogState extends ConsumerState<InviteStaffDialog> {
                   controller: _emailCtrl,
                   keyboardType: TextInputType.emailAddress,
                   decoration: const InputDecoration(
-                    labelText: 'Correo electrónico',
+                    labelText: 'Correo de contacto',
+                    helperText:
+                        'Recibirá la invitación y la recuperación de acceso.',
+                    helperMaxLines: 2,
                     prefixIcon: Icon(Icons.email_outlined),
                     border: OutlineInputBorder(),
                   ),
                   validator: (v) {
                     if (v == null || v.trim().isEmpty) return 'Requerido';
-                    if (!v.contains('@')) return 'Correo inválido';
+                    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$')
+                        .hasMatch(v.trim())) {
+                      return 'Correo inválido';
+                    }
                     return null;
                   },
+                ),
+                const Padding(
+                  padding: EdgeInsets.only(top: 12),
+                  child: Text(
+                    'Se generará un usuario laboral único. La cuenta se activará cuando el empleado acepte y establezca su contraseña.',
+                  ),
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<UserRole>(

@@ -2,7 +2,7 @@ import { before, after, test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, setDoc, updateDoc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, getDoc, deleteDoc, collection, getDocs, query, where } from 'firebase/firestore';
 
 const host = process.env.FIRESTORE_EMULATOR_HOST;
 assert.match(host ?? '', /^(127\.0\.0\.1|localhost):\d+$/, 'Tests must use the local emulator.');
@@ -23,6 +23,10 @@ before(async () => {
     const data = {
       'tenants/gym': { owner_uid: 'owner', settings: {} },
       'users/owner': profile('owner'),
+      'users/super': profile('superuser'),
+      'users/pending': { ...profile('receptionist'), status: 'pending', account_type: 'managed_staff', invitation_status: 'pending', username: 'gym.ana.123', email: 'contact@example.test' },
+      'users/managed': { ...profile('receptionist'), account_type: 'managed_staff', invitation_status: 'accepted', username: 'gym.luis.123', email: 'contact@example.test' },
+      'staff_invitations/pending': { token_hash: 'private', status: 'pending' },
       'users/staff': profile('staff', 'gym', permissions('members', 'scanner')),
       'users/staff2': profile('staff'),
       'users/reception': profile('receptionist'),
@@ -91,4 +95,28 @@ test('new gym ownership cannot be claimed by another account', async () => {
   await assertSucceeds(setDoc(doc(db('new-owner'), 'users/new-owner'), { role: 'owner', tenant_id: 'new-gym', status: 'active' }));
   await assertFails(setDoc(doc(db('attacker'), 'users/attacker'), { role: 'owner', tenant_id: 'gym', status: 'active' }));
   await assertFails(updateDoc(doc(db('owner'), 'tenants/gym'), { owner_uid: 'reception' }));
+});
+
+test('pending work identities have no gym access, even with forged Owner claims', async () => {
+  await assertSucceeds(getDoc(doc(db('pending'), 'users/pending')));
+  await assertFails(getDoc(doc(db('pending'), 'tenants/gym')));
+  await assertFails(getDoc(doc(db('pending'), 'tenants/gym/members/member')));
+  await assertFails(updateDoc(doc(db('pending'), 'users/pending'), { status: 'active', invitation_status: 'accepted' }));
+});
+test('activation secrets and work identity cannot be read or overwritten by clients', async () => {
+  await assertFails(setDoc(doc(db('super'), 'users/forged-work'), { role: 'receptionist', tenant_id: 'gym', status: 'active', account_type: 'managed_staff', invitation_status: 'accepted' }));
+  for (const uid of ['pending', 'owner', 'super']) {
+    await assertFails(getDoc(doc(db(uid), 'staff_invitations/pending')));
+    await assertFails(setDoc(doc(db(uid), 'staff_account_keys/forged'), { uid: 'pending' }));
+    await assertFails(updateDoc(doc(db(uid), 'users/pending'), { status: 'active' }));
+    await assertFails(updateDoc(doc(db(uid), 'users/pending'), { username: 'forged', email: 'other@example.test' }));
+    await assertFails(updateDoc(doc(db(uid), 'users/pending'), { invitation_status: 'accepted' }));
+  }
+});
+test('accepted work accounts can be suspended and restored without erasing history', async () => {
+  await assertSucceeds(updateDoc(doc(db('owner'), 'users/managed'), { status: 'suspended' }));
+  await assertSucceeds(updateDoc(doc(db('owner'), 'users/managed'), { status: 'active' }));
+  await assertSucceeds(updateDoc(doc(db('super'), 'users/managed'), { permissions: permissions('scanner') }));
+  await assertFails(updateDoc(doc(db('managed'), 'users/managed'), { email: 'unverified@example.test' }));
+  await assertFails(deleteDoc(doc(db('super'), 'users/managed')));
 });

@@ -34,7 +34,9 @@ export async function authenticate(request, env, loadProfile) {
     throw new AccessError('La sesión no es válida.', 401);
   }
   const profile = await loadProfile(`users/${account.localId}`);
-  if (profile && profile.status !== 'active') throw new AccessError('Tu acceso está suspendido.');
+  const acceptingInvitation = new URL(request.url).pathname === '/staff-invitations/accept'
+    && profile?.account_type === 'managed_staff' && profile.status === 'pending';
+  if (profile && profile.status !== 'active' && !acceptingInvitation) throw new AccessError('Tu acceso está pendiente de activación o suspendido.');
   return { ...(profile ?? { role: 'member', status: 'active' }), uid: account.localId };
 }
 
@@ -49,7 +51,8 @@ export async function authorize(request, actor, loadDocument) {
   }
   // Use exactly the field consumed by the handler; aliases must not authorize
   // one gym while the handler writes to another.
-  const tenantId = path === '/create-staff' ? body.tenant_id : body.tenantId ?? url.searchParams.get('tenantId');
+  const createsStaff = ['/create-staff', '/staff-accounts'].includes(path);
+  const tenantId = createsStaff ? body.tenant_id : body.tenantId ?? url.searchParams.get('tenantId');
   const owner = id => actor.role === 'superuser' || (actor.role === 'owner' && actor.tenant_id === id);
   const module = (id, name) => actor.role === 'superuser' || (id && actor.tenant_id === id && hasModule(actor, name));
 
@@ -58,13 +61,13 @@ export async function authorize(request, actor, loadDocument) {
     requireAccess(['superuser', 'owner', 'staff', 'receptionist', 'member'].includes(body.role));
     return;
   }
-  if (path === '/create-staff') {
+  if (createsStaff) {
     requireAccess(['staff', 'receptionist'].includes(body.role));
     requireAccess(owner(tenantId) || (actor.role === 'staff' && actor.tenant_id === tenantId && body.role === 'receptionist'));
     requireAccess(typeof body.branch_id === 'string' && !!await loadDocument(`tenants/${tenantId}/branches/${body.branch_id}`));
     return;
   }
-  if (path === '/delete-staff') {
+  if (['/delete-staff', '/staff-accounts/deactivate', '/staff-invitations/resend'].includes(path)) {
     requireAccess(canManageUser(actor, await loadDocument(`users/${body.uid}`)));
     return;
   }

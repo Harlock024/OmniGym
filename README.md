@@ -103,20 +103,70 @@ Las escrituras y los endpoints del Worker se autorizan por el modulo correspondi
 La version Flutter, las reglas y el Worker deben publicarse de forma coordinada:
 el Worker nuevo requiere identidad Firebase y rechaza el antiguo secreto incluido
 en la app. Antes de publicar, verificar `FIREBASE_API_KEY` del mismo proyecto.
-La aceptacion/rechazo de invitaciones y los otros issues siguen pendientes.
+### Cuentas laborales del equipo
+
+Al invitar desde **Equipo**, se genera un usuario laboral unico, por ejemplo
+`gymcentro.ana.a12b34c56d78`. El correo capturado es de **contacto**: recibe
+invitacion, recuperacion de acceso y las comunicaciones que correspondan.
+Las cuentas existentes conservan su acceso por correo; no se migran ni se
+sobrescriben cuentas personales que usen el mismo contacto.
+
+- La nueva identidad queda `pending` y no puede consultar datos del gimnasio.
+- El enlace muestra gimnasio, sucursal, rol y usuario. Permite aceptar o rechazar.
+  Al aceptar, el empleado define su propia contrasena y autentica esa identidad;
+  el servidor comprueba destinatario, sucursal y autoridad actual del invitante.
+- El token se almacena como SHA-256 y la transicion se confirma atomicamente.
+  Reintentar una aceptacion ya completada no vuelve a aplicar permisos.
+- La invitacion vence en 7 dias. El codigo de contrasena de Firebase puede
+  vencer antes; **Reenviar invitacion** renueva ambos enlaces e invalida el token
+  anterior. **Cancelar invitacion** impide activarla.
+- Un fallo de correo deja la cuenta pendiente y visible para reenviar; no se
+  informa que el mensaje fue enviado ni se crea otra identidad al reintentar.
+  Solo existe una cuenta laboral por correo de contacto y gimnasio.
+- **Correo o usuario laboral** admite ambos tipos de acceso. La recuperacion
+  de un usuario laboral envia el enlace a su contacto verificado, con respuesta
+  generica y limites por cuenta/IP. Las cuentas pendientes requieren un reenvio.
+- Dar de baja suspende el acceso y conserva Auth, el perfil y el historial.
+  Una cuenta aceptada puede reactivarse desde Equipo; una invitacion pendiente
+  solo se activa mediante aceptacion, incluso para Superuser.
+
+Firebase usa internamente `usuario@staff.omnigym.invalid` como identidad de
+autenticacion. No es un buzon ni requiere Google Workspace; nunca se utiliza
+como destinatario. El dominio reservado debe coincidir en
+`cloudflare-worker/src/staff_accounts.js` y `lib/core/services/login_identity.dart`.
+El callable antiguo `createStaffUser` delega al mismo flujo del Worker.
+El cliente nuevo utiliza `/staff-accounts` y `/staff-accounts/deactivate`;
+un Worker antiguo no ejecutara por accidente la creacion o eliminacion anterior.
+
+Para publicar este flujo, coordinar Flutter, Worker, reglas y Functions. El
+Worker requiere `SA_JSON`, `FIREBASE_API_KEY`, `RESEND_API_KEY` y un remitente
+`EMAIL_FROM` autorizado en Resend. Configurar `APP_BASE_URL` con la URL HTTPS
+de la app (incluye el subdirectorio si aplica); los correos apuntan a rutas `/#/`.
+La configuracion versionada usa `https://omnigym-567a8.web.app/`.
+La generacion de enlaces y su confirmacion siguen los mecanismos de
+[Firebase Auth](https://firebase.google.com/docs/auth/admin/email-action-links) y su
+[manejador de acciones](https://firebase.google.com/docs/auth/custom-email-handler).
+
+Los tickets, el modulo de avisos y la invitacion para vincular directamente una
+cuenta personal existente a otro gimnasio siguen fuera de esta etapa.
 
 Validacion local (sin datos de produccion):
 
 ```bash
 flutter test
-node --test cloudflare-worker/test/authorization.test.mjs
+node --test cloudflare-worker/test/authorization.test.mjs cloudflare-worker/test/staff_accounts.test.mjs
 npm --prefix functions test -- --runInBand
+npm --prefix functions run build
 
 # Terminal 1: dejar el emulador de Firestore iniciado
-firebase emulators:start --only firestore --project demo-omnigym-roles
+firebase emulators:start --only auth,firestore --project demo-omnigym-roles
 
 # Terminal 2: comprobar reglas y delegacion contra el emulador local
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix functions run test:rules
+
+# Flujo Worker -> Firebase REST real contra emuladores, correo simulado
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
+  node --test cloudflare-worker/test/staff_emulator.test.mjs
 ```
 
 ## Requisitos previos

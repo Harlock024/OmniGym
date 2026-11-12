@@ -59,6 +59,7 @@ final filteredUsersProvider = Provider<AsyncValue<List<AppUser>>>((ref) {
     return users.where((u) {
       return u.name.toLowerCase().contains(q) ||
           u.email.toLowerCase().contains(q) ||
+          (u.username?.toLowerCase().contains(q) ?? false) ||
           (u.tenantId?.toLowerCase().contains(q) ?? false);
     }).toList();
   });
