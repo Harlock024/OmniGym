@@ -436,12 +436,14 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
               tooltip: 'Volver',
             ),
             const SizedBox(width: 8),
-            Text(
-              'Configuración fiscal',
-              style: TextStyle(
-                color: cs.onPrimary,
-                fontSize: 17,
-                fontWeight: FontWeight.bold,
+            Expanded(
+              child: Text(
+                'Configuración fiscal',
+                style: TextStyle(
+                  color: cs.onPrimary,
+                  fontSize: 17,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
           ],
@@ -456,15 +458,26 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           // Breadcrumb
           GestureDetector(
             onTap: () => context.go('/superadmin'),
-            child: Text('Empresas',
-                style: TextStyle(color: cs.onPrimary, fontSize: 13)),
+            child: Text(
+              'Empresas',
+              style: TextStyle(color: cs.onPrimary, fontSize: 13),
+            ),
           ),
-          Text(' / ', style: TextStyle(color: cs.onPrimary.withAlpha(180), fontSize: 13)),
           Text(
-            _tenant?.name ?? '',
+            ' / ',
             style: TextStyle(color: cs.onPrimary.withAlpha(180), fontSize: 13),
           ),
-          const Spacer(),
+          Expanded(
+            child: Text(
+              _tenant?.name ?? '',
+              style: TextStyle(
+                color: cs.onPrimary.withAlpha(180),
+                fontSize: 13,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
           IconButton(
             icon: Icon(Icons.close, color: cs.onPrimary, size: 18),
             onPressed: () => context.go('/superadmin'),
@@ -480,28 +493,35 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,
-        border: Border(bottom: BorderSide(color: theme.dividerTheme.color ?? OmniGymColors.border, width: 1)),
-      ),
-      child: Row(
-        children: [
-          const SizedBox(width: 24),
-          TabBar(
-            controller: _tabs,
-            isScrollable: true,
-            indicatorColor: cs.primary,
-            labelColor: cs.primary,
-            unselectedLabelColor: cs.onSurfaceVariant,
-            labelStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-            unselectedLabelStyle: const TextStyle(fontSize: 13),
-            tabs: [
-              const Tab(text: 'Datos generales'),
-              const Tab(text: 'Apariencia'),
-              const Tab(text: 'Datos fiscales'),
-              const Tab(text: 'Certificados'),
-              if (!widget.isOwnerMode) const Tab(text: 'Cobro'),
-            ],
+        border: Border(
+          bottom: BorderSide(
+            color: theme.dividerTheme.color ?? OmniGymColors.border,
+            width: 1,
           ),
-        ],
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: TabBar(
+          controller: _tabs,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          indicatorColor: cs.primary,
+          labelColor: cs.primary,
+          unselectedLabelColor: cs.onSurfaceVariant,
+          labelStyle: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+          unselectedLabelStyle: const TextStyle(fontSize: 13),
+          tabs: [
+            const Tab(text: 'Datos generales'),
+            const Tab(text: 'Apariencia'),
+            const Tab(text: 'Datos fiscales'),
+            const Tab(text: 'Certificados'),
+            if (!widget.isOwnerMode) const Tab(text: 'Cobro'),
+          ],
+        ),
       ),
     );
   }
@@ -515,24 +535,38 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Logo + nombre
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _LogoUpload(
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final logo = _LogoUpload(
                 bytes: _logoBytes,
                 logoUrl: _tenant?.settings.logoUrl,
                 name: _tenant?.name ?? '',
                 color: _primaryColor,
                 onTap: _pickLogo,
-              ),
-              const SizedBox(width: 20),
-              Expanded(
-                child: _Field(
-                  controller: _nameCtrl,
-                  label: 'Nombre de la empresa',
-                ),
-              ),
-            ],
+              );
+              final name = _Field(
+                controller: _nameCtrl,
+                label: 'Nombre de la empresa',
+              );
+              if (constraints.maxWidth < 400) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Align(alignment: Alignment.centerLeft, child: logo),
+                    const SizedBox(height: 16),
+                    name,
+                  ],
+                );
+              }
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  logo,
+                  const SizedBox(width: 20),
+                  Expanded(child: name),
+                ],
+              );
+            },
           ),
           const SizedBox(height: 24),
           _SectionLabel('Dirección fiscal'),
@@ -549,22 +583,22 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           const SizedBox(height: 18),
           _SectionLabel('Información de contacto'),
           const SizedBox(height: 14),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          _ResponsiveFields(
             children: [
-              Expanded(
-                child: _Field(controller: _contactCtrl, label: 'Contacto'),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: _Field(controller: _phoneCtrl, label: 'Teléfono',
-                    keyboardType: TextInputType.phone),
+              _Field(controller: _contactCtrl, label: 'Contacto'),
+              _Field(
+                controller: _phoneCtrl,
+                label: 'Teléfono',
+                keyboardType: TextInputType.phone,
               ),
             ],
           ),
           const SizedBox(height: 14),
-          _Field(controller: _emailCtrl, label: 'Correo electrónico',
-              keyboardType: TextInputType.emailAddress),
+          _Field(
+            controller: _emailCtrl,
+            label: 'Correo electrónico',
+            keyboardType: TextInputType.emailAddress,
+          ),
         ],
       ),
     );
@@ -579,19 +613,24 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           color: Theme.of(context).colorScheme.primary.withAlpha(18),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-              color: Theme.of(context).colorScheme.primary.withAlpha(40)),
+            color: Theme.of(context).colorScheme.primary.withAlpha(40),
+          ),
         ),
         child: Row(
           children: [
-            Icon(Icons.check_circle_outline,
-                size: 16, color: Theme.of(context).colorScheme.primary),
+            Icon(
+              Icons.check_circle_outline,
+              size: 16,
+              color: Theme.of(context).colorScheme.primary,
+            ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
                 '${_state ?? ""} · ${_municipality ?? ""}',
                 style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface,
-                    fontSize: 13),
+                  color: Theme.of(context).colorScheme.onSurface,
+                  fontSize: 13,
+                ),
               ),
             ),
           ],
@@ -607,44 +646,44 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             padding: const EdgeInsets.only(bottom: 12),
             child: Row(
               children: [
-                Icon(Icons.info_outline,
-                    size: 14,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant),
+                Icon(
+                  Icons.info_outline,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
                 const SizedBox(width: 6),
-                Text(
-                  'CP no encontrado en catálogo. Selecciona manualmente:',
-                  style: TextStyle(
+                Expanded(
+                  child: Text(
+                    'CP no encontrado en catálogo. Selecciona manualmente:',
+                    style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      fontSize: 11),
+                      fontSize: 11,
+                    ),
+                  ),
                 ),
               ],
             ),
           ),
-        Row(
+        _ResponsiveFields(
           children: [
-            Expanded(
-              child: _Dropdown<String>(
-                label: 'Estado',
-                value: _state,
-                items: MexicoData.states
-                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
-                    .toList(),
-                onChanged: (v) => setState(() {
-                  _state = v;
-                  _municipality = null;
-                }),
-              ),
+            _Dropdown<String>(
+              label: 'Estado',
+              value: _state,
+              items: MexicoData.states
+                  .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                  .toList(),
+              onChanged: (v) => setState(() {
+                _state = v;
+                _municipality = null;
+              }),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: _Dropdown<String>(
-                label: 'Municipio',
-                value: _municipality,
-                items: MexicoData.getMunicipalities(_state)
-                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
-                    .toList(),
-                onChanged: (v) => setState(() => _municipality = v),
-              ),
+            _Dropdown<String>(
+              label: 'Municipio',
+              value: _municipality,
+              items: MexicoData.getMunicipalities(_state)
+                  .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                  .toList(),
+              onChanged: (v) => setState(() => _municipality = v),
             ),
           ],
         ),
@@ -743,99 +782,121 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   Widget _buildFiscalTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: _ResponsiveFields(
+        spacing: 24,
         children: [
-          Expanded(
-            child: Column(
-              children: [
-                _Field(
-                  controller: _rfcCtrl,
-                  label: 'RFC',
-                  textCapitalization: TextCapitalization.characters,
-                  errorText: _rfcError,
-                  onChanged: (v) =>
-                      setState(() => _rfcError = RfcValidator.validate(v)),
-                ),
-                const SizedBox(height: 14),
-                _Field(controller: _razonSocialCtrl, label: 'Razón social'),
-                const SizedBox(height: 14),
-                _Field(controller: _giroCtrl, label: 'Giro de la empresa'),
-                const SizedBox(height: 14),
-                _Dropdown<String>(
-                  label: 'Comprobante fiscal',
-                  value: _tipoComprobante,
-                  items: SatCatalogs.tiposComprobante
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _tipoComprobante = v ?? 'I'),
-                ),
-                const SizedBox(height: 14),
-                _Dropdown<String>(
-                  label: 'Régimen fiscal',
-                  value: _regimenFiscal,
-                  items: SatCatalogs.regimenesFiscales
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _regimenFiscal = v),
-                ),
-                const SizedBox(height: 14),
-                _Dropdown<String>(
-                  label: 'Método de pago',
-                  value: _metodoPago,
-                  items: SatCatalogs.metodosPago
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _metodoPago = v ?? 'PUE'),
-                ),
-                const SizedBox(height: 14),
-                _Dropdown<String>(
-                  label: 'Forma de pago',
-                  value: _formaPago,
-                  items: SatCatalogs.formasPago
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _formaPago = v ?? '01'),
-                ),
-                const SizedBox(height: 14),
-                _Dropdown<String>(
-                  label: 'Uso CFDI',
-                  value: _usoCFDI,
-                  items: SatCatalogs.usosCFDI
-                      .map((e) => DropdownMenuItem(value: e.key, child: Text(e.label)))
-                      .toList(),
-                  onChanged: (v) => setState(() => _usoCFDI = v ?? 'G03'),
-                ),
-                const SizedBox(height: 14),
-                _Field(controller: _serieCtrl, label: 'Serie'),
-              ],
-            ),
+          Column(
+            children: [
+              _Field(
+                controller: _rfcCtrl,
+                label: 'RFC',
+                textCapitalization: TextCapitalization.characters,
+                errorText: _rfcError,
+                onChanged: (v) =>
+                    setState(() => _rfcError = RfcValidator.validate(v)),
+              ),
+              const SizedBox(height: 14),
+              _Field(controller: _razonSocialCtrl, label: 'Razón social'),
+              const SizedBox(height: 14),
+              _Field(controller: _giroCtrl, label: 'Giro de la empresa'),
+              const SizedBox(height: 14),
+              _Dropdown<String>(
+                label: 'Comprobante fiscal',
+                value: _tipoComprobante,
+                items: SatCatalogs.tiposComprobante
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.label)),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _tipoComprobante = v ?? 'I'),
+              ),
+              const SizedBox(height: 14),
+              _Dropdown<String>(
+                label: 'Régimen fiscal',
+                value: _regimenFiscal,
+                items: SatCatalogs.regimenesFiscales
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.label)),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _regimenFiscal = v),
+              ),
+              const SizedBox(height: 14),
+              _Dropdown<String>(
+                label: 'Método de pago',
+                value: _metodoPago,
+                items: SatCatalogs.metodosPago
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.label)),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _metodoPago = v ?? 'PUE'),
+              ),
+              const SizedBox(height: 14),
+              _Dropdown<String>(
+                label: 'Forma de pago',
+                value: _formaPago,
+                items: SatCatalogs.formasPago
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.label)),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _formaPago = v ?? '01'),
+              ),
+              const SizedBox(height: 14),
+              _Dropdown<String>(
+                label: 'Uso CFDI',
+                value: _usoCFDI,
+                items: SatCatalogs.usosCFDI
+                    .map(
+                      (e) =>
+                          DropdownMenuItem(value: e.key, child: Text(e.label)),
+                    )
+                    .toList(),
+                onChanged: (v) => setState(() => _usoCFDI = v ?? 'G03'),
+              ),
+              const SizedBox(height: 14),
+              _Field(controller: _serieCtrl, label: 'Serie'),
+            ],
           ),
-          const SizedBox(width: 24),
-          Expanded(
-            child: Column(
-              children: [
-                _Field(controller: _numAprobCtrl, label: 'Núm. de aprobación'),
-                const SizedBox(height: 14),
-                _Field(controller: _anioAprobCtrl, label: 'Año de aprobación',
-                    keyboardType: TextInputType.number),
-                const SizedBox(height: 14),
-                _Field(controller: _folioIniCtrl, label: 'Folio inicial',
-                    keyboardType: TextInputType.number),
-                const SizedBox(height: 14),
-                _Field(controller: _folioFinCtrl, label: 'Folio final',
-                    keyboardType: TextInputType.number),
-                const SizedBox(height: 14),
-                _Field(controller: _folioActCtrl, label: 'Folio actual',
-                    keyboardType: TextInputType.number),
-                const SizedBox(height: 14),
-                _DatePickerField(
-                  label: 'Fecha de vencimiento',
-                  value: _fechaVencimiento,
-                  onChanged: (d) => setState(() => _fechaVencimiento = d),
-                ),
-              ],
-            ),
+          Column(
+            children: [
+              _Field(controller: _numAprobCtrl, label: 'Núm. de aprobación'),
+              const SizedBox(height: 14),
+              _Field(
+                controller: _anioAprobCtrl,
+                label: 'Año de aprobación',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 14),
+              _Field(
+                controller: _folioIniCtrl,
+                label: 'Folio inicial',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 14),
+              _Field(
+                controller: _folioFinCtrl,
+                label: 'Folio final',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 14),
+              _Field(
+                controller: _folioActCtrl,
+                label: 'Folio actual',
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 14),
+              _DatePickerField(
+                label: 'Fecha de vencimiento',
+                value: _fechaVencimiento,
+                onChanged: (d) => setState(() => _fechaVencimiento = d),
+              ),
+            ],
           ),
         ],
       ),
@@ -847,59 +908,56 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   Widget _buildCertsTab() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: _ResponsiveFields(
+        spacing: 32,
         children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionLabel('Certificado SAT (.cer)'),
-                const SizedBox(height: 8),
-                _CertFileRow(
-                  fileName: _cerName,
-                  hasData: _cerBytes != null || _cerUrl != null,
-                  onPick: () => _pickCert(true),
-                  onClear: () => setState(() {
-                    _cerBytes = null;
-                    _cerName = null;
-                    _cerUrl = null;
-                    _cerDirty = true;
-                  }),
-                ),
-                const SizedBox(height: 20),
-                _SectionLabel('Archivo Key SAT (.key)'),
-                const SizedBox(height: 8),
-                _CertFileRow(
-                  fileName: _keyName,
-                  hasData: _keyBytes != null || _keyUrl != null,
-                  onPick: () => _pickCert(false),
-                  onClear: () => setState(() {
-                    _keyBytes = null;
-                    _keyName = null;
-                    _keyUrl = null;
-                    _keyDirty = true;
-                  }),
-                ),
-              ],
-            ),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionLabel('Certificado SAT (.cer)'),
+              const SizedBox(height: 8),
+              _CertFileRow(
+                fileName: _cerName,
+                hasData: _cerBytes != null || _cerUrl != null,
+                onPick: () => _pickCert(true),
+                onClear: () => setState(() {
+                  _cerBytes = null;
+                  _cerName = null;
+                  _cerUrl = null;
+                  _cerDirty = true;
+                }),
+              ),
+              const SizedBox(height: 20),
+              _SectionLabel('Archivo Key SAT (.key)'),
+              const SizedBox(height: 8),
+              _CertFileRow(
+                fileName: _keyName,
+                hasData: _keyBytes != null || _keyUrl != null,
+                onPick: () => _pickCert(false),
+                onClear: () => setState(() {
+                  _keyBytes = null;
+                  _keyName = null;
+                  _keyUrl = null;
+                  _keyDirty = true;
+                }),
+              ),
+            ],
           ),
-          const SizedBox(width: 32),
-          SizedBox(
-            width: 320,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _SectionLabel('Contraseña del certificado'),
-                const SizedBox(height: 8),
-                _PasswordField(controller: _certPassCtrl),
-                const SizedBox(height: 8),
-                Text(
-                  'La contraseña solo se usa en operaciones de timbrado y no se almacena.',
-                  style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 11),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _SectionLabel('Contraseña del certificado'),
+              const SizedBox(height: 8),
+              _PasswordField(controller: _certPassCtrl),
+              const SizedBox(height: 8),
+              Text(
+                'La contraseña solo se usa en operaciones de timbrado y no se almacena.',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 11,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         ],
       ),
@@ -938,8 +996,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
       return const Center(child: CircularProgressIndicator());
     }
     final status = tenant.subscriptionStatus;
-    final pastDue =
-        tenant.pastDue && status == SubscriptionStatus.active;
+    final pastDue = tenant.pastDue && status == SubscriptionStatus.active;
     final d = tenant.billingCycleEnd;
     final fecha =
         '${d.day.toString().padLeft(2, '0')}/${d.month.toString().padLeft(2, '0')}/${d.year}';
@@ -949,8 +1006,10 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         : switch (status) {
             SubscriptionStatus.active => ('Activo', OmniGymColors.success),
             SubscriptionStatus.suspended => ('Suspendido', Colors.orange),
-            SubscriptionStatus.cancelled =>
-              ('Cancelado', Theme.of(context).colorScheme.error),
+            SubscriptionStatus.cancelled => (
+              'Cancelado',
+              Theme.of(context).colorScheme.error,
+            ),
           };
 
     final isActive = status == SubscriptionStatus.active;
@@ -970,26 +1029,37 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 16,
+                runSpacing: 8,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                        horizontal: 10, vertical: 3),
+                      horizontal: 10,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: statusColor.withAlpha(30),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: statusColor.withAlpha(80)),
                     ),
-                    child: Text(statusLabel,
-                        style: TextStyle(
-                            color: statusColor,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600)),
-                  ),
-                  const Spacer(),
-                  Text('Próximo cobro: $fecha',
+                    child: Text(
+                      statusLabel,
                       style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+                        color: statusColor,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Text(
+                    'Próximo cobro: $fecha',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 12),
@@ -1006,7 +1076,9 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
               ? 'Suspende el acceso del gimnasio de inmediato. Úsalo solo como medida administrativa; el estado de pago lo gestiona Stripe automáticamente.'
               : 'Reactiva el acceso del gimnasio. Si tiene un pago pendiente con Stripe, seguirá bloqueado hasta que regularice.',
           style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12),
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+            fontSize: 12,
+          ),
         ),
         const SizedBox(height: 12),
         Align(
@@ -1016,18 +1088,21 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                   onPressed: _saving
                       ? null
                       : () => _setSubscriptionStatus(
-                          SubscriptionStatus.suspended),
+                          SubscriptionStatus.suspended,
+                        ),
                   style: OutlinedButton.styleFrom(
-                      foregroundColor: Theme.of(context).colorScheme.error,
-                      side: BorderSide(color: Theme.of(context).colorScheme.error)),
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                    side: BorderSide(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
                   icon: const Icon(Icons.block, size: 18),
                   label: const Text('Suspender acceso'),
                 )
               : FilledButton.icon(
                   onPressed: _saving
                       ? null
-                      : () => _setSubscriptionStatus(
-                          SubscriptionStatus.active),
+                      : () => _setSubscriptionStatus(SubscriptionStatus.active),
                   icon: const Icon(Icons.play_arrow, size: 18),
                   label: const Text('Reactivar acceso'),
                 ),
@@ -1037,20 +1112,29 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
         const SizedBox(height: 12),
         Consumer(
           builder: (context, ref, _) {
-            final invoicesAsync =
-                ref.watch(tenantInvoicesProvider(widget.tenantId!));
+            final invoicesAsync = ref.watch(
+              tenantInvoicesProvider(widget.tenantId!),
+            );
             return invoicesAsync.when(
               loading: () => const Padding(
                 padding: EdgeInsets.all(24),
                 child: Center(child: CircularProgressIndicator()),
               ),
-              error: (e, _) => Text('No se pudo cargar el historial: $e',
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 12)),
+              error: (e, _) => Text(
+                'No se pudo cargar el historial: $e',
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  fontSize: 12,
+                ),
+              ),
               data: (invoices) => invoices.isEmpty
-                  ? Text('Aún no hay facturas registradas.',
+                  ? Text(
+                      'Aún no hay facturas registradas.',
                       style: TextStyle(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13))
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        fontSize: 13,
+                      ),
+                    )
                   : Column(
                       children: invoices
                           .map((inv) => _InvoiceTile(invoice: inv))
@@ -1091,26 +1175,37 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
       decoration: BoxDecoration(
-        border: Border(top: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border, width: 1)),
+        border: Border(
+          top: BorderSide(
+            color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border,
+            width: 1,
+          ),
+        ),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
+      child: OverflowBar(
+        alignment: MainAxisAlignment.end,
+        spacing: 12,
+        overflowSpacing: 8,
         children: [
           TextButton(
             onPressed: () => context.go(
-                widget.isOwnerMode ? '/dashboard/owner' : '/superadmin'),
+              widget.isOwnerMode ? '/dashboard/owner' : '/superadmin',
+            ),
             style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant),
+              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
             child: const Text('Cancelar'),
           ),
-          const SizedBox(width: 12),
           FilledButton(
             onPressed: _saving ? null : _save,
             child: _saving
                 ? SizedBox(
                     width: 18,
                     height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2, color: Theme.of(context).colorScheme.onPrimary),
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Theme.of(context).colorScheme.onPrimary,
+                    ),
                   )
                 : const Text('Guardar cambios'),
           ),
@@ -1121,6 +1216,38 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
 }
 
 // ─── Widgets auxiliares ───────────────────────────────────────────────────────
+
+class _ResponsiveFields extends StatelessWidget {
+  const _ResponsiveFields({required this.children, this.spacing = 14});
+  final List<Widget> children;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.maxWidth < 640) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              if (i > 0) SizedBox(height: spacing),
+              children[i],
+            ],
+          ],
+        );
+      }
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) SizedBox(width: spacing),
+            Expanded(child: children[i]),
+          ],
+        ],
+      );
+    },
+  );
+}
 
 class _SectionLabel extends StatelessWidget {
   const _SectionLabel(this.text);
@@ -1416,31 +1543,42 @@ class _CertFileRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (hasData && fileName != null) {
-      return Row(
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.check_circle, color: OmniGymColors.success, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              fileName!,
-              style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
-              overflow: TextOverflow.ellipsis,
-            ),
+          Row(
+            children: [
+              const Icon(Icons.check_circle, color: OmniGymColors.success, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  fileName!,
+                  style: TextStyle(color: Theme.of(context).colorScheme.onSurface, fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          OutlinedButton.icon(
-            onPressed: onPick,
-            icon: const Icon(Icons.swap_horiz, size: 14),
-            label: const Text('Reemplazar'),
-            style: OutlinedButton.styleFrom(
-              foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-              side: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
-            ),
-          ),
-          const SizedBox(width: 8),
-          IconButton(
-            onPressed: onClear,
-            icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 18),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onPick,
+                icon: const Icon(Icons.swap_horiz, size: 14),
+                label: const Text('Reemplazar'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+                  side: BorderSide(color: Theme.of(context).dividerTheme.color ?? OmniGymColors.border),
+                ),
+              ),
+              IconButton(
+                onPressed: onClear,
+                tooltip: 'Eliminar archivo',
+                icon: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error, size: 18),
+              ),
+            ],
           ),
         ],
       );
@@ -1519,14 +1657,23 @@ class _ThemeModeSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SegmentedButton<String>(
-      segments: const [
-        ButtonSegment(value: 'light', label: Text('Claro')),
-        ButtonSegment(value: 'dark', label: Text('Oscuro')),
-        ButtonSegment(value: 'system', label: Text('Sistema')),
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final option in const [
+          ('light', 'Claro'),
+          ('dark', 'Oscuro'),
+          ('system', 'Sistema'),
+        ])
+          ChoiceChip(
+            label: Text(option.$2),
+            selected: value == option.$1,
+            onSelected: (selected) {
+              if (selected) onChanged(option.$1);
+            },
+          ),
       ],
-      selected: {value},
-      onSelectionChanged: (selected) => onChanged(selected.first),
     );
   }
 }
@@ -1607,13 +1754,14 @@ class _ThemePreview extends StatelessWidget {
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                           const SizedBox(height: 16),
-                          Row(
+                          Wrap(
+                            spacing: 12,
+                            runSpacing: 8,
                             children: [
                               FilledButton(
                                 onPressed: () {},
                                 child: const Text('Primario'),
                               ),
-                              const SizedBox(width: 12),
                               OutlinedButton(
                                 onPressed: () {},
                                 child: const Text('Secundario'),
