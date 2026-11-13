@@ -77,9 +77,8 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   // Autocompletado postal (catálogo SEPOMEX vía worker/D1).
   List<String> _colonias = [];
   String? _cpEstado;
-  String? _cpMunicipio;
-  String? _cpCiudad;
   bool _cpLoading = false;
+  int _postalRequest = 0;
 
   // Cert data (los bytes se suben a R2 al guardar; solo persistimos la URL).
   Uint8List? _cerBytes;
@@ -117,61 +116,75 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   }
 
   Future<void> _loadTenant() async {
-    final tenantId = widget.tenantId ??
-        ref.read(activeTenantIdFutureProvider).valueOrNull ??
-        await ref.read(activeTenantIdFutureProvider.future);
-    if (tenantId == null) {
-      if (mounted) setState(() { _loading = false; _error = 'Tenant no encontrado.'; });
-      return;
-    }
-    final tenant = await ref
-        .read(tenantRepositoryProvider)
-        .get(tenantId);
-    if (!mounted) return;
-    if (tenant == null) {
-      setState(() { _loading = false; _error = 'Empresa no encontrada.'; });
-      return;
-    }
-    _initFromTenant(tenant);
-    setState(() { _tenant = tenant; _loading = false; });
-    if (RegExp(r'^\d{5}$').hasMatch(_postalCtrl.text)) {
-      _lookupCp(_postalCtrl.text);
+    try {
+      final tenantId =
+          widget.tenantId ??
+          ref.read(activeTenantIdFutureProvider).valueOrNull ??
+          await ref.read(activeTenantIdFutureProvider.future);
+      if (!mounted) return;
+      if (tenantId == null) {
+        setState(() {
+          _loading = false;
+          _error = 'Tenant no encontrado.';
+        });
+        return;
+      }
+      final tenant = await ref.read(tenantRepositoryProvider).get(tenantId);
+      if (!mounted) return;
+      if (tenant == null) {
+        setState(() {
+          _loading = false;
+          _error = 'Empresa no encontrada.';
+        });
+        return;
+      }
+      _initFromTenant(tenant);
+      setState(() {
+        _tenant = tenant;
+        _loading = false;
+      });
+      if (RegExp(r'^\d{5}$').hasMatch(_postalCtrl.text)) {
+        _lookupCp(_postalCtrl.text, preserveColonia: true);
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'No se pudo cargar la configuración. Intenta de nuevo.';
+        });
+      }
     }
   }
 
   // Consulta el catálogo postal y precarga estado/municipio/colonias.
-  Future<void> _lookupCp(String cp) async {
+  Future<void> _lookupCp(String cp, {bool preserveColonia = false}) async {
+    final request = ++_postalRequest;
     if (!RegExp(r'^\d{5}$').hasMatch(cp)) {
       setState(() {
+        _cpLoading = false;
         _colonias = [];
         _cpEstado = null;
-        _cpMunicipio = null;
-        _cpCiudad = null;
       });
       return;
     }
     setState(() => _cpLoading = true);
-    final r = await WorkerService.lookupPostalCode(cp);
-    if (!mounted) return;
+    PostalLookup? result;
+    try {
+      result = await ref
+          .read(postalCodeLookupProvider)(cp)
+          .timeout(const Duration(seconds: 10));
+    } catch (_) {
+      result = null;
+    }
+    if (!mounted || request != _postalRequest) return;
     setState(() {
       _cpLoading = false;
-      if (r != null) {
-        _cpEstado = r.estado;
-        _cpMunicipio = r.municipio;
-        _cpCiudad = r.ciudad;
-        _colonias = r.colonias;
-        // Sincroniza los dropdowns de estado/municipio desde SEPOMEX
-        // para facturación precisa (CFDI requiere dirección fiscal real).
-        if (r.estado != null) _state = r.estado;
-        _municipality = r.municipio;
-        // Auto-selecciona colonia si solo hay una; si no, limpia la anterior.
-        _coloniaCtrl.text = r.colonias.length == 1 ? r.colonias.first : '';
-      } else {
-        _cpEstado = null;
-        _cpMunicipio = null;
-        _cpCiudad = null;
-        _colonias = [];
-        _coloniaCtrl.text = '';
+      _cpEstado = result?.estado;
+      _colonias = result?.colonias ?? [];
+      _state = result?.estado ?? _state;
+      _municipality = result?.municipio ?? _municipality;
+      if (!preserveColonia || _coloniaCtrl.text.trim().isEmpty) {
+        _coloniaCtrl.text = _colonias.length == 1 ? _colonias.first : '';
       }
     });
   }
@@ -220,7 +233,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   }
 
   Future<void> _save() async {
-    if (_tenant == null) return;
+    if (_tenant == null || _cpLoading) return;
 
     // Validación de RFC (formato + dígito verificador) antes de persistir.
     final rfcError = RfcValidator.validate(_rfcCtrl.text);
@@ -377,16 +390,15 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
-      return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-      body: Center(child: CircularProgressIndicator()),
-      );
-    }
     if (_error != null && _tenant == null) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Center(child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+        body: Center(
+          child: Text(
+            _error!,
+            style: TextStyle(color: Theme.of(context).colorScheme.error),
+          ),
+        ),
       );
     }
 
@@ -398,22 +410,30 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           _buildHeader(),
           _buildTabs(),
           Expanded(
-            child: TabBarView(
-              controller: _tabs,
-              children: [
-                _buildGeneralTab(),
-                _buildAppearanceTab(),
-                _buildFiscalTab(),
-                _buildCertsTab(),
-                if (!widget.isOwnerMode) _buildBillingTab(),
-              ],
-            ),
+            child: _loading
+                ? const _SettingsSkeleton()
+                : TabBarView(
+                    controller: _tabs,
+                    children: [
+                      _buildGeneralTab(),
+                      _buildAppearanceTab(),
+                      _buildFiscalTab(),
+                      _buildCertsTab(),
+                      if (!widget.isOwnerMode) _buildBillingTab(),
+                    ],
+                  ),
           ),
           if (_error != null)
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               color: Theme.of(context).colorScheme.error.withAlpha(20),
-              child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error, fontSize: 13)),
+              child: Text(
+                _error!,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.error,
+                  fontSize: 13,
+                ),
+              ),
             ),
           _buildFooter(),
         ],
@@ -574,10 +594,13 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
           // CP es el campo principal: todo lo demás se deriva de él.
           _buildPostalField(),
           const SizedBox(height: 14),
-          // Estado y municipio: auto-completados desde CP o manuales.
-          _buildEstadoMunicipioRow(),
-          const SizedBox(height: 14),
-          _buildColoniaField(),
+          if (_cpLoading)
+            const _AddressSkeleton()
+          else ...[
+            _buildEstadoMunicipioRow(),
+            const SizedBox(height: 14),
+            _buildColoniaField(),
+          ],
           const SizedBox(height: 14),
           _Field(controller: _addressCtrl, label: 'Calle y número'),
           const SizedBox(height: 18),
@@ -605,40 +628,11 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
   }
 
   Widget _buildEstadoMunicipioRow() {
-    if (_cpEstado != null) {
-      // CP encontrado: mostrar estado y municipio confirmados (no editables).
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.primary.withAlpha(18),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: Theme.of(context).colorScheme.primary.withAlpha(40),
-          ),
-        ),
-        child: Row(
-          children: [
-            Icon(
-              Icons.check_circle_outline,
-              size: 16,
-              color: Theme.of(context).colorScheme.primary,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                '${_state ?? ""} · ${_municipality ?? ""}',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  fontSize: 13,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // CP no encontrado o sin 5 dígitos: campos manuales.
+    final states = <String>{...MexicoData.states, ?_state};
+    final municipalities = <String>{
+      ...MexicoData.getMunicipalities(_state),
+      ?_municipality,
+    };
     return Column(
       children: [
         if (_cpEstado == null && _postalCtrl.text.trim().length == 5)
@@ -654,7 +648,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
-                    'CP no encontrado en catálogo. Selecciona manualmente:',
+                    'Revisa o completa la dirección manualmente.',
                     style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant,
                       fontSize: 11,
@@ -669,21 +663,43 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             _Dropdown<String>(
               label: 'Estado',
               value: _state,
-              items: MexicoData.states
-                  .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+              items: states
+                  .map(
+                    (s) => DropdownMenuItem(
+                      value: s,
+                      child: Text(
+                        s,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
                   .toList(),
-              onChanged: (v) => setState(() {
-                _state = v;
-                _municipality = null;
-              }),
+              onChanged: _cpEstado != null
+                  ? null
+                  : (v) => setState(() {
+                      _state = v;
+                      _municipality = null;
+                    }),
             ),
             _Dropdown<String>(
               label: 'Municipio',
               value: _municipality,
-              items: MexicoData.getMunicipalities(_state)
-                  .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+              items: municipalities
+                  .map(
+                    (m) => DropdownMenuItem(
+                      value: m,
+                      child: Text(
+                        m,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  )
                   .toList(),
-              onChanged: (v) => setState(() => _municipality = v),
+              onChanged: _cpEstado != null
+                  ? null
+                  : (v) => setState(() => _municipality = v),
             ),
           ],
         ),
@@ -771,7 +787,12 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
       label: 'Colonia',
       value: current.isEmpty ? null : current,
       items: options
-          .map((c) => DropdownMenuItem(value: c, child: Text(c)))
+          .map(
+            (c) => DropdownMenuItem(
+              value: c,
+              child: Text(c, maxLines: 1, overflow: TextOverflow.ellipsis),
+            ),
+          )
           .toList(),
       onChanged: (v) => setState(() => _coloniaCtrl.text = v ?? ''),
     );
@@ -1197,7 +1218,7 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
             child: const Text('Cancelar'),
           ),
           FilledButton(
-            onPressed: _saving ? null : _save,
+            onPressed: _saving || _loading || _cpLoading ? null : _save,
             child: _saving
                 ? SizedBox(
                     width: 18,
@@ -1216,6 +1237,112 @@ class _TenantDetailScreenState extends ConsumerState<TenantDetailScreen>
 }
 
 // ─── Widgets auxiliares ───────────────────────────────────────────────────────
+
+class _SettingsSkeleton extends StatelessWidget {
+  const _SettingsSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Cargando configuración',
+    liveRegion: true,
+    child: ExcludeSemantics(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            LayoutBuilder(
+              builder: (context, constraints) {
+                const logo = SizedBox(
+                  width: 72,
+                  height: 92,
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: _SkeletonBox(height: 72, width: 72),
+                  ),
+                );
+                if (constraints.maxWidth < 400) {
+                  return const Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Align(alignment: Alignment.centerLeft, child: logo),
+                      SizedBox(height: 16),
+                      _SkeletonBox(),
+                    ],
+                  );
+                }
+                return const Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    logo,
+                    SizedBox(width: 20),
+                    Expanded(child: _SkeletonBox()),
+                  ],
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: _SkeletonBox(height: 12, width: 104),
+            ),
+            const SizedBox(height: 12),
+            const _SkeletonBox(),
+            const SizedBox(height: 14),
+            const _AddressSkeleton(),
+            const SizedBox(height: 14),
+            const _SkeletonBox(),
+            const SizedBox(height: 18),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: _SkeletonBox(height: 12, width: 160),
+            ),
+            const SizedBox(height: 14),
+            const _ResponsiveFields(children: [_SkeletonBox(), _SkeletonBox()]),
+            const SizedBox(height: 14),
+            const _SkeletonBox(),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+class _AddressSkeleton extends StatelessWidget {
+  const _AddressSkeleton();
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    label: 'Cargando dirección',
+    liveRegion: true,
+    child: const ExcludeSemantics(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _ResponsiveFields(children: [_SkeletonBox(), _SkeletonBox()]),
+          SizedBox(height: 14),
+          _SkeletonBox(),
+        ],
+      ),
+    ),
+  );
+}
+
+class _SkeletonBox extends StatelessWidget {
+  const _SkeletonBox({this.height = 48, this.width});
+  final double height;
+  final double? width;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    height: height,
+    width: width,
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(8),
+    ),
+  );
+}
 
 class _ResponsiveFields extends StatelessWidget {
   const _ResponsiveFields({required this.children, this.spacing = 14});
@@ -1337,7 +1464,7 @@ class _Dropdown<T> extends StatelessWidget {
   final String label;
   final T? value;
   final List<DropdownMenuItem<T>> items;
-  final ValueChanged<T?> onChanged;
+  final ValueChanged<T?>? onChanged;
 
   @override
   Widget build(BuildContext context) {
