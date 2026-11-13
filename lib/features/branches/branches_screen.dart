@@ -12,6 +12,7 @@ import '../../core/models/branch.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/worker_service.dart';
 import '../superadmin/mexico_data.dart';
+import 'branch_location.dart';
 
 // ─── Provider ─────────────────────────────────────────────────────────────────
 
@@ -89,15 +90,18 @@ class _Header extends StatelessWidget {
       child: Row(
         children: [
           if (context.isMobile) const DrawerMenuButton(),
-          Text(
-            'Sucursales',
-            style: TextStyle(
-              color: Theme.of(context).colorScheme.onSurface,
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
+          Expanded(
+            child: Text(
+              'Sucursales',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
-          const Spacer(),
           FilledButton.icon(
             onPressed: onAdd,
             icon: const Icon(Icons.add, size: 18),
@@ -168,9 +172,30 @@ class _BranchCard extends ConsumerWidget {
               borderRadius: const BorderRadius.vertical(
                 top: Radius.circular(12),
               ),
-              child: branch.location != null
-                  ? _MiniMap(location: branch.location!)
-                  : _MapPlaceholder(name: branch.name),
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  branch.location != null
+                      ? _MiniMap(location: branch.location!)
+                      : _MapPlaceholder(name: branch.name),
+                  Positioned(
+                    top: 4,
+                    right: 4,
+                    child: IconButton.filledTonal(
+                      tooltip: branchLocationUrl(branch) == null
+                          ? 'Agrega una ubicación para compartir'
+                          : 'Compartir ubicación',
+                      icon: const Icon(Icons.share_outlined, size: 18),
+                      onPressed: branchLocationUrl(branch) == null
+                          ? null
+                          : () => showDialog(
+                              context: context,
+                              builder: (_) => BranchLocationDialog(branch: branch),
+                            ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           // Info
