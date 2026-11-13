@@ -115,6 +115,72 @@ void main() {
     },
   );
 
+  for (final role in [
+    UserRole.owner,
+    UserRole.staff,
+    UserRole.receptionist,
+    UserRole.superuser,
+  ]) {
+    testWidgets('QR and kiosk routes stay blocked for ${role.name}', (
+      tester,
+    ) async {
+      if (role == UserRole.owner) {
+        tester.view.physicalSize = const Size(375, 812);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetPhysicalSize);
+        addTearDown(tester.view.resetDevicePixelRatio);
+      }
+      final profile = operatorUser(
+        'operator',
+        role,
+        permissions: {'scanner': true},
+      );
+      final container = ProviderContainer(
+        overrides: [
+          authStateProvider.overrideWith(
+            (ref) => Stream.value(_SignedInUser()),
+          ),
+          currentAppUserProvider.overrideWith((ref) => Stream.value(profile)),
+          firestoreProvider.overrideWithValue(FakeFirebaseFirestore()),
+        ],
+      );
+      addTearDown(container.dispose);
+      final router = container.read(routerProvider);
+      addTearDown(router.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp.router(routerConfig: router),
+        ),
+      );
+      await tester.pumpAndSettle();
+      for (final path in ['/scanner', '/kiosk']) {
+        router.go(path);
+        await tester.pumpAndSettle();
+        expect(router.routeInformationProvider.value.uri.path, switch (role) {
+          UserRole.owner => '/dashboard/owner',
+          UserRole.staff => '/staff',
+          UserRole.superuser => '/superadmin',
+          _ => '/no-access',
+        });
+      }
+      expect(find.byTooltip('Escáner'), findsNothing);
+      expect(find.byTooltip('Modo kiosko'), findsNothing);
+      expect(find.text('Escáner QR'), findsNothing);
+      if (role == UserRole.owner) {
+        await tester.tap(find.byType(PopupMenuButton<String>).first);
+        await tester.pumpAndSettle();
+        expect(find.text('Escáner QR'), findsNothing);
+        expect(find.text('Modo kiosko'), findsNothing);
+        Navigator.of(tester.element(find.text('Equipo'))).pop();
+        await tester.pumpAndSettle();
+        await tester.tap(find.byTooltip('Menú'));
+        await tester.pumpAndSettle();
+        expect(find.text('Escáner QR'), findsNothing);
+      }
+    });
+  }
+
   testWidgets(
     'direct routes are blocked, and permission changes redirect the open page live',
     (tester) async {

@@ -13,7 +13,7 @@ class ManagerDashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canScan = ModuleAccess.has(
+    final canScan = ModuleAccess.canUse(
       ref.watch(currentAppUserProvider).valueOrNull, 'scanner');
     final tenantIdAsync = ref.watch(activeTenantIdFutureProvider);
     final branchIdAsync = ref.watch(currentBranchIdProvider);
@@ -119,7 +119,7 @@ class _ManagerContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final canScan = ModuleAccess.has(
+    final canScan = ModuleAccess.canUse(
       ref.watch(currentAppUserProvider).valueOrNull, 'scanner');
     final branchArgs = (tenantId: tenantId, branchId: branchId);
 

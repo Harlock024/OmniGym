@@ -65,6 +65,20 @@ void main() {
       expect(ModuleAccess.home(denied), '/staff');
     },
   );
+  test('QR availability blocks all roles and scanner-only profiles get a usable home', () {
+    for (final role in UserRole.values) {
+      final user = operatorUser('user', role, permissions: {'scanner': true});
+      expect(ModuleAccess.canUse(user, 'scanner'), isFalse);
+      expect(ModuleAccess.home(user), isNot('/scanner'));
+    }
+    final owner = operatorUser('owner', UserRole.owner);
+    expect(ModuleAccess.canUse(owner, 'members'), isTrue);
+    expect(ModuleAccess.has(owner, 'scanner'), isTrue);
+    expect(
+      ModuleAccess.isEnabled(ModuleAccess.moduleForRoute('/kiosk')),
+      isFalse,
+    );
+  });
   test('suspension overrides any grants', () {
     final suspended = operatorUser(
       'owner',

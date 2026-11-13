@@ -12,6 +12,12 @@ const appModules = [
 ];
 
 class ModuleAccess {
+  /// Frontend availability while QR access is being redesigned.
+  static bool isEnabled(String? module) => module != 'scanner';
+
+  static bool canUse(AppUser? user, String module) =>
+      isEnabled(module) && has(user, module);
+
   static bool has(AppUser? user, String module) {
     if (user == null || user.status != UserStatus.active) return false;
     if (user.role == UserRole.owner || user.role == UserRole.superuser) {
@@ -65,7 +71,7 @@ class ModuleAccess {
     if (user.role == UserRole.superuser) return '/superadmin';
     if (user.role == UserRole.owner) return '/dashboard/owner';
     for (final module in appModules) {
-      if (has(user, module.key)) return module.route;
+      if (canUse(user, module.key)) return module.route;
     }
     return user.role == UserRole.staff ? '/staff' : '/no-access';
   }
