@@ -9,7 +9,7 @@ import '../features/auth/forgot_password_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
 import '../features/auth/staff_invitation_screen.dart';
-import '../features/auth/staff_reset_password_screen.dart';
+import '../features/auth/reset_password_screen.dart';
 import '../features/dashboard/owner_dashboard_screen.dart';
 import '../features/dashboard/manager_dashboard_screen.dart';
 import '../features/profile/profile_screen.dart';
@@ -49,7 +49,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       final path = state.uri.path;
       // Email links must remain usable even if a different personal/work account
       // is already signed in, and while activation changes the auth state.
-      if (const {'/staff-invitation', '/staff-reset-password'}.contains(path)) {
+      if (const {'/staff-invitation', '/staff-reset-password', '/reset-password'}.contains(path)) {
         return null;
       }
       final auth = ref.read(authStateProvider);
@@ -118,8 +118,14 @@ final routerProvider = Provider<GoRouter>((ref) {
         ),
       ),
       GoRoute(
+        path: '/reset-password',
+        builder: (_, state) => ResetPasswordScreen(
+          code: state.uri.queryParameters['oobCode'] ?? '',
+        ),
+      ),
+      GoRoute(
         path: '/staff-reset-password',
-        builder: (_, state) => StaffResetPasswordScreen(
+        builder: (_, state) => ResetPasswordScreen(
           code: state.uri.queryParameters['oobCode'] ?? '',
         ),
       ),
