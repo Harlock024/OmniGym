@@ -5,6 +5,11 @@ import '../../core/models/module_access.dart';
 import '../../core/models/tenant.dart';
 import '../../core/models/tenant_invoice.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/worker_service.dart';
+
+final postalCodeLookupProvider = Provider<Future<PostalLookup?> Function(String)>(
+  (ref) => WorkerService.lookupPostalCode,
+);
 
 // ── Historial de facturas de cobro SaaS de un tenant (solo lectura) ──────────
 
