@@ -13,7 +13,7 @@ import 'package:omnigym/core/services/staff_account_service.dart';
 import 'package:omnigym/features/auth/forgot_password_screen.dart';
 import 'package:omnigym/features/auth/login_screen.dart';
 import 'package:omnigym/features/auth/staff_invitation_screen.dart';
-import 'package:omnigym/features/auth/staff_reset_password_screen.dart';
+import 'package:omnigym/features/auth/reset_password_screen.dart';
 
 class _User extends Fake implements User {
   @override
@@ -430,7 +430,7 @@ void main() {
       final auth = _Auth();
       await _mount(
         tester,
-        const StaffResetPasswordScreen(code: 'recovery-code'),
+        const ResetPasswordScreen(code: 'recovery-code'),
         auth,
         StaffAccountService(
           client: MockClient(
