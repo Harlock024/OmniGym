@@ -647,7 +647,12 @@ class _PermissionsDialogState extends State<_PermissionsDialog> {
           children: kOmniGymModules.map((m) {
             return CheckboxListTile(
               value: _perms[m.key] ?? true,
-              onChanged: (v) => setState(() => _perms[m.key] = v ?? false),
+              onChanged: ModuleAccess.isEnabled(m.key)
+                  ? (v) => setState(() => _perms[m.key] = v ?? false)
+                  : null,
+              subtitle: ModuleAccess.isEnabled(m.key)
+                  ? null
+                  : const Text('Temporalmente deshabilitado'),
               title: Text(
                 m.label,
                 style: const TextStyle(

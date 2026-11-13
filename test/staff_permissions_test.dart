@@ -66,7 +66,7 @@ void main() {
     final actor = operatorUser(
       'staff',
       UserRole.staff,
-      permissions: {'scanner': true},
+      permissions: {'scanner': true, 'members': true},
     );
     await tester.pumpWidget(
       ProviderScope(
@@ -92,6 +92,11 @@ void main() {
       find.widgetWithText(CheckboxListTile, 'Escáner QR'),
     );
     expect(billing.onChanged, isNull);
-    expect(scanner.onChanged, isNotNull);
+    expect(scanner.onChanged, isNull);
+    final members = tester.widget<CheckboxListTile>(
+      find.widgetWithText(CheckboxListTile, 'Socios'),
+    );
+    expect(members.onChanged, isNotNull);
+    expect(find.text('Temporalmente deshabilitado'), findsOneWidget);
   });
 }

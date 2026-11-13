@@ -91,7 +91,7 @@ final routerProvider = Provider<GoRouter>((ref) {
           return home;
         }
         final module = ModuleAccess.moduleForRoute(path);
-        if (module != null && !ModuleAccess.has(profile, module)) return home;
+        if (module != null && !ModuleAccess.canUse(profile, module)) return home;
         return null;
       }
       final token = await user.getIdTokenResult();

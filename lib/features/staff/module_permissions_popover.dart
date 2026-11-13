@@ -111,11 +111,14 @@ class _PermissionsPopoverState extends ConsumerState<_PermissionsPopover> {
                           contentPadding: EdgeInsets.zero,
                           controlAffinity: ListTileControlAffinity.leading,
                           title: Text(module.label),
+                          subtitle: ModuleAccess.isEnabled(module.key)
+                              ? null
+                              : const Text('Temporalmente deshabilitado'),
                           value: _permissions[module.key] == true,
                           onChanged:
                               !_saving &&
                                   canManage &&
-                                  ModuleAccess.has(actor, module.key)
+                                  ModuleAccess.canUse(actor, module.key)
                               ? (value) => setState(
                                   () =>
                                       _permissions[module.key] = value == true,

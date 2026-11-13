@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/app_shell.dart';
 import '../../app/app_theme.dart';
 import '../../core/models/branch.dart';
+import '../../core/models/module_access.dart';
 import '../../core/providers/providers.dart';
 
 class OwnerDashboardScreen extends ConsumerStatefulWidget {
@@ -22,6 +23,10 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen> {
   @override
   Widget build(BuildContext context) {
     final tenantAsync = ref.watch(activeTenantProvider);
+    final canScan = ModuleAccess.canUse(
+      ref.watch(currentAppUserProvider).valueOrNull,
+      'scanner',
+    );
 
     return Scaffold(
       backgroundColor: Theme.of(context).scaffoldBackgroundColor,
@@ -29,7 +34,8 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen> {
         backgroundColor: Theme.of(context).colorScheme.surface,
         leading: context.isMobile ? const DrawerMenuButton() : null,
         automaticallyImplyLeading: false,
-        title: tenantAsync.whenOrNull(data: (t) => Text(t?.name ?? 'OmniGym')) ??
+        title:
+            tenantAsync.whenOrNull(data: (t) => Text(t?.name ?? 'OmniGym')) ??
             const Text('OmniGym'),
         actions: context.isMobile
             ? [
@@ -47,53 +53,65 @@ class _OwnerDashboardScreenState extends ConsumerState<OwnerDashboardScreen> {
                     if (v == 'staff') context.push('/staff');
                     if (v == 'logout') ref.read(firebaseAuthProvider).signOut();
                   },
-                  itemBuilder: (_) => const [
-                    PopupMenuItem(
-                      value: 'scanner',
-                      child: Row(children: [
-                        Icon(Icons.qr_code_scanner_rounded, size: 18),
-                        SizedBox(width: 10),
-                        Text('Escáner QR'),
-                      ]),
-                    ),
-                    PopupMenuItem(
-                      value: 'kiosk',
-                      child: Row(children: [
-                        Icon(Icons.tablet_android_rounded, size: 18),
-                        SizedBox(width: 10),
-                        Text('Modo kiosko'),
-                      ]),
-                    ),
+                  itemBuilder: (_) => [
+                    if (canScan)
+                      PopupMenuItem(
+                        value: 'scanner',
+                        child: Row(
+                          children: [
+                            Icon(Icons.qr_code_scanner_rounded, size: 18),
+                            SizedBox(width: 10),
+                            Text('Escáner QR'),
+                          ],
+                        ),
+                      ),
+                    if (canScan)
+                      PopupMenuItem(
+                        value: 'kiosk',
+                        child: Row(
+                          children: [
+                            Icon(Icons.tablet_android_rounded, size: 18),
+                            SizedBox(width: 10),
+                            Text('Modo kiosko'),
+                          ],
+                        ),
+                      ),
                     PopupMenuItem(
                       value: 'staff',
-                      child: Row(children: [
-                        Icon(Icons.people_outline, size: 18),
-                        SizedBox(width: 10),
-                        Text('Equipo'),
-                      ]),
+                      child: Row(
+                        children: [
+                          Icon(Icons.people_outline, size: 18),
+                          SizedBox(width: 10),
+                          Text('Equipo'),
+                        ],
+                      ),
                     ),
                     PopupMenuItem(
                       value: 'logout',
-                      child: Row(children: [
-                        Icon(Icons.logout, size: 18),
-                        SizedBox(width: 10),
-                        Text('Cerrar sesión'),
-                      ]),
+                      child: Row(
+                        children: [
+                          Icon(Icons.logout, size: 18),
+                          SizedBox(width: 10),
+                          Text('Cerrar sesión'),
+                        ],
+                      ),
                     ),
                   ],
                 ),
               ]
             : [
-                IconButton(
-                  icon: const Icon(Icons.qr_code_scanner_rounded),
-                  tooltip: 'Escáner',
-                  onPressed: () => context.push('/scanner'),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.tablet_android_rounded),
-                  tooltip: 'Modo kiosko',
-                  onPressed: () => context.push('/kiosk'),
-                ),
+                if (canScan)
+                  IconButton(
+                    icon: const Icon(Icons.qr_code_scanner_rounded),
+                    tooltip: 'Escáner',
+                    onPressed: () => context.push('/scanner'),
+                  ),
+                if (canScan)
+                  IconButton(
+                    icon: const Icon(Icons.tablet_android_rounded),
+                    tooltip: 'Modo kiosko',
+                    onPressed: () => context.push('/kiosk'),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.people_outline),
                   tooltip: 'Equipo',

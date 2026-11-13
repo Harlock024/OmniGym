@@ -125,11 +125,19 @@ const _ownerItems = <_NavEntry>[
 
 List<_NavEntry> _entriesForUser(String? role, AppUser? user) {
   if (role == 'superuser') return _superuserItems;
-  if (role == 'owner') return _ownerItems;
+  if (role == 'owner') {
+    return _ownerItems
+        .where(
+          (entry) =>
+              entry is! _NavItem ||
+              ModuleAccess.isEnabled(ModuleAccess.moduleForRoute(entry.route)),
+        )
+        .toList();
+  }
   if (user == null || user.status != UserStatus.active) return const [];
   return [
     for (final module in appModules)
-      if (ModuleAccess.has(user, module.key))
+      if (ModuleAccess.canUse(user, module.key))
         _NavItem(
           icon: switch (module.key) {
             'dashboard' => Icons.dashboard_rounded,
