@@ -4,13 +4,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../app/app_shell.dart';
+import '../../app/app_theme.dart';
 import '../../core/models/factura.dart';
 import '../../core/providers/providers.dart';
 import '../../core/services/worker_service.dart';
 import 'download_helper.dart';
 
 class FacturacionScreen extends ConsumerWidget {
-  // ... (unchanged from before)
   const FacturacionScreen({super.key});
 
   @override
@@ -18,19 +19,23 @@ class FacturacionScreen extends ConsumerWidget {
     final tenantIdAsync = ref.watch(activeTenantIdFutureProvider);
     final colors = Theme.of(context).colorScheme;
 
-    return tenantIdAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(child: Text('Error: $err')),
-      data: (tenantId) {
-        if (tenantId == null) {
-          return const Center(child: Text('No hay tenant activo'));
-        }
+    return Scaffold(
+      appBar: AppBar(
+        leading: context.isMobile ? const DrawerMenuButton() : null,
+        automaticallyImplyLeading: false,
+        title: const Text('Facturación'),
+      ),
+      body: tenantIdAsync.when(
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (err, _) => Center(child: Text('Error: $err')),
+        data: (tenantId) {
+          if (tenantId == null) {
+            return const Center(child: Text('No hay tenant activo'));
+          }
 
-        final facturasAsync = ref.watch(tenantFacturasProvider(tenantId));
+          final facturasAsync = ref.watch(tenantFacturasProvider(tenantId));
 
-        return Scaffold(
-          appBar: AppBar(title: const Text('Facturación')),
-          body: facturasAsync.when(
+          return facturasAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (err, _) => Center(child: Text('Error: $err')),
             data: (facturas) {
@@ -67,9 +72,9 @@ class FacturacionScreen extends ConsumerWidget {
                 ),
               );
             },
-          ),
-        );
-      },
+          );
+        },
+      ),
     );
   }
 }
