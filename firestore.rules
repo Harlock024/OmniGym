@@ -39,10 +39,15 @@ service cloud.firestore {
     function mayManageUser(userId) {
       let tenantId = resource.data.tenant_id;
       return isAuth() && request.auth.uid != userId && request.resource.data.tenant_id == tenantId
+        // Activation and invitation state are owned by the backend. Managers may
+        // suspend/reactivate only accounts whose invitation has been accepted.
+        && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+          || (resource.data.status in ['active', 'suspended'] && request.resource.data.status in ['active', 'suspended']
+            && (resource.data.get('account_type', '') != 'managed_staff' || resource.data.get('invitation_status', '') == 'accepted')))
         && resource.data.role in ['staff', 'receptionist'] && request.resource.data.role in ['staff', 'receptionist']
         && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['permissions'])
           || validPermissions(request.resource.data.get('permissions', {})))
-        && ((isOwner(tenantId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'permissions', 'status', 'branch_id']))
+        && (((isSuperUser() || isOwner(tenantId)) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role', 'permissions', 'status', 'branch_id']))
           || (isManager(tenantId) && userDoc().role == 'staff' && resource.data.role == 'receptionist'
             && request.resource.data.role == 'receptionist'
             && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['permissions', 'status', 'branch_id'])
@@ -63,12 +68,17 @@ service cloud.firestore {
     function branchDataAccess(tenantId) { return hasModule(tenantId, 'branches') || memberDataAccess(tenantId) || isManager(tenantId); }
     match /users/{userId} {
       allow read: if isSuperUser() || (isAuth() && request.auth.uid == userId) || isManager(resource.data.tenant_id);
-      allow create: if isSuperUser() || (isAuth() && request.auth.uid == userId && request.resource.data.role == 'owner'
+      allow create: if (isSuperUser() && request.resource.data.get('account_type', '') != 'managed_staff') || (isAuth() && request.auth.uid == userId && request.resource.data.role == 'owner'
         && request.resource.data.status == 'active'
         && get(/databases/$(database)/documents/tenants/$(request.resource.data.tenant_id)).data.owner_uid == userId);
-      allow update: if isSuperUser() || selfProfileEdit(userId) || mayManageUser(userId);
-      allow delete: if isSuperUser();
+      allow update: if (isSuperUser() && resource.data.get('account_type', '') != 'managed_staff') || selfProfileEdit(userId) || mayManageUser(userId);
+      allow delete: if isSuperUser() && resource.data.get('account_type', '') != 'managed_staff';
     }
+    // Tokens, contact deduplication and recovery throttles are server-only.
+    match /staff_invitations/{id} { allow read, write: if false; }
+    match /staff_account_keys/{id} { allow read, write: if false; }
+    match /staff_recovery_limits/{id} { allow read, write: if false; }
+    match /staff_recovery_accounts/{id} { allow read, write: if false; }
     match /subscription_packages/{packageId} { allow read: if isAuth(); allow write: if false; }
     match /tenant_invoices/{invoiceId} { allow read: if isSuperUser() || isOwner(resource.data.tenant_id); allow write: if false; }
     match /{path=**}/members/{memberId} { allow read: if isAuth() && resource.data.get('uid', '') == request.auth.uid; }

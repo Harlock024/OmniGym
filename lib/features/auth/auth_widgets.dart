@@ -1,8 +1,31 @@
 import 'package:flutter/material.dart';
 
 import '../../app/app_theme.dart';
+import '../../core/services/theme_service.dart';
 
 // Widgets compartidos entre las pantallas de autenticación.
+
+/// Email landing pages use the same dark background as login, independently of
+/// the theme of any account that might already be signed in.
+class AuthPage extends StatelessWidget {
+  const AuthPage({super.key, required this.builder});
+  final WidgetBuilder builder;
+
+  @override
+  Widget build(BuildContext context) => Theme(
+    data: ThemeService.buildTheme(tenant: null, brightness: Brightness.dark),
+    child: Builder(
+      builder: (context) => Scaffold(
+        body: AuthBackground(
+          child: AuthCard(
+            padding: const EdgeInsets.all(24),
+            child: builder(context),
+          ),
+        ),
+      ),
+    ),
+  );
+}
 
 class AuthBackground extends StatelessWidget {
   const AuthBackground({super.key, required this.child});
@@ -32,8 +55,13 @@ class AuthBackground extends StatelessWidget {
 }
 
 class AuthCard extends StatelessWidget {
-  const AuthCard({super.key, required this.child});
+  const AuthCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(36),
+  });
   final Widget child;
+  final EdgeInsetsGeometry padding;
 
   @override
   Widget build(BuildContext context) {
@@ -50,7 +78,7 @@ class AuthCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.all(36),
+      padding: padding,
       child: child,
     );
   }

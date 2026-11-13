@@ -60,6 +60,7 @@ class ModuleAccess {
   }
 
   static String home(AppUser user) {
+    if (user.status == UserStatus.pending) return '/access-pending';
     if (user.status != UserStatus.active) return '/access-suspended';
     if (user.role == UserRole.superuser) return '/superadmin';
     if (user.role == UserRole.owner) return '/dashboard/owner';

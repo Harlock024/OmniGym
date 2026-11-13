@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/app_theme.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/login_identity.dart';
+import '../../core/services/staff_account_service.dart';
 import 'auth_widgets.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -15,8 +17,7 @@ class ForgotPasswordScreen extends ConsumerStatefulWidget {
       _ForgotPasswordScreenState();
 }
 
-class _ForgotPasswordScreenState
-    extends ConsumerState<ForgotPasswordScreen> {
+class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
   final _emailCtrl = TextEditingController();
   bool _loading = false;
   bool _sent = false;
@@ -36,22 +37,39 @@ class _ForgotPasswordScreenState
       _error = null;
     });
     try {
-      await ref
-          .read(firebaseAuthProvider)
-          .sendPasswordResetEmail(email: email);
+      if (LoginIdentity.isWorkLogin(email)) {
+        if (!email.contains('@') && !LoginIdentity.isUsername(email)) {
+          throw const StaffAccountException(
+            'Indica un usuario laboral válido.',
+          );
+        }
+        await ref.read(staffAccountServiceProvider).recover(email);
+      } else {
+        await ref
+            .read(firebaseAuthProvider)
+            .sendPasswordResetEmail(email: email);
+      }
       if (mounted) setState(() => _sent = true);
     } on FirebaseAuthException catch (e) {
-      setState(() => _error = _mapError(e.code));
+      if (mounted) setState(() => _error = _mapError(e.code));
+    } on StaffAccountException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = 'No se pudo enviar la solicitud. Intenta más tarde.',
+        );
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
 
   String _mapError(String code) => switch (code) {
-        'user-not-found' => 'No existe una cuenta con ese correo.',
-        'invalid-email' => 'Correo electrónico inválido.',
-        _ => 'Error al enviar el correo. Intenta de nuevo.',
-      };
+    'user-not-found' => 'No existe una cuenta con ese correo.',
+    'invalid-email' => 'Correo electrónico inválido.',
+    _ => 'Error al enviar el correo. Intenta de nuevo.',
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -112,19 +130,21 @@ class _FormState extends StatelessWidget {
         const SizedBox(height: 4),
         const Text(
           'Recuperar contraseña',
-          style: TextStyle(
-            color: OmniGymColors.textSecondary,
-            fontSize: 13,
-          ),
+          style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 13),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 32),
         AuthDarkField(
           controller: emailCtrl,
-          label: 'Correo electrónico',
+          label: 'Correo o usuario laboral',
           prefixIcon: Icons.person_outline,
-          keyboardType: TextInputType.emailAddress,
+          keyboardType: TextInputType.text,
           onSubmitted: (_) => onSend(),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Para una cuenta laboral, escribe el correo @omnigym.xyz de la invitación. El enlace llegará a tu correo de contacto.',
+          style: TextStyle(color: OmniGymColors.textSecondary, fontSize: 12),
         ),
         if (error != null) ...[
           const SizedBox(height: 12),
@@ -178,9 +198,7 @@ class _SentState extends StatelessWidget {
             decoration: BoxDecoration(
               color: OmniGymColors.success.withAlpha(25),
               shape: BoxShape.circle,
-              border: Border.all(
-                color: OmniGymColors.success.withAlpha(80),
-              ),
+              border: Border.all(color: OmniGymColors.success.withAlpha(80)),
             ),
             child: const Icon(
               Icons.check_rounded,
@@ -201,7 +219,9 @@ class _SentState extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         Text(
-          'Enviamos un enlace de recuperación a\n$email\n\nRevisa tu bandeja de entrada.',
+          !LoginIdentity.isWorkLogin(email)
+              ? 'Si existe una cuenta para $email, recibirás un enlace de recuperación. Revisa tu bandeja de entrada.'
+              : 'Si el usuario $email tiene una cuenta laboral activa, recibirá un enlace en su correo de contacto. Si aún no la activaste, solicita al gimnasio que reenvíe la invitación.',
           style: const TextStyle(
             color: OmniGymColors.textSecondary,
             fontSize: 13,

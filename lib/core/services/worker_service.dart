@@ -35,48 +35,6 @@ class WorkerService {
     }
   }
 
-  /// Crea un usuario en Firebase Auth, asigna claims y envía email de contraseña.
-  /// Devuelve el UID del nuevo usuario.
-  static Future<String> createStaff({
-    required String name,
-    required String email,
-    required String role,
-    required String tenantId,
-    String? branchId,
-    String? gymName,
-    String? csdCargo,
-  }) async {
-    final body = <String, dynamic>{
-      'name': name,
-      'email': email,
-      'role': role,
-      'tenant_id': tenantId,
-    };
-    if (branchId != null) body['branch_id'] = branchId;
-    if (gymName != null && gymName.isNotEmpty) body['gymName'] = gymName;
-    if (csdCargo != null && csdCargo.isNotEmpty) body['csd_cargo'] = csdCargo;
-
-    final res = await http.post(
-      Uri.parse('$_base/create-staff'),
-      headers: await workerHeaders(),
-      body: jsonEncode(body),
-    );
-
-    if (res.statusCode == 409) {
-      final data = jsonDecode(res.body) as Map<String, dynamic>;
-      throw StaffAlreadyExistsException(
-        data['error'] as String? ?? 'El correo ya está registrado.',
-      );
-    }
-
-    if (res.statusCode != 200) {
-      throw Exception('create-staff failed (${res.statusCode}): ${res.body}');
-    }
-
-    final data = jsonDecode(res.body) as Map<String, dynamic>;
-    return data['uid'] as String;
-  }
-
   /// Crea una sesión de Stripe Checkout (suscripción) y devuelve la URL de pago.
   static Future<String> createCheckout({
     required String tenantId,
@@ -191,18 +149,6 @@ class WorkerService {
       );
     } catch (_) {
       return null;
-    }
-  }
-
-  /// Elimina un operador: borra su cuenta de Firebase Auth y el doc /users/{uid}.
-  static Future<void> deleteStaff(String uid) async {
-    final res = await http.post(
-      Uri.parse('$_base/delete-staff'),
-      headers: await workerHeaders(),
-      body: jsonEncode({'uid': uid}),
-    );
-    if (res.statusCode != 200) {
-      throw Exception('delete-staff failed (${res.statusCode}): ${res.body}');
     }
   }
 
@@ -404,13 +350,6 @@ class GeocodeResult {
   final String displayName;
   final double lat;
   final double lng;
-}
-
-class StaffAlreadyExistsException implements Exception {
-  const StaffAlreadyExistsException(this.message);
-  final String message;
-  @override
-  String toString() => message;
 }
 
 // ── Facturación ──────────────────────────────────────────────────────────────

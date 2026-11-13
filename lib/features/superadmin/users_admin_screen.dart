@@ -7,6 +7,7 @@ import '../../core/models/app_user.dart';
 import '../../core/models/module_access.dart';
 import '../../core/models/tenant.dart';
 import '../../core/providers/providers.dart';
+import '../../core/services/staff_account_service.dart';
 import 'superadmin_providers.dart';
 
 class UsersAdminScreen extends ConsumerWidget {
@@ -115,7 +116,7 @@ class _Header extends ConsumerWidget {
                 fontSize: 13,
               ),
               decoration: InputDecoration(
-                hintText: 'Buscar por nombre, correo o empresa...',
+                hintText: 'Buscar por nombre, correo, usuario o empresa...',
                 hintStyle: const TextStyle(
                   color: OmniGymColors.textSecondary,
                   fontSize: 13,
@@ -220,16 +221,30 @@ class _UserRow extends ConsumerWidget {
               ],
             ),
           ),
-          // Correo
+          // Contacto y usuario laboral
           Expanded(
             flex: 3,
-            child: Text(
-              user.email,
-              style: const TextStyle(
-                color: OmniGymColors.textSecondary,
-                fontSize: 13,
-              ),
-              overflow: TextOverflow.ellipsis,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.email,
+                  style: const TextStyle(
+                    color: OmniGymColors.textSecondary,
+                    fontSize: 13,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (user.username != null)
+                  Text(
+                    user.username!,
+                    style: const TextStyle(
+                      color: OmniGymColors.textSecondary,
+                      fontSize: 12,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
             ),
           ),
           // Empresa
@@ -267,7 +282,9 @@ class _UserRow extends ConsumerWidget {
                 ),
                 _ActionIcon(
                   icon: Icons.person_remove_outlined,
-                  tooltip: 'Eliminar',
+                  tooltip: user.accountType == 'managed_staff'
+                      ? 'Dar de baja'
+                      : 'Eliminar',
                   color: OmniGymColors.errorRed,
                   onTap: () => _confirmDelete(context, ref),
                 ),
@@ -298,12 +315,16 @@ class _UserRow extends ConsumerWidget {
       context: context,
       builder: (_) => AlertDialog(
         backgroundColor: OmniGymColors.card,
-        title: const Text(
-          '¿Eliminar usuario?',
-          style: TextStyle(color: OmniGymColors.textPrimary),
+        title: Text(
+          user.accountType == 'managed_staff'
+              ? '¿Desactivar cuenta laboral?'
+              : '¿Eliminar usuario?',
+          style: const TextStyle(color: OmniGymColors.textPrimary),
         ),
         content: Text(
-          'Se eliminará el registro de ${user.name} (${user.email}). Esta acción no se puede deshacer.',
+          user.accountType == 'managed_staff'
+              ? 'Se desactivará el acceso de ${user.name} y se conservará su historial. Si tiene una invitación pendiente, será cancelada.'
+              : 'Se eliminará el registro de ${user.name} (${user.email}). Esta acción no se puede deshacer.',
           style: const TextStyle(
             color: OmniGymColors.textSecondary,
             fontSize: 13,
@@ -320,9 +341,27 @@ class _UserRow extends ConsumerWidget {
             ),
             onPressed: () async {
               Navigator.pop(context);
-              await ref.read(userRepositoryProvider).delete(user.id);
+              try {
+                if (user.accountType == 'managed_staff') {
+                  await ref
+                      .read(staffAccountServiceProvider)
+                      .deactivate(user.id);
+                } else {
+                  await ref.read(userRepositoryProvider).delete(user.id);
+                }
+              } catch (_) {
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('No se pudo completar la operación.'),
+                    ),
+                  );
+                }
+              }
             },
-            child: const Text('Eliminar'),
+            child: Text(
+              user.accountType == 'managed_staff' ? 'Desactivar' : 'Eliminar',
+            ),
           ),
         ],
       ),

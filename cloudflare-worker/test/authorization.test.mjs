@@ -23,14 +23,17 @@ test('disabled billing and forged tenant IDs cannot call billing endpoints', asy
   await denied(() => authorize(request('/facturacion/timbrar', { tenantId: 'other' }), actor('receptionist', { billing: true }), async () => null));
 });
 test('conflicting tenant aliases cannot authorize a write to another gym', async () => {
-  await denied(() => authorize(request('/create-staff', { tenantId: 'gym', tenant_id: 'other', role: 'staff', branch_id: 'b' }), actor('owner'), async () => ({ id: 'b' })));
+  for (const path of ['/create-staff', '/staff-accounts'])
+    await denied(() => authorize(request(path, { tenantId: 'gym', tenant_id: 'other', role: 'staff', branch_id: 'b' }), actor('owner'), async () => ({ id: 'b' })));
 });
 test('staff cannot invite Owners, promote another Staff or delete an Owner', async () => {
   const staff = actor('staff');
   const branch = async () => ({ id: 'branch' });
-  await authorize(request('/create-staff', { tenant_id: 'gym', role: 'receptionist', branch_id: 'branch' }), staff, branch);
-  for (const role of ['owner', 'staff', 'superuser'])
-    await denied(() => authorize(request('/create-staff', { tenant_id: 'gym', role, branch_id: 'branch' }), staff, branch));
+  for (const path of ['/create-staff', '/staff-accounts']) {
+    await authorize(request(path, { tenant_id: 'gym', role: 'receptionist', branch_id: 'branch' }), staff, branch);
+    for (const role of ['owner', 'staff', 'superuser'])
+      await denied(() => authorize(request(path, { tenant_id: 'gym', role, branch_id: 'branch' }), staff, branch));
+  }
   await denied(() => authorize(request('/delete-staff', { uid: 'owner' }), staff, async () => ({ id: 'owner', role: 'owner', tenant_id: 'gym' })));
 });
 test('receptionists cannot manage permissions through claims or upload another profile', async () => {

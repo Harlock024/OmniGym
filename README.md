@@ -103,20 +103,83 @@ Las escrituras y los endpoints del Worker se autorizan por el modulo correspondi
 La version Flutter, las reglas y el Worker deben publicarse de forma coordinada:
 el Worker nuevo requiere identidad Firebase y rechaza el antiguo secreto incluido
 en la app. Antes de publicar, verificar `FIREBASE_API_KEY` del mismo proyecto.
-La aceptacion/rechazo de invitaciones y los otros issues siguen pendientes.
+### Cuentas laborales del equipo
+
+Al invitar desde **Equipo**, se genera un correo laboral con el formato
+`<nombreGimnasio><nombreCompletoEmpleado>@omnigym.xyz`, por ejemplo
+`gymcentrovictorhadith@omnigym.xyz`. Se normalizan espacios, acentos y mayusculas;
+si la direccion ya existe, se agrega un numero (`...2@omnigym.xyz`). El correo
+capturado en el formulario es de **contacto**: recibe
+invitacion, recuperacion de acceso y las comunicaciones que correspondan.
+Las cuentas existentes conservan su acceso por correo; no se migran ni se
+sobrescriben cuentas personales que usen el mismo contacto.
+
+- La nueva identidad queda `pending` y no puede consultar datos del gimnasio.
+- El enlace abre una pantalla publica con gimnasio, sucursal, rol y correo laboral,
+  con botones **Aceptar invitacion** y **Rechazar invitacion**. La contrasena se
+  configura en un segundo paso; solo al completarlo se confirma la aceptacion.
+  El empleado define su propia contrasena y autentica esa identidad;
+  el servidor comprueba destinatario, sucursal y autoridad actual del invitante.
+- El token se almacena como SHA-256 y la transicion se confirma atomicamente.
+  Reintentar una aceptacion ya completada no vuelve a aplicar permisos.
+- La invitacion vence en 7 dias. El codigo de contrasena de Firebase puede
+  vencer antes; **Reenviar invitacion** renueva ambos enlaces e invalida el token
+  anterior. **Cancelar invitacion** impide activarla.
+- Reenviar una invitacion pendiente del formato anterior actualiza su correo
+  laboral a `@omnigym.xyz`, conservando UID, historial y contacto. Las cuentas ya
+  aceptadas conservan sus credenciales. Un reintento recupera una actualizacion
+  interrumpida entre Auth y Firestore sin generar otra cuenta.
+- Un fallo de correo deja la cuenta pendiente y visible para reenviar; no se
+  informa que el mensaje fue enviado ni se crea otra identidad al reintentar.
+  Solo existe una cuenta laboral por correo de contacto y gimnasio.
+- **Correo o usuario laboral** admite ambos tipos de acceso. La recuperacion
+  de un usuario laboral envia el enlace a su contacto verificado, con respuesta
+  generica y limites por cuenta/IP. Las cuentas pendientes requieren un reenvio.
+- Dar de baja suspende el acceso y conserva Auth, el perfil y el historial.
+  Una cuenta aceptada puede reactivarse desde Equipo; una invitacion pendiente
+  solo se activa mediante aceptacion, incluso para Superuser.
+
+El correo laboral `@omnigym.xyz` identifica el acceso a OmniGym; no crea un
+buzon de correo. Los mensajes se entregan al contacto verificado. Las identidades
+antiguas `usuario@staff.omnigym.invalid` siguen siendo compatibles mientras no
+se actualice una invitacion pendiente. Los dominios deben coincidir en
+`cloudflare-worker/src/staff_accounts.js` y `lib/core/services/login_identity.dart`.
+El callable antiguo `createStaffUser` delega al mismo flujo del Worker.
+El cliente nuevo utiliza `/staff-accounts` y `/staff-accounts/deactivate`;
+un Worker antiguo no ejecutara por accidente la creacion o eliminacion anterior.
+
+Para publicar este flujo web, coordinar Flutter, Worker y reglas. El
+Worker requiere `SA_JSON`, `FIREBASE_API_KEY`, `RESEND_API_KEY` y un remitente
+`EMAIL_FROM` autorizado en Resend. Configurar `APP_BASE_URL` con la URL HTTPS
+de la app (incluye el subdirectorio si aplica); los correos apuntan a rutas `/#/`.
+La configuracion versionada usa `https://omnigym-567a8.web.app/`.
+El formulario web llama directamente al Worker. Las Functions de sincronizacion
+de claims y el callable legado se publican aparte; el flujo web de invitacion no
+invoca callables ni depende de que ese despliegue este habilitado.
+La generacion de enlaces y su confirmacion siguen los mecanismos de
+[Firebase Auth](https://firebase.google.com/docs/auth/admin/email-action-links) y su
+[manejador de acciones](https://firebase.google.com/docs/auth/custom-email-handler).
+
+Los tickets, el modulo de avisos y la invitacion para vincular directamente una
+cuenta personal existente a otro gimnasio siguen fuera de esta etapa.
 
 Validacion local (sin datos de produccion):
 
 ```bash
 flutter test
-node --test cloudflare-worker/test/authorization.test.mjs
+node --test cloudflare-worker/test/authorization.test.mjs cloudflare-worker/test/staff_accounts.test.mjs
 npm --prefix functions test -- --runInBand
+npm --prefix functions run build
 
 # Terminal 1: dejar el emulador de Firestore iniciado
-firebase emulators:start --only firestore --project demo-omnigym-roles
+firebase emulators:start --only auth,firestore --project demo-omnigym-roles
 
 # Terminal 2: comprobar reglas y delegacion contra el emulador local
 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npm --prefix functions run test:rules
+
+# Flujo Worker -> Firebase REST real contra emuladores, correo simulado
+FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099 FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 \
+  node --test cloudflare-worker/test/staff_emulator.test.mjs
 ```
 
 ## Requisitos previos

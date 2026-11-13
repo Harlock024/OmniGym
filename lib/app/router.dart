@@ -8,6 +8,8 @@ import '../features/staff/no_modules_screen.dart';
 import '../features/auth/forgot_password_screen.dart';
 import '../features/auth/login_screen.dart';
 import '../features/auth/register_screen.dart';
+import '../features/auth/staff_invitation_screen.dart';
+import '../features/auth/staff_reset_password_screen.dart';
 import '../features/dashboard/owner_dashboard_screen.dart';
 import '../features/dashboard/manager_dashboard_screen.dart';
 import '../features/profile/profile_screen.dart';
@@ -44,12 +46,17 @@ final routerProvider = Provider<GoRouter>((ref) {
     initialLocation: '/login',
     refreshListenable: notifier,
     redirect: (context, state) async {
+      final path = state.uri.path;
+      // Email links must remain usable even if a different personal/work account
+      // is already signed in, and while activation changes the auth state.
+      if (const {'/staff-invitation', '/staff-reset-password'}.contains(path)) {
+        return null;
+      }
       final auth = ref.read(authStateProvider);
       final user =
           auth.valueOrNull ??
           (auth.isLoading ? await ref.read(authStateProvider.future) : null);
       const publicRoutes = {'/login', '/register', '/forgot-password'};
-      final path = state.uri.path;
       if (user == null) return publicRoutes.contains(path) ? null : '/login';
       final profile =
           ref.read(currentAppUserProvider).valueOrNull ??
@@ -57,10 +64,13 @@ final routerProvider = Provider<GoRouter>((ref) {
       if (profile != null) {
         final home = ModuleAccess.home(profile);
         if (publicRoutes.contains(path)) return home;
+        if (path == '/access-pending') return home == path ? null : home;
+        if (home == '/access-pending') return home;
         if (path == '/access-suspended') return home == path ? null : home;
         if (home == '/access-suspended') return home;
         if (path == '/no-access') return home == path ? null : home;
-        if (path.startsWith('/superadmin') && profile.role.name != 'superuser') {
+        if (path.startsWith('/superadmin') &&
+            profile.role.name != 'superuser') {
           return home;
         }
         if ((path.startsWith('/settings') || path == '/subscription') &&
@@ -68,7 +78,11 @@ final routerProvider = Provider<GoRouter>((ref) {
           return home;
         }
         if (path == '/staff' &&
-            !const {'owner', 'staff', 'superuser'}.contains(profile.role.name)) {
+            !const {
+              'owner',
+              'staff',
+              'superuser',
+            }.contains(profile.role.name)) {
           return home;
         }
         if (path == '/portal') return home;
@@ -95,6 +109,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       return path == home ? null : home;
     },
     routes: [
+      GoRoute(
+        path: '/staff-invitation',
+        builder: (_, state) => StaffInvitationScreen(
+          id: state.uri.queryParameters['id'] ?? '',
+          token: state.uri.queryParameters['token'] ?? '',
+          code: state.uri.queryParameters['oobCode'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/staff-reset-password',
+        builder: (_, state) => StaffResetPasswordScreen(
+          code: state.uri.queryParameters['oobCode'] ?? '',
+        ),
+      ),
+      GoRoute(
+        path: '/access-pending',
+        builder: (_, _) => const NoModulesScreen(pending: true),
+      ),
       GoRoute(path: '/no-access', builder: (_, _) => const NoModulesScreen()),
       GoRoute(
         path: '/access-suspended',

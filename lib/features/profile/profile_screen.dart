@@ -264,6 +264,17 @@ class _AvatarCard extends StatelessWidget {
                   style: TextStyle(
                       color: Theme.of(context).colorScheme.onSurfaceVariant, fontSize: 13),
                 ),
+                if (user.username != null) ...[
+                  const SizedBox(height: 4),
+                  SelectableText(
+                    '${user.username!.contains('@') ? 'Correo laboral' : 'Usuario laboral'}: ${user.username!}',
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                  const Text(
+                    'El correo de contacto recibe las comunicaciones.',
+                    style: TextStyle(fontSize: 12),
+                  ),
+                ],
                 const SizedBox(height: 8),
                 _RoleBadge(role: user.role),
               ],

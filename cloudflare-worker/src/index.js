@@ -1,6 +1,6 @@
 import { timbrarFactura, validarFacturacion } from './cfdi/facturacion.js';
 import { authenticate, authorize, AccessError } from './authorization.js';
-import { initialPermissions } from './module_access.js';
+import { staffAccounts } from './staff_accounts.js';
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -91,16 +91,6 @@ async function fbAuthPost(path, body, token) {
   const data = await res.json();
   if (!res.ok) throw new Error(`Firebase Auth ${path} error: ${JSON.stringify(data?.error ?? data)}`);
   return data;
-}
-
-async function createAuthUser(email, displayName, token) {
-  const data = await fbAuthPost('signUp', {
-    email,
-    displayName,
-    emailVerified: false,
-    disabled: false,
-  }, token);
-  return data.localId;
 }
 
 // Crea un usuario en Auth con contraseña usando el endpoint admin del proyecto
@@ -349,46 +339,6 @@ async function sendWelcomeEmail(to, memberName, tempPassword, gymName, env) {
   });
   if (!res.ok) {
     console.error('[sendWelcomeEmail] Resend error:', await res.text());
-    return false;
-  }
-  return true;
-}
-
-// Email de invitación a un operador (staff/owner) con marca, vía Resend.
-// Lleva un botón al enlace de set-password (oobLink). Devuelve true si se envió.
-async function sendStaffInviteEmail(to, name, gymName, roleLabel, link, env) {
-  if (!env.RESEND_API_KEY) {
-    return false;
-  }
-  const from = env.EMAIL_FROM ?? `OmniGym <noreply@omni-gym.com>`;
-  const res = await fetch('https://api.resend.com/emails', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${env.RESEND_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      from,
-      to: [to],
-      subject: `Te invitaron a ${gymName} 🏋️`,
-      html: `
-        <div style="font-family:Arial,sans-serif;max-width:520px;margin:0 auto;padding:32px;background:#0f0f0f;color:#fff;border-radius:16px;">
-          <h2 style="color:#3B82F6;margin:0 0 8px;">¡Hola, ${name}!</h2>
-          <p style="color:#aaa;margin:0 0 24px;">Te invitaron a unirte a <strong style="color:#fff;">${gymName}</strong> como <strong style="color:#fff;">${roleLabel}</strong>. Para activar tu cuenta, establece tu contraseña:</p>
-          <div style="text-align:center;margin:0 0 24px;">
-            <a href="${link}" style="display:inline-block;background:#3B82F6;color:#fff;text-decoration:none;font-weight:bold;padding:14px 28px;border-radius:10px;font-size:1em;">Establecer contraseña</a>
-          </div>
-          <div style="background:#1a1a1a;padding:16px 20px;border-radius:10px;border:1px solid #333;margin-bottom:24px;">
-            <p style="margin:6px 0;color:#888;">Correo de acceso:</p>
-            <p style="margin:0;font-size:1em;font-weight:bold;">${to}</p>
-          </div>
-          <p style="color:#555;font-size:0.82em;margin:0;">Si el botón no funciona, copia este enlace en tu navegador:<br><span style="color:#777;word-break:break-all;">${link}</span></p>
-        </div>
-      `,
-    }),
-  });
-  if (!res.ok) {
-    console.error('[sendStaffInviteEmail] Resend error:', await res.text());
     return false;
   }
   return true;
@@ -1117,6 +1067,90 @@ export default {
       adminToken ??= await getAdminToken(env);
       return fsGet(JSON.parse(env.SA_JSON).project_id, path, adminToken);
     };
+    // Staff invitation links authenticate with an expiring secret; acceptance also
+    // requires the Firebase identity whose password the recipient just configured.
+    const staffRoutes = new Set(['/staff-accounts', '/staff-accounts/deactivate', '/create-staff', '/delete-staff', '/staff-invitations/preview',
+      '/staff-invitations/accept', '/staff-invitations/reject', '/staff-invitations/resend', '/staff-password-recovery']);
+    const protectedStaffRoutes = new Set(['/staff-accounts', '/staff-accounts/deactivate', '/create-staff', '/delete-staff', '/staff-invitations/resend', '/staff-invitations/accept']);
+    if (request.method === 'POST' && staffRoutes.has(pathname)) {
+      try {
+        let actor;
+        if (protectedStaffRoutes.has(pathname)) {
+          actor = await authenticate(request, env, loadDocument);
+        }
+        let body;
+        try { body = await request.json(); } catch { throw new AccessError('JSON inválido.', 400); }
+        if (!body || typeof body !== 'object' || Array.isArray(body)) throw new AccessError('JSON inválido.', 400);
+        if (protectedStaffRoutes.has(pathname)) {
+          if (pathname !== '/staff-invitations/accept') {
+            const copy = new Request(request.url, { method: 'POST', headers: request.headers, body: JSON.stringify(body) });
+            await authorize(copy, actor, loadDocument);
+          }
+        }
+        adminToken ??= await getAdminToken(env);
+        const projectId = JSON.parse(env.SA_JSON).project_id;
+        const documentBase = `projects/${projectId}/databases/(default)/documents`;
+        const service = staffAccounts({
+          appUrl: env.APP_BASE_URL,
+          store: {
+            async read(path) {
+              const response = await fetch(`https://firestore.googleapis.com/v1/${documentBase}/${path}`, { headers: { Authorization: `Bearer ${adminToken}` } });
+              if (response.status === 404) return null;
+              if (!response.ok) throw new AccessError('No se pudo consultar la cuenta.', 503);
+              const document = await response.json();
+              return { data: Object.fromEntries(Object.entries(document.fields ?? {}).map(([key, value]) => [key, fromFsVal(value)])), version: document.updateTime };
+            },
+            async commit(writes) {
+              const response = await fetch(`https://firestore.googleapis.com/v1/${documentBase}:commit`, {
+                method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ writes: writes.map(write => ({
+                  update: { name: `${documentBase}/${write.path}`, fields: Object.fromEntries(Object.entries(write.data).map(([key, value]) => [key, toFsVal(value)])) },
+                  currentDocument: write.version === null ? { exists: false } : { updateTime: write.version },
+                })) }),
+              });
+              if (!response.ok) {
+                const code = (await response.json()).error?.status;
+                throw new AccessError(code === 'FAILED_PRECONDITION' || code === 'ALREADY_EXISTS' || code === 'ABORTED'
+                  ? 'La cuenta o invitación cambió. Actualiza e intenta de nuevo.' : 'No se pudo guardar la cuenta.',
+                ['FAILED_PRECONDITION', 'ALREADY_EXISTS', 'ABORTED'].includes(code) ? 409 : 503);
+              }
+            },
+          },
+          auth: {
+            create: (email, name) => createMemberAuth(projectId, email, name, `${crypto.randomUUID()}${crypto.randomUUID()}`, adminToken),
+            remove: uid => deleteAuthUser(uid, adminToken),
+            resetLink: email => generatePasswordResetLink(email, adminToken),
+            rename: (uid, email) => fbAuthPost('update', { localId: uid, email, emailVerified: false, targetProjectId: projectId }, adminToken),
+            async emailForUid(uid) {
+              const data = await fbAuthPost('lookup', { localId: [uid], targetProjectId: projectId }, adminToken);
+              return data.users?.[0]?.email ?? null;
+            },
+            requestReset: email => sendPasswordReset(email, env),
+            async lookup(email) {
+              const data = await fbAuthPost('lookup', { email: [email] }, adminToken);
+              return data.users?.[0]?.localId ?? null;
+            },
+          },
+          sendEmail: (to, subject, html) => sendEmail(to, subject, html, env),
+        });
+        let result;
+        switch (pathname) {
+          case '/create-staff':
+          case '/staff-accounts': result = await service.create(actor, body); break;
+          case '/delete-staff':
+          case '/staff-accounts/deactivate': result = await service.deactivate(actor, body.uid); break;
+          case '/staff-invitations/resend': result = await service.resend(actor, body.uid); break;
+          case '/staff-invitations/preview': result = await service.preview(body.id, body.token); break;
+          case '/staff-invitations/accept': result = await service.respond(body.id, body.token, 'accept', actor); break;
+          case '/staff-invitations/reject': result = await service.respond(body.id, body.token, 'reject'); break;
+          case '/staff-password-recovery': result = await service.recover(body.username, request.headers.get('CF-Connecting-IP')); break;
+        }
+        return jsonRes(result);
+      } catch (error) {
+        // Never include Firebase responses, invitation secrets or passwords in logs/errors.
+        return jsonRes({ error: error instanceof AccessError ? error.message : 'No se pudo completar la operación. Intenta más tarde.' }, error instanceof AccessError ? error.status : 503);
+      }
+    }
     try {
       const actor = await authenticate(request, env, loadDocument);
       await authorize(request, actor, loadDocument);
@@ -1365,87 +1399,6 @@ export default {
       const claims = { role, tenant_id };
       if (branch_id) claims.branch_id = branch_id;
       await setCustomClaims(uid, claims, token);
-
-      return jsonRes({ success: true });
-    }
-
-    // ── POST /create-staff ────────────────────────────────────────────────────
-    if (request.method === 'POST' && pathname === '/create-staff') {
-      const { name, email, role, tenant_id, branch_id, gymName, csd_cargo } = await request.json();
-      if (!name || !email || !role || !tenant_id) {
-        return jsonRes({ error: 'Missing required fields' }, 400);
-      }
-
-      const token = await getAdminToken(env);
-      const sa = JSON.parse(env.SA_JSON);
-      const projectId = sa.project_id;
-
-      // 1. Crear usuario en Auth (sin contraseña; la define él mismo por email)
-      let uid;
-      try {
-        uid = await createAuthUser(email, name, token);
-      } catch (e) {
-        const msg = e.message ?? '';
-        if (msg.includes('EMAIL_EXISTS') || msg.includes('email-already-exists')) {
-          return jsonRes({ error: 'Ya existe una cuenta registrada con ese correo electrónico.' }, 409);
-        }
-        throw e;
-      }
-
-      // 2. Custom claims (role, tenant_id, branch_id?)
-      const claims = { role, tenant_id };
-      if (branch_id) claims.branch_id = branch_id;
-      await setCustomClaims(uid, claims, token);
-
-      // 3. Documento /users/{uid} server-side con info del staff 
-      await fsSet(projectId, `users/${uid}`, {
-        name,
-        email,
-        role,
-        permissions: initialPermissions(role),
-        status: 'active',
-        tenant_id,
-        branch_id: branch_id || null,
-        csd_cargo: csd_cargo || null,
-        created_at: new Date(),
-      }, token);
-
-      // 4. Email de invitación: Resend con marca (enlace de set-password);
-      //    si no hay Resend o falla, fallback al correo de Firebase.
-      let emailSent = false;
-      if (env.RESEND_API_KEY) {
-        const link = await generatePasswordResetLink(email, token);
-        const roleLabel = role === 'staff' ? 'encargado' : 'recepcionista';
-        emailSent = await sendStaffInviteEmail(
-            email, name, gymName ?? 'OmniGym', roleLabel, link, env);
-      }
-      if (!emailSent) {
-        await sendPasswordReset(email, env);
-      }
-
-      return jsonRes({ uid });
-    }
-
-    // ── POST /delete-staff ──────────────────────────────────────────────────────
-    // Borra la cuenta de Firebase Auth y el documento /users/{uid} de un operador.
-    // Body: { uid }
-    if (request.method === 'POST' && pathname === '/delete-staff') {
-      const { uid } = await request.json();
-      if (!uid) return jsonRes({ error: 'Missing uid' }, 400);
-
-      const token = await getAdminToken(env);
-      const sa = JSON.parse(env.SA_JSON);
-      const projectId = sa.project_id;
-
-      // Borra el doc primero (idempotente); luego la cuenta de Auth.
-      await fsDelete(projectId, `users/${uid}`, token);
-      try {
-        await deleteAuthUser(uid, token);
-      } catch (e) {
-        // Si la cuenta ya no existe en Auth, lo consideramos éxito.
-        const msg = e.message ?? '';
-        if (!msg.includes('USER_NOT_FOUND')) throw e;
-      }
 
       return jsonRes({ success: true });
     }
